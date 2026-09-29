@@ -363,6 +363,7 @@
                 AND r.is_actifrecet = 0
                 AND r.is_validerecet = 0
                 AND COALESCE(r.valid_recet, '') = 'valid'
+                " . caissier_escale_nom_filtre_sql('r.nom') . "
                 ORDER BY r.id_recette DESC")->result();
             }
             return $this->db->query(
@@ -1199,6 +1200,7 @@
                 AND r.actif_rect = 0
                 AND r.type_recet <> 'Courrier'
                 AND r.date_recet <= '$today'
+                " . caissier_escale_nom_filtre_sql('r.nom') . "
                 GROUP BY cs.id_caiss, ar.roleattribut")->result();
         }
 

@@ -631,6 +631,7 @@
                 AND d.actif_depo = 0
                 AND d.type_depot <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
+                " . caissier_escale_nom_filtre_sql('d.nom_pre') . "
                 GROUP BY cs.id_caiss, cu.cpuser_id")->result();
         }
 
@@ -1264,6 +1265,7 @@
                 AND pt.type_depot <> 'Courrier'
                 AND pt.is_validdepo = 0
                 AND COALESCE(pt.valid_depo, '') = 'valid'
+                " . caissier_escale_nom_filtre_sql('pt.nom_pre') . "
                 ORDER BY pt.id_depot DESC")->result();
             }
             return $this->db->query(

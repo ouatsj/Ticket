@@ -2261,7 +2261,7 @@ if (!function_exists('caissier_validation_rdd_redirect')) {
             . (int) $caisse_id . '/' . (int) $chef_ra . '/'
             . $type . '/' . (int) $caissier_ra . '/'
             . (int) $idsg . '/' . $date
-        ));
+        ) . caissier_escale_query_suffix());
         exit;
     }
 }
@@ -2278,8 +2278,66 @@ if (!function_exists('caissier_validation_viewcaissier_redirect')) {
             'utilisateurs/' . $ekey . '/caissier/' . $gare_id . '/'
             . (int) $caisse_id . '/' . (int) $chef_ra . '/'
             . (int) $caissier_ra . '/' . (int) $idsg . '/' . $date
-        ));
+        ) . caissier_escale_query_suffix());
         exit;
+    }
+}
+
+if (!function_exists('caissier_escale_ops_from_request')) {
+    /**
+     * Vendeurs de l'escale passés dans l'URL de validation (?escale_ops=).
+     *
+     * @return int[]|null
+     */
+    function caissier_escale_ops_from_request()
+    {
+        $CI =& get_instance();
+        $ops = array();
+        foreach (explode(',', (string) $CI->input->get('escale_ops')) as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ops[$id] = $id;
+            }
+        }
+
+        return $ops ? array_values($ops) : null;
+    }
+}
+
+if (!function_exists('caissier_escale_query_suffix')) {
+    function caissier_escale_query_suffix()
+    {
+        $CI =& get_instance();
+        $escale = trim((string) $CI->input->get('escale'));
+        $ops = trim((string) $CI->input->get('escale_ops'));
+        if ($escale === '' && $ops === '') {
+            return '';
+        }
+
+        return '?escale=' . rawurlencode($escale) . '&escale_ops=' . rawurlencode($ops);
+    }
+}
+
+if (!function_exists('caissier_escale_nom_filtre_sql')) {
+    /**
+     * Limite une validation ouverte depuis l'escale aux lignes au nom de ses vendeurs.
+     * Vide hors contexte escale : la validation de sous-gare reste inchangée.
+     *
+     * @param string $column
+     * @return string
+     */
+    function caissier_escale_nom_filtre_sql($column)
+    {
+        $ops = caissier_escale_ops_from_request();
+        if (!$ops || !function_exists('recette_role_nom_agents_sql')) {
+            return '';
+        }
+        $frag = recette_role_nom_agents_sql($column, $ops);
+        if ($frag === '' || $frag === '1=0') {
+            return '';
+        }
+
+        return ' AND ' . $frag;
     }
 }
 
@@ -2439,7 +2497,8 @@ if (!function_exists('caissier_arret_scope_sql')) {
             if ($noms) {
                 $noms = array_values($noms);
                 $nph = implode(',', array_fill(0, count($noms), '?'));
-                $sql .= " OR TRIM({$name_expr}) IN ({$nph})";
+                $sql .= " OR UPPER(TRIM({$name_expr})) IN ({$nph})";
+                $noms = array_map('strtoupper', $noms);
                 $bind = array_merge($bind, $noms);
             }
         }
@@ -2597,7 +2656,7 @@ if (!function_exists('caissier_validation_chef_pending_totals')) {
     function caissier_validation_chef_pending_totals($ekey, $gid, $idcais, $chef_ra)
     {
         $pending = caissier_arret_pending_for_chef(
-            caissier_arret_pending_map($ekey, $gid, $idcais),
+            caissier_arret_pending_map($ekey, $gid, $idcais, caissier_escale_ops_from_request()),
             $chef_ra
         );
 

@@ -1,6 +1,7 @@
 <?php
     
     defined('BASEPATH') OR exit('No direct script access allowed');
+    $escale_q = function_exists('caissier_escale_query_suffix') ? caissier_escale_query_suffix() : '';
     $total_attente_depot = 0;
     foreach ($depots as $_item) {
         $total_attente_depot += (float) $_item->montant_depot;
@@ -14,7 +15,7 @@
         <div class="col-12 mt-0 mb-2 ml-4 mr-4">
             <a href="<?= site_url("utilisateurs/{$this->session->company->ekey}". "/caissier/".
                 (!empty($bus_stop->idengare) ? $bus_stop->idengare : (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0)). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0). "/".(!empty($user_connect->roleattribut) ? $user_connect->roleattribut : 0).'/'.$connex->roleattribut.'/'.$bus_stop->idsousgare.
-                "/" . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/" . mdate("%d/%m/%Y", now('UTC'))) . $escale_q; ?>" class="btn btn-space btn-secondary">
                     <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR&nbsp;
             </a>
             <div class="mt-3 p-3 border rounded bg-light">
@@ -98,7 +99,7 @@
                                                         data-dismiss="modal" aria-hidden="true"><span
                                                             class="mdi mdi-close text-white"></span></button>
                                             </div>
-                                            <?= form_open("Arretcaisses/validdepot/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depot}/{$item->idop_depot}/{$item->id_depot}",
+                                            <?= form_open("Arretcaisses/validdepot/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depot}/{$item->idop_depot}/{$item->id_depot}" . $escale_q,
                                                 array('class' => 'modal-body form')); ?>
 
                                             <div class="row">
@@ -146,7 +147,7 @@
                                                         data-dismiss="modal" aria-hidden="true"><span
                                                             class="mdi mdi-close text-white"></span></button>
                                             </div>
-                                            <?= form_open("Arretcaisses/rejetdepo/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depot}/{$item->idop_depot}/{$item->id_depot}",
+                                            <?= form_open("Arretcaisses/rejetdepo/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depot}/{$item->idop_depot}/{$item->id_depot}" . $escale_q,
                                                 array('class' => 'modal-body form')); ?>
 
                                             <div class="row">

@@ -20,7 +20,8 @@ if ($escale_nom !== '') {
 </div>
 
 <?php
-$render_validation_cards = function ($items, $pending_map, $label_badge) use ($caisseident, $conex, $bus_stop) {
+$escale_ops_q = trim((string) $this->input->get('escale_ops'));
+$render_validation_cards = function ($items, $pending_map, $label_badge) use ($caisseident, $conex, $bus_stop, $escale_nom, $escale_ops_q) {
     if (empty($items)) {
         return;
     }
@@ -82,7 +83,7 @@ $render_validation_cards = function ($items, $pending_map, $label_badge) use ($c
                         . (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : $item->guser) . '/'
                         . $caisseident->id_caiss . '/' . $item->roleattribut . '/'
                         . $conex->roleattribut . '/' . $bus_stop->idsousgare . '/'
-                        . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-block btn-rounded text-dark <?= $pending->has_pending ? 'bg-warning' : 'bg-info'; ?>">
+                        . mdate("%d/%m/%Y", now('UTC'))) . (($escale_nom !== '' || $escale_ops_q !== '') ? ('?escale=' . rawurlencode($escale_nom) . '&escale_ops=' . rawurlencode($escale_ops_q)) : ''); ?>" class="btn btn-block btn-rounded text-dark <?= $pending->has_pending ? 'bg-warning' : 'bg-info'; ?>">
                             <span class="icon mdi mdi-eye"></span>&nbsp;VOIR ARRÊT DE COMPTE
                     </a>
                 </div>
@@ -100,7 +101,7 @@ $render_validation_cards = function ($items, $pending_map, $label_badge) use ($c
 $render_validation_cards(
     isset($usercomptes) ? $usercomptes : array(),
     isset($pending_arret) ? $pending_arret : array(),
-    $escale_nom !== '' ? 'Vendeurs escale' : 'Chefs guichet'
+    'Chefs guichet'
 );
 
 if (!empty($useradjoints)) {

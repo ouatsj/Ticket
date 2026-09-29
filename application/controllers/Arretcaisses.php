@@ -659,12 +659,14 @@
             // Validation 4/18 uniquement après arrêt chef (active_*=1), jamais sur saisie ouverte.
             $arrete = caisse_validation_chef_arrete_recette_sql('r');
 
+            $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
             $cfrecet = $this->db->query(
                 "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse
                 FROM recette r
                 WHERE r.idopera = ?
                 AND r.idcaisse = ?
-                AND {$arrete}",
+                AND {$arrete}
+                {$escale_sql}",
                 array($idcpt, (int) $idc)
             )->result();
 
@@ -703,12 +705,14 @@
             $iduser = $ctx['caissier_ra'];
             $arrete = caisse_validation_chef_arrete_recette_sql('r');
            
+                $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
                 $cfrecet = $this->db->query(
                     "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse, r.valid_recet
                     FROM recette r
                     WHERE r.idopera = ?
                     AND r.idcaisse = ?
-                    AND {$arrete}",
+                    AND {$arrete}
+                    {$escale_sql}",
                     array($idcpt, (int) $idc)
                 )->result();
 
@@ -757,12 +761,14 @@
             $iduser = $ctx['caissier_ra'];
             $arrete = caisse_validation_chef_arrete_depense_sql('d');
 
+            $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
             $cfdepes = $this->db->query(
                 "SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens
                 FROM depense d
                 WHERE d.idop_dep = ?
                 AND d.idcaisse_depens = ?
-                AND {$arrete}",
+                AND {$arrete}
+                {$escale_sql}",
                 array($idcpt, (int) $idc)
             )->result();
 
@@ -798,12 +804,14 @@
             $iduser = $ctx['caissier_ra'];
             $arrete = caisse_validation_chef_arrete_depense_sql('d');
            
+                $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
                 $cfdepe = $this->db->query(
                     "SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.idop_dep, d.idcaisse_depens
                     FROM depense d
                     WHERE d.idop_dep = ?
                     AND d.idcaisse_depens = ?
-                    AND {$arrete}",
+                    AND {$arrete}
+                    {$escale_sql}",
                     array($idcpt, (int) $idc)
                 )->result();
 
@@ -849,12 +857,14 @@
             $iduser = $ctx['caissier_ra'];
             $arrete = caisse_validation_chef_arrete_depot_sql('d');
 
+            $escale_sql = caissier_escale_nom_filtre_sql('d.nom_pre');
             $cfdepo = $this->db->query(
                 "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot
                 FROM depot d
                 WHERE d.idop_depot = ?
                 AND d.idcaisse_depot = ?
-                AND {$arrete}",
+                AND {$arrete}
+                {$escale_sql}",
                 array($idcpt, (int) $idc)
             )->result();
 
@@ -889,12 +899,14 @@
             $iduser = $ctx['caissier_ra'];
             $arrete = caisse_validation_chef_arrete_depot_sql('d');
 
+            $escale_sql = caissier_escale_nom_filtre_sql('d.nom_pre');
             $cfdepo = $this->db->query(
                 "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot
                 FROM depot d
                 WHERE d.idop_depot = ?
                 AND d.idcaisse_depot = ?
-                AND {$arrete}",
+                AND {$arrete}
+                {$escale_sql}",
                 array($idcpt, (int) $idc)
             )->result();
 
@@ -944,6 +956,7 @@
             $idcpt = $bind['chef_ra'];
             $iduser = $bind['caissier_ra'];
             $arrete = caisse_validation_chef_arrete_recette_sql('r');
+            $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
 
             $row = $this->db->query(
                 "SELECT r.id_recette FROM recette r
@@ -951,6 +964,7 @@
                 AND r.idopera = ?
                 AND r.idcaisse = ?
                 AND {$arrete}
+                {$escale_sql}
                 LIMIT 1",
                 array((int) $recet, $idcpt, (int) $idc)
             )->row();
@@ -1009,6 +1023,32 @@
             ));
             $idcpt = $bind['chef_ra'];
             $iduser = $bind['caissier_ra'];
+            $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
+            $row = ($escale_sql === '') ? true : $this->db->query(
+                "SELECT r.id_recette FROM recette r
+                WHERE r.id_recette = ?
+                AND r.idopera = ?
+                AND r.idcaisse = ?
+                {$escale_sql}
+                LIMIT 1",
+                array((int) $recet, $idcpt, (int) $idc)
+            )->row();
+            if (!$row) {
+                $this->session->set_flashdata(
+                    'UPDATE_ERROR',
+                    'Rejet impossible : cette opération ne fait pas partie de l’escale.'
+                );
+                caissier_validation_rdd_redirect(
+                    $this->company->ekey,
+                    $g,
+                    $idc,
+                    $idcpt,
+                    $iduser,
+                    $sgid,
+                    'validation_recettes'
+                );
+                return;
+            }
 
                 if($this->session->agent->userole === '18')
                 {
@@ -1063,6 +1103,7 @@
             $idcpt = $bind['chef_ra'];
             $iduser = $bind['caissier_ra'];
             $arrete = caisse_validation_chef_arrete_depense_sql('d');
+            $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
 
             $row = $this->db->query(
                 "SELECT d.id_depense FROM depense d
@@ -1070,6 +1111,7 @@
                 AND d.idop_dep = ?
                 AND d.idcaisse_depens = ?
                 AND {$arrete}
+                {$escale_sql}
                 LIMIT 1",
                 array((int) $idp, $idcpt, (int) $idc)
             )->row();
@@ -1129,6 +1171,32 @@
             ));
             $idcpt = $bind['chef_ra'];
             $iduser = $bind['caissier_ra'];
+            $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
+            $row = ($escale_sql === '') ? true : $this->db->query(
+                "SELECT d.id_depense FROM depense d
+                WHERE d.id_depense = ?
+                AND d.idop_dep = ?
+                AND d.idcaisse_depens = ?
+                {$escale_sql}
+                LIMIT 1",
+                array((int) $idp, $idcpt, (int) $idc)
+            )->row();
+            if (!$row) {
+                $this->session->set_flashdata(
+                    'UPDATE_ERROR',
+                    'Rejet impossible : cette opération ne fait pas partie de l’escale.'
+                );
+                caissier_validation_rdd_redirect(
+                    $this->company->ekey,
+                    $g,
+                    $idc,
+                    $idcpt,
+                    $iduser,
+                    $sgid,
+                    'validation_depenses'
+                );
+                return;
+            }
                 if($this->session->agent->userole === '18')
                 {
                     $dplarray = array(
@@ -1181,6 +1249,7 @@
             $idcpt = $bind['chef_ra'];
             $iduser = $bind['caissier_ra'];
             $arrete = caisse_validation_chef_arrete_depot_sql('d');
+            $escale_sql = caissier_escale_nom_filtre_sql('d.nom_pre');
 
             $row = $this->db->query(
                 "SELECT d.id_depot FROM depot d
@@ -1188,6 +1257,7 @@
                 AND d.idop_depot = ?
                 AND d.idcaisse_depot = ?
                 AND {$arrete}
+                {$escale_sql}
                 LIMIT 1",
                 array((int) $idpo, $idcpt, (int) $idc)
             )->row();
@@ -1247,6 +1317,32 @@
             ));
             $idcpt = $bind['chef_ra'];
             $iduser = $bind['caissier_ra'];
+            $escale_sql = caissier_escale_nom_filtre_sql('d.nom_pre');
+            $row = ($escale_sql === '') ? true : $this->db->query(
+                "SELECT d.id_depot FROM depot d
+                WHERE d.id_depot = ?
+                AND d.idop_depot = ?
+                AND d.idcaisse_depot = ?
+                {$escale_sql}
+                LIMIT 1",
+                array((int) $idpo, $idcpt, (int) $idc)
+            )->row();
+            if (!$row) {
+                $this->session->set_flashdata(
+                    'UPDATE_ERROR',
+                    'Rejet impossible : cette opération ne fait pas partie de l’escale.'
+                );
+                caissier_validation_rdd_redirect(
+                    $this->company->ekey,
+                    $g,
+                    $idc,
+                    $idcpt,
+                    $iduser,
+                    $sgid,
+                    'validation_depots'
+                );
+                return;
+            }
                 if($this->session->agent->userole === '18')
                 {
                     $dpolarray = array(

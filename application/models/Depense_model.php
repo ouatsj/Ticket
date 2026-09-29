@@ -314,6 +314,7 @@
                 AND d.ferme_caisdep = 0
                 AND d.is_validedep = 0
                 AND COALESCE(d.valid_depens, '') = 'valid'
+                " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
                 ORDER BY d.id_depense DESC")->result();
             }
             return $this->db->query(
@@ -828,6 +829,7 @@
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
                 AND d.type_depense <> 'Courrier'
+                " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
                 GROUP BY cs.id_caiss, ar.roleattribut")->result();
         }
 

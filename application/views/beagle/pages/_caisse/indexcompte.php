@@ -15,6 +15,7 @@ if (!isset($pending_totals) || !is_object($pending_totals)) {
         'solde' => $total_arret_recette - $total_arret_depense,
     );
 }
+$escale_q = function_exists('caissier_escale_query_suffix') ? caissier_escale_query_suffix() : '';
 $gare_code = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0;
 $id_caiss = !empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0;
 $date_nav = mdate('%d/%m/%Y', now('UTC'));
@@ -95,19 +96,19 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
 <div class="row">
     <div class="col-12 mt-0 mb-3 ml-2 mr-2">
         <div class="d-flex flex-wrap align-items-center" style="gap: .35rem;">
-            <a href="<?= site_url("caisses/{$this->session->company->ekey}/gTv/{$gare_code}/{$id_caiss}/validation/{$conex->roleattribut}/{$bus_stop->idsousgare}/{$date_nav}"); ?>"
+            <a href="<?= site_url("caisses/{$this->session->company->ekey}/gTv/{$gare_code}/{$id_caiss}/validation/{$conex->roleattribut}/{$bus_stop->idsousgare}/{$date_nav}") . $escale_q; ?>"
                class="btn btn-space btn-secondary mb-1">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR VALIDATION COMPTE&nbsp;
             </a>
-            <a href="<?= site_url("caisses/{$this->session->company->ekey}/RdD/{$gare_code}/{$id_caiss}/{$user_connect->roleattribut}/validation_recettes/{$conex->roleattribut}/{$bus_stop->idsousgare}/{$date_nav}"); ?>"
+            <a href="<?= site_url("caisses/{$this->session->company->ekey}/RdD/{$gare_code}/{$id_caiss}/{$user_connect->roleattribut}/validation_recettes/{$conex->roleattribut}/{$bus_stop->idsousgare}/{$date_nav}") . $escale_q; ?>"
                class="btn btn-space btn-secondary mb-1">
                 <i class="fas fa-book text-info"></i>&nbsp;RECETTE&nbsp;
             </a>
-            <a href="<?= site_url("caisses/{$this->session->company->ekey}/RdD/{$gare_code}/{$id_caiss}/{$user_connect->roleattribut}/validation_depenses/{$conex->roleattribut}/{$bus_stop->idsousgare}/{$date_nav}"); ?>"
+            <a href="<?= site_url("caisses/{$this->session->company->ekey}/RdD/{$gare_code}/{$id_caiss}/{$user_connect->roleattribut}/validation_depenses/{$conex->roleattribut}/{$bus_stop->idsousgare}/{$date_nav}") . $escale_q; ?>"
                class="btn btn-space btn-secondary mb-1">
                 <i class="fas fa-book text-success"></i>&nbsp;DEPENSE&nbsp;
             </a>
-            <a href="<?= site_url("caisses/{$this->session->company->ekey}/RdD/{$gare_code}/{$id_caiss}/{$user_connect->roleattribut}/validation_depots/{$conex->roleattribut}/{$bus_stop->idsousgare}/{$date_nav}"); ?>"
+            <a href="<?= site_url("caisses/{$this->session->company->ekey}/RdD/{$gare_code}/{$id_caiss}/{$user_connect->roleattribut}/validation_depots/{$conex->roleattribut}/{$bus_stop->idsousgare}/{$date_nav}") . $escale_q; ?>"
                class="btn btn-space btn-secondary mb-1">
                 <i class="fas fa-book text-info"></i>&nbsp;DEPOT&nbsp;
             </a>
@@ -215,12 +216,12 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                         </a>
                                         <?endif;?>
                                         <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
-                                        <a href="<?= site_url("Arretcaisses/validerecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/validerecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
-                                        <a href="<?= site_url("Arretcaisses/rejetrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/rejetrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
@@ -228,12 +229,12 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                         <?endif;?>
                                         
                                         <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_adjoint($this->session->agent->userole)): ?>
-                                        <a href="<?= site_url("Arretcaisses/validerecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/validerecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
-                                        <a href="<?= site_url("Arretcaisses/rejetrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/rejetrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$conex->roleattribut}/{$bus_stop->idsousgare}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
@@ -314,24 +315,24 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                         </a>
                                         <?endif;?>
                                         <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
-                                        <a href="<?= site_url("Arretcaisses/validedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/validedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
-                                        <a href="<?= site_url("Arretcaisses/rejetdepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/rejetdepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
                                         </a>
                                         <?endif;?>
                                         <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_adjoint($this->session->agent->userole)): ?>
-                                        <a href="<?= site_url("Arretcaisses/validedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/validedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
-                                        <a href="<?= site_url("Arretcaisses/rejetdepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/rejetdepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->idop_dep}/{$conex->roleattribut}/{$bus_stop->idsousgare}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
