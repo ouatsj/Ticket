@@ -1521,7 +1521,8 @@
 
             $back = 'caisses/' . $ekey . '/gTv/' . $g . '/' . $idc
                 . '/arretcaisseprincipale/' . ($iduser > 0 ? $iduser : 0) . '/'
-                . $sgid . '/' . mdate('%d/%m/%Y', now('UTC'));
+                . $sgid . '/' . mdate('%d/%m/%Y', now('UTC'))
+                . caissier_escale_query_suffix();
 
             if ($this->input->method(true) !== 'POST') {
                 $this->session->set_flashdata('error', 'Arrêt de caisse : utilisez le formulaire (dates obligatoires).');
@@ -1550,6 +1551,18 @@
             $db = $this->db->escape_str($db);
             $df = $this->db->escape_str($df);
 
+            if (caissier_escale_ops_from_request()) {
+                $fr = caissier_escale_nom_filtre_sql('r.nom');
+                $fd = caissier_escale_nom_filtre_sql('d.nom_perso');
+                $fp = caissier_escale_nom_filtre_sql('d.nom_pre');
+                $fv = caissier_escale_nom_filtre_sql('v.nom_beneficiaire');
+            } else {
+                $fr = recette_role_hors_escale_sql('r.nom', 'r.idopera');
+                $fd = recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep');
+                $fp = recette_role_hors_escale_sql('d.nom_pre', 'd.idop_depot');
+                $fv = recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement');
+            }
+
             $rows = function ($sql) {
                 $q = $this->db->query($sql);
                 return ($q && is_object($q)) ? $q->result() : array();
@@ -1561,7 +1574,8 @@
                 AND r.idcaisse = '{$idc}'
                 AND r.operavalid = '{$iduser}'
                 AND r.arret_caisrecet = 1
-                AND r.date_recet BETWEEN '{$db}' AND '{$df}'"
+                AND r.date_recet BETWEEN '{$db}' AND '{$df}'
+                {$fr}"
             );
             $date_envoi_arret = date('Y-m-d');
 
@@ -1581,7 +1595,8 @@
                 AND r.idcaisse = '{$idc}'
                 AND r.idopera = '{$iduser}'
                 AND r.operavalid = '{$iduser}'
-                AND r.date_recet BETWEEN '{$db}' AND '{$df}'"
+                AND r.date_recet BETWEEN '{$db}' AND '{$df}'
+                {$fr}"
             );
             foreach ($cfrecetbis as $items2bis) {
                 $this->db->query(
@@ -1599,7 +1614,8 @@
                 AND r.idcaisse = '{$idc}'
                 AND r.operavalid = '{$iduser}'
                 AND r.arret_caisrecet = 0
-                AND r.date_recet BETWEEN '{$db}' AND '{$df}'"
+                AND r.date_recet BETWEEN '{$db}' AND '{$df}'
+                {$fr}"
             );
             foreach ($cfrecetbisr as $items2bisr) {
                 $this->db->query(
@@ -1616,7 +1632,8 @@
                 AND d.idcaisse_depens = '{$idc}'
                 AND d.opevalid = '{$iduser}'
                 AND d.arret_caisdep = 1
-                AND d.date_depens BETWEEN '{$db}' AND '{$df}'"
+                AND d.date_depens BETWEEN '{$db}' AND '{$df}'
+                {$fd}"
             );
             foreach ($cfdepe as $items3) {
                 $this->db->query(
@@ -1633,7 +1650,8 @@
                 AND d.idcaisse_depens = '{$idc}'
                 AND d.idop_dep = '{$iduser}'
                 AND d.opevalid = '{$iduser}'
-                AND d.date_depens BETWEEN '{$db}' AND '{$df}'"
+                AND d.date_depens BETWEEN '{$db}' AND '{$df}'
+                {$fd}"
             );
             foreach ($cfdepebis as $items3bis) {
                 $this->db->query(
@@ -1651,7 +1669,8 @@
                 AND d.idcaisse_depens = '{$idc}'
                 AND d.opevalid = '{$iduser}'
                 AND d.arret_caisdep = 0
-                AND d.date_depens BETWEEN '{$db}' AND '{$df}'"
+                AND d.date_depens BETWEEN '{$db}' AND '{$df}'
+                {$fd}"
             );
             foreach ($cfdepeb as $items3b) {
                 $this->db->query(
@@ -1667,7 +1686,8 @@
                 WHERE d.is_validdepo = 1
                 AND d.idcaisse_depot = '{$idc}'
                 AND d.opvalid = '{$iduser}'
-                AND d.datedepot BETWEEN '{$db}' AND '{$df}'"
+                AND d.datedepot BETWEEN '{$db}' AND '{$df}'
+                {$fp}"
             );
             foreach ($cfdepo as $ites5) {
                 $this->db->query(
@@ -1684,7 +1704,8 @@
                 WHERE v.valider_vers = 1
                 AND v.idcaisse_versement = '{$idc}'
                 AND v.validop = '{$iduser}'
-                AND v.date_versement BETWEEN '{$db}' AND '{$df}'"
+                AND v.date_versement BETWEEN '{$db}' AND '{$df}'
+                {$fv}"
             );
             foreach ($cfvers as $ites6) {
                 $this->db->query(

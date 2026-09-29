@@ -288,6 +288,69 @@
            switch ($type) 
            {
                 case 'arretcaisseprincipale':
+                $escale_ops_arret = $this->_escale_ops_ids();
+                if ($escale_ops_arret) {
+                    $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
+                    $this->property['caisseident'] = $caisseident;
+                    $this->property['comptejours'] = $this->m_compte_user->getjours($this->company->ekey, $cpr, $cdg);
+                    $this->property['typedocuments'] = $ref['typedocuments'];
+                    $this->property['compagnies'] = $ref['compagnies'];
+                    $this->property['genresguichet'] = $ref['genresguichet'];
+                    $this->property['genrespersonnels'] = $ref['genrespersonnels'];
+                    foreach (array(
+                        'passagerallergrouptrans', 'passagerallergroupeptrans', 'passagerallergroupbisinter',
+                        'passagerallerbis', 'passagerretourbis', 'passagerallergroupbis', 'passagerretourgroupbis',
+                        'passageraller', 'passagerretour', 'passagerallergroup', 'passagerretourgroup',
+                        'passager_repro', 'passager_conf', 'repor_inclus_vendeur',
+                    ) as $cle_vide) {
+                        $this->property[$cle_vide] = array();
+                    }
+                    $today_arret = mdate('%Y-%m-%d', now());
+                    $gid_sql = $this->db->escape($cdg);
+                    $cpr_sql = (int) $cpr;
+                    $cid_sql = (int) $cid;
+                    $fr = recette_role_ops_ou_nom_sql(array('r.idopera'), 'r.nom', $escale_ops_arret);
+                    $fd = recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $escale_ops_arret);
+                    $fp = recette_role_ops_ou_nom_sql(array('d.idop_depot'), 'd.nom_pre', $escale_ops_arret);
+                    $fv = recette_role_ops_ou_nom_sql(array('v.idop_versement'), 'v.nom_beneficiaire', $escale_ops_arret);
+                    $this->property['recettescaisse'] = $this->db->query(
+                        "SELECT SUM(r.montant_recet) AS total FROM recette r
+                        JOIN caisse cs ON r.idcaisse = cs.id_caiss
+                        WHERE cs.id_caiss = {$cid_sql} AND cs.gexp_caiss = {$gid_sql}
+                        AND r.is_actifrecet = 1 AND r.ferme_caisrecet = 0 AND r.actif_rect = 0
+                        AND r.date_recet <= '{$today_arret}' AND r.type_recet <> 'Courrier'
+                        AND r.operavalid = {$cpr_sql} {$fr}"
+                    )->row();
+                    $this->property['recettes'] = $this->property['recettescaisse'];
+                    $this->property['depensescaisse'] = $this->db->query(
+                        "SELECT SUM(d.montant_depens) AS total FROM depense d
+                        JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                        WHERE cs.id_caiss = {$cid_sql} AND cs.gexp_caiss = {$gid_sql}
+                        AND d.is_actifdep = 1 AND d.actif_deps = 0 AND d.ferme_caisdep = 0
+                        AND d.date_depens <= '{$today_arret}' AND d.type_depense <> 'Courrier'
+                        AND d.opevalid = {$cpr_sql} {$fd}"
+                    )->row();
+                    $this->property['depenses'] = $this->property['depensescaisse'];
+                    $this->property['depots'] = $this->db->query(
+                        "SELECT SUM(d.montant_depot) AS total FROM depot d
+                        JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
+                        WHERE cs.id_caiss = {$cid_sql} AND cs.gexp_caiss = {$gid_sql}
+                        AND d.is_validdepo = 1 AND d.ferme_caisdepo = 0 AND d.actif_depo = 0
+                        AND d.datedepot <= '{$today_arret}' AND d.type_depot <> 'Courrier'
+                        AND d.opvalid = {$cpr_sql} {$fp}"
+                    )->row();
+                    $this->property['montanttotal'] = $this->db->query(
+                        "SELECT SUM(v.montant_verser) AS montant_solde FROM versements v
+                        JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
+                        WHERE cs.id_caiss = {$cid_sql} AND cs.gexp_caiss = {$gid_sql}
+                        AND v.is_actifverser = 1 AND v.ferme_caisvers = 0 AND v.actifvers = 0
+                        AND v.date_versement <= '{$today_arret}'
+                        AND v.type_versement <> 'Bordereau_bancairecourrier'
+                        AND v.validop = {$cpr_sql} {$fv}"
+                    )->row();
+                    $this->property['pagetitle'] .= "• ARRÊT COMPTE ESCALE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
+                    return $this->layout->view('_caisse/caisseprincipale', $this->property);
+                }
                 $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                 $this->property['recettes'] = $this->m_recette->recet_pr($this->company->ekey, $cid, $cdg, $cpr);
                 $this->property['recettescaisse'] = $this->m_recette->recetcais_pr($this->company->ekey, $cid, $cdg, $cpr);
@@ -898,6 +961,16 @@
                         $this->property['ecrivainbagages'] = $this->m_compte_user->get_userbg2($this->company->ekey, $cdg);
                     }
                     $this->property['caisseident'] = $caisseident;
+                    if ($this->_escale_ops_ids()) {
+                        $this->property['ecrivainbagages'] = $this->_filtrer_agents_escale($this->property['ecrivainbagages']);
+                        $this->property['ecrivainbagages'] = $this->_classer_agents_recette(
+                            $this->property['ecrivainbagages'],
+                            $this->company->ekey,
+                            $idsg,
+                            array('bagage'),
+                            false
+                        );
+                    } else {
                     $this->property['ecrivainbagages'] = $this->_classer_agents_recette(
                         $this->property['ecrivainbagages'],
                         $this->company->ekey,
@@ -905,6 +978,7 @@
                         array('bagage'),
                         true
                     );
+                    }
                     $this->property['pagetitle'] .= "• VALIDATION DES RECETTES BAGAGES<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                    return $this->layout->view('_recette/view_bagage', $this->property);
                 break;

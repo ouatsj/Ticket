@@ -19,6 +19,7 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
             <?php endif; ?>
         </p>
     </div>
+<?php if (!$depuis_escale): ?>
 <div class="row">
     <div class="col-lg-6">
 
@@ -251,11 +252,14 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
                
         </div>
     </div>
+</div>
+<?php endif; ?>
+<div class="row">
     <div class="col-lg-4">
 
         <div class="card card-border card-white">
 
-            <div class="card-header card-header-divider">RAPPORT CAISSE &nbsp;<span></span>
+            <div class="card-header card-header-divider"><?= $depuis_escale ? 'RAPPORT CAISSE ESCALE' : 'RAPPORT CAISSE'; ?> &nbsp;<span></span>
                 <div class="tools">
                     
                 </div>
@@ -307,6 +311,10 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
                                     <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                                     <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                                     <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+                                    <?php if ($depuis_escale): ?>
+                                    <input type="hidden" name="escale" value="<?= htmlspecialchars($escale_nom, ENT_QUOTES, 'UTF-8'); ?>">
+                                    <input type="hidden" name="escale_ops" value="<?= htmlspecialchars(trim((string) $this->input->get('escale_ops')), ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php endif; ?>
                                     <div class="form-group col-sm-4">
                                         <label>DU</label>
                                         <input class="form-control form-control-sm" type="date" name="date_debut" required>

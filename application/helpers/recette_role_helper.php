@@ -256,6 +256,49 @@ if (!function_exists('recette_role_nom_agents_sql')) {
     }
 }
 
+if (!function_exists('recette_role_hors_escale_sql')) {
+    /**
+     * Exclut les lignes d'une vente escale du compte de la gare / sous-gare.
+     * L'opérateur est le chef après validation ; le vendeur reste dans le nom.
+     *
+     * @param string $nomColumn
+     * @param string $idColumn
+     * @return string
+     */
+    function recette_role_hors_escale_sql($nomColumn, $idColumn = '')
+    {
+        $nomOk = preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $nomColumn);
+        $idOk = ($idColumn === '') || preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $idColumn);
+        if (!$nomOk || !$idOk) {
+            return '';
+        }
+        $CI =& get_instance();
+        if (!$CI->db->field_exists('vente_escale_value', 'attributions_role')) {
+            return '';
+        }
+        $noms = "SELECT UPPER(TRIM(CONCAT(TRIM(IFNULL(u.first_name, '')), ' ', TRIM(IFNULL(u.last_name, '')))))
+            FROM attributions_role arn
+            JOIN user_login uln ON arn.idgestcompte = uln.uid_login
+            JOIN compte_user cun ON uln.uid_usercpte = cun.cpuser_id
+            JOIN utilisateurs u ON cun.userlog_id = u.uid
+            WHERE arn.userole = 17
+            AND arn.vente_escale_value IS NOT NULL
+            AND TRIM(arn.vente_escale_value) <> ''";
+        $ids = "SELECT arn.roleattribut
+            FROM attributions_role arn
+            WHERE arn.userole = 17
+            AND arn.vente_escale_value IS NOT NULL
+            AND TRIM(arn.vente_escale_value) <> ''";
+        $sql = ' AND NOT (UPPER(TRIM(' . $nomColumn . ")) IN ({$noms})";
+        if ($idColumn !== '') {
+            $sql .= " OR {$idColumn} IN ({$ids})";
+        }
+        $sql .= ')';
+
+        return $sql;
+    }
+}
+
 if (!function_exists('recette_role_ops_ou_nom_sql')) {
     /**
      * Opérateur de l'escale, ou ligne portée par le chef au nom de cet agent.

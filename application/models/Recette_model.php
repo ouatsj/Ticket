@@ -96,6 +96,7 @@
         public function getrecet($cid, $idcais, $gid, $sg, $conect,$pk = FALSE)
         {
             $today = mdate('%Y-%m-%d', now());
+            $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
             if ($pk === FALSE) {
                 return $this->db->query(
                     "SELECT * FROM recette r
@@ -114,6 +115,7 @@
                     AND r.date_recet = '$today'
                     AND r.type_recet <> 'Courrier'
                     AND r.operavalid = '$conect'
+                    {$hors}
                     ORDER BY r.id_recette DESC")->result();
             }
             return $this->db->query(
@@ -134,12 +136,14 @@
                 AND r.operavalid = '$conect'
                 AND r.date_recet = '$today'
                 AND r.actif_rect = 0
+                {$hors}
                 ORDER BY r.id_recette DESC")->row();
         }
 
         public function adgetrecet($cid, $idcais, $gid, $sg, $conect,$pk = FALSE)
         {
             $today = mdate('%Y-%m-%d', now());
+            $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
             if ($pk === FALSE) {
                 return $this->db->query(
                     "SELECT * FROM recette r
@@ -158,6 +162,7 @@
                     AND r.date_recet = '$today'
                     AND r.type_recet <> 'Courrier'
                     AND r.operavalidad = '$conect'
+                    {$hors}
                     ORDER BY r.id_recette DESC")->result();
             }
             return $this->db->query(
@@ -178,6 +183,7 @@
                 AND r.operavalidad = '$conect'
                 AND r.date_recet = '$today'
                 AND r.actif_rect = 0
+                {$hors}
                 ORDER BY r.id_recette DESC")->row();
         }
 
@@ -1414,6 +1420,7 @@
                 AND cs.gexp_caiss = '$gid'
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalid = $conect
+                " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '') . "
                 GROUP BY cs.id_caiss")->row();
         }
 
@@ -1436,6 +1443,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalid = $conect
+                " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '') . "
                 GROUP BY cs.id_caiss")->row();
         }
 

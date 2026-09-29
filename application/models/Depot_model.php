@@ -61,6 +61,7 @@
         public function getdepot($cid, $idcais, $gid, $usc, $pk = FALSE)
         {
             $today = mdate('%Y-%m-%d', now());
+            $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('pt.nom_pre', 'pt.idop_depot') : '';
             if ($pk === FALSE) {
                 return $this->db->query(
                 "SELECT * FROM depot pt
@@ -79,6 +80,7 @@
                 AND cs.gexp_caiss = '$gid'
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalid = '$usc'
+                {$hors}
                 ORDER BY pt.id_depot DESC")->result();
             }
             return $this->db->query(
@@ -177,6 +179,7 @@
         public function adgetdepot($cid, $idcais, $gid, $usc, $pk = FALSE)
         {
             $today = mdate('%Y-%m-%d', now());
+            $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('pt.nom_pre', 'pt.idop_depot') : '';
             if ($pk === FALSE) {
                 return $this->db->query(
                 "SELECT * FROM depot pt
@@ -195,6 +198,7 @@
                 AND cs.gexp_caiss = '$gid'
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalidad = '$usc'
+                {$hors}
                 ORDER BY pt.id_depot DESC")->result();
             }
             return $this->db->query(
@@ -1311,6 +1315,7 @@
                 AND d.datedepot <= '$today'
                 AND d.opvalid = '$conect'
                 AND d.type_depot <> 'Courrier'
+                " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_pre', 'd.idop_depot') : '') . "
                 GROUP BY cs.id_caiss")->row();
         }
 

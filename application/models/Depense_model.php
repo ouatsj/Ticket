@@ -79,6 +79,7 @@
         {
            
             $today = mdate('%Y-%m-%d', now());
+            $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
             if ($pk === FALSE) {
                 return $this->db->query(
                 "SELECT * FROM depense d
@@ -99,6 +100,7 @@
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalid = '$usc'
+                {$hors}
                 ORDER BY d.id_depense DESC")->result();
             }
             return $this->db->query(
@@ -121,6 +123,7 @@
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalid = '$usc'
+                {$hors}
                 ORDER BY d.id_depense DESC")->row();
         }
 
@@ -128,6 +131,7 @@
         {
            
             $today = mdate('%Y-%m-%d', now());
+            $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
 
             if ($pk === FALSE) {
                 return $this->db->query(
@@ -150,6 +154,7 @@
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalidad = '$usc'
+                {$hors}
                 ORDER BY d.id_depense DESC")->result();
             }
             return $this->db->query(
@@ -173,6 +178,7 @@
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalidad = '$usc'
+                {$hors}
                 ORDER BY d.id_depense DESC")->row();
         }
 
@@ -1033,6 +1039,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND cs.gexp_caiss = '$gid'
                 AND d.type_depense <> 'Courrier'
+                " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '') . "
                 GROUP BY cs.id_caiss")->row();
         }
 
@@ -1054,6 +1061,7 @@
                 AND cs.gexp_caiss = '$gid'
                 AND d.opevalid = '$conect'
                 AND d.type_depense <> 'Courrier'
+                " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '') . "
                 GROUP BY cs.id_caiss")->row();
         }
 

@@ -703,6 +703,7 @@
                 AND v.date_versement <= '$today'
                 AND cs.id_caiss = '$idcai'
                 AND v.validop = '$idcx'
+                " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '') . "
                 GROUP BY cs.id_caiss")->row();
         }
 

@@ -2292,8 +2292,12 @@ if (!function_exists('caissier_escale_ops_from_request')) {
     function caissier_escale_ops_from_request()
     {
         $CI =& get_instance();
+        $raw = trim((string) $CI->input->get('escale_ops'));
+        if ($raw === '') {
+            $raw = trim((string) $CI->input->post('escale_ops'));
+        }
         $ops = array();
-        foreach (explode(',', (string) $CI->input->get('escale_ops')) as $id) {
+        foreach (explode(',', $raw) as $id) {
             $id = (int) $id;
             if ($id > 0) {
                 $ops[$id] = $id;
@@ -2310,6 +2314,10 @@ if (!function_exists('caissier_escale_query_suffix')) {
         $CI =& get_instance();
         $escale = trim((string) $CI->input->get('escale'));
         $ops = trim((string) $CI->input->get('escale_ops'));
+        if ($escale === '' && $ops === '') {
+            $escale = trim((string) $CI->input->post('escale'));
+            $ops = trim((string) $CI->input->post('escale_ops'));
+        }
         if ($escale === '' && $ops === '') {
             return '';
         }
