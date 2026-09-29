@@ -947,13 +947,10 @@
                         $voir_chefs = true;
                         $voir_adjoints = false;
                     } elseif ($role_vue === '4') {
-                        if ($adjoints) {
-                            $voir_chefs = false;
-                            $voir_adjoints = true;
-                        } else {
-                            $voir_chefs = true;
-                            $voir_adjoints = false;
-                        }
+                        // Chefs et adjoint : le caissier valide l'adjoint, ou le chef directement
+                        // si l'adjoint n'a pas pu le faire.
+                        $voir_chefs = true;
+                        $voir_adjoints = true;
                     } elseif ($role_vue === '1' || $role_vue === '2') {
                         $voir_chefs = true;
                         $voir_adjoints = true;
