@@ -37,7 +37,8 @@ ssh_prod() {
   local -a base=(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20)
   if [[ -n "${PROD_SSH_PASS:-}" ]]; then
     command -v sshpass >/dev/null 2>&1 || die "sshpass est requis pour PROD_SSH_PASS"
-    SSHPASS="$PROD_SSH_PASS" sshpass -e "${base[@]}" "$PROD_SSH" "$@"
+    # La clé locale est acceptée puis bloque ; le mot de passe de deploy.env doit passer seul.
+    SSHPASS="$PROD_SSH_PASS" sshpass -e "${base[@]}" -o PreferredAuthentications=password -o PubkeyAuthentication=no "$PROD_SSH" "$@"
   else
     "${base[@]}" -o BatchMode=yes "$PROD_SSH" "$@"
   fi
@@ -70,7 +71,7 @@ cmd_prod() {
   else
     log "=== prod : DRY-RUN via $PROD_SSH ==="
   fi
-  ssh_prod "bash '$PROD_ROOT/scripts/deploy_prod.sh' $remote_args"
+  ssh_prod "stdbuf -oL -eL bash '$PROD_ROOT/scripts/deploy_prod.sh' $remote_args"
 }
 
 ACTION="${1:-}"

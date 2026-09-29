@@ -392,7 +392,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function rejetrecette($ckey, $g, $idc, $idcpt, $iduser, $sgid)
@@ -420,7 +420,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-              redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+              redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function validedepense($ckey, $g, $idc, $idcpt, $iduser, $sgid)
@@ -444,7 +444,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function rejetdepense($ckey, $g, $idc, $idcpt, $iduser, $sgid)
@@ -470,7 +470,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
         public function validedepot($ckey, $g, $idc, $idcpt, $iduser, $sgid)
         {
@@ -490,7 +490,7 @@
                     }
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function rejetdepot($ckey, $g, $idc, $idcpt, $iduser, $sgid)
@@ -513,7 +513,7 @@
                     }
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function validrecette($ckey, $g, $idc, $idcpt, $recet)
@@ -1386,12 +1386,14 @@
             $iduser = $bind['caissier_ra'];
             $pending = caisse_validation_pending_adjoint_recette_sql($idcpt, 'r');
             $dateSql = caisse_arret_date_filter_sql('r.date_recet', $date);
+            $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
 
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idopera, r.idcaisse FROM recette r
                     WHERE {$pending}
                     AND r.active_recet = 1
                     AND r.idcaisse ='$idc'
-                    {$dateSql}")->result();
+                    {$dateSql}
+                    {$escale_sql}")->result();
                     
 
                     foreach ($cfrecet as $item9) {
@@ -1407,7 +1409,7 @@
 
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function adrejetrecette($ckey, $g, $idc, $idcpt, $iduser, $sgid, $date = null)
@@ -1418,12 +1420,14 @@
             $iduser = $bind['caissier_ra'];
             $pending = caisse_validation_pending_adjoint_recette_sql($idcpt, 'r');
             $dateSql = caisse_arret_date_filter_sql('r.date_recet', $date);
+            $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
            
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idopera, r.idcaisse, r.valid_recet FROM recette r
                     WHERE {$pending}
                     AND r.active_recet = 1
                     AND r.idcaisse ='$idc'
-                    {$dateSql}")->result();
+                    {$dateSql}
+                    {$escale_sql}")->result();
 
                     foreach ($cfrecet as $item10) {
                         // Rejet : n’efface pas idopera (auteur).
@@ -1434,7 +1438,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-              redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+              redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function advalidedepense($ckey, $g, $idc, $idcpt, $iduser, $sgid, $date = null)
@@ -1445,12 +1449,14 @@
             $iduser = $bind['caissier_ra'];
             $pending = caisse_validation_pending_adjoint_depense_sql($idcpt, 'd');
             $dateSql = caisse_arret_date_filter_sql('d.date_depens', $date);
+            $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
            
                 $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.opevalidad, d.idop_dep, d.idcaisse_depens FROM depense d
                     WHERE {$pending}
                     AND d.active_dep = 1
                     AND d.idcaisse_depens = '$idc'
-                    {$dateSql}")->result();
+                    {$dateSql}
+                    {$escale_sql}")->result();
 
                     foreach ($cfdepes as $cfdep) {
                         $dplarray = caisse_validation_flags_promote_adjoint_depense($iduser);
@@ -1463,7 +1469,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function adrejetdepense($ckey, $g, $idc, $idcpt, $iduser, $sgid, $date = null)
@@ -1474,12 +1480,14 @@
             $iduser = $bind['caissier_ra'];
             $pending = caisse_validation_pending_adjoint_depense_sql($idcpt, 'd');
             $dateSql = caisse_arret_date_filter_sql('d.date_depens', $date);
+            $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
            
                 $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.opevalidad, d.idop_dep, d.idcaisse_depens FROM depense d
                     WHERE {$pending}
                     AND d.active_dep = 1
                     AND d.idcaisse_depens = '$idc'
-                    {$dateSql}")->result();
+                    {$dateSql}
+                    {$escale_sql}")->result();
 
                     foreach ($cfdepe as $teme1) {
                         $dplarray = caisse_validation_flags_reject_adjoint_depense();
@@ -1488,7 +1496,7 @@
                 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
         public function unstop_caisse($ckey, $g, $idc)
         {

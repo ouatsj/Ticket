@@ -660,6 +660,7 @@
                 AND d.actif_depo = 0
                 AND d.type_depot <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
+                " . caissier_escale_nom_filtre_sql('d.nom_pre') . "
                 GROUP BY d.datedepot, cs.id_caiss, d.opvalidad, d.idcaisse_depot, cs.gexp_caiss, cu.is_conect
                 ORDER BY d.datedepot ASC"
             )->result();
@@ -704,6 +705,7 @@
                 AND d.type_depot <> 'Courrier'
                 AND cs.gexp_caiss = ?
                 {$dateSql}
+                " . caissier_escale_nom_filtre_sql('d.nom_pre') . "
                 ORDER BY d.datedepot ASC, d.createddepot_at ASC, d.id_depot ASC",
                 array($cid, $idcais, $today, $gid)
             )->result();

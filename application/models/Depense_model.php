@@ -857,6 +857,7 @@
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
                 AND d.type_depense <> 'Courrier'
+                " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
                 GROUP BY d.date_depens, cs.id_caiss, d.opevalidad, cu.is_conect, d.idcaisse_depens, cs.gexp_caiss
                 ORDER BY d.date_depens ASC"
             )->result();
@@ -901,6 +902,7 @@
                 AND d.date_depens <= ?
                 AND d.type_depense <> 'Courrier'
                 {$dateSql}
+                " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
                 ORDER BY d.date_depens ASC, d.date_insert ASC, d.id_depense ASC",
                 array($cid, $idcais, $gid, $today)
             )->result();

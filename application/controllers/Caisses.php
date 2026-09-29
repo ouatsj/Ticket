@@ -958,12 +958,6 @@
                         $voir_chefs = true;
                         $voir_adjoints = true;
                     }
-                    if ($scope_ops) {
-                        // Même écran que la sous-gare : les chefs de la gare.
-                        // Les montants restent limités aux opérations de cette escale.
-                        $voir_chefs = true;
-                        $voir_adjoints = false;
-                    }
                     $this->property['usercomptes'] = $voir_chefs ? $chefs : array();
                     $this->property['pending_arret'] = $voir_chefs
                         ? caissier_arret_pending_map($this->company->ekey, $cdg, $cid, $scope_ops)

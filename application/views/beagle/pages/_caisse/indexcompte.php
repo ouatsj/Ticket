@@ -203,13 +203,13 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                             <i class="fas fa-eye"></i>&nbsp;VOIR&nbsp;
                                         </a>
                                         <? endif; ?>
-                                        <a href="<?= site_url("Arretcaisses/advaliderecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->operavalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/advaliderecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->operavalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
 
-                                        <a href="<?= site_url("Arretcaisses/adrejetrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->operavalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/adrejetrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->operavalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;
@@ -303,12 +303,12 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                             <i class="fas fa-eye"></i>&nbsp;VOIR&nbsp;
                                         </a>
                                         <? endif; ?>
-                                        <a href="<?= site_url("Arretcaisses/advalidedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->opevalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/advalidedepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->opevalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;VALIDER&nbsp;
                                         </a>
-                                        <a href="<?= site_url("Arretcaisses/adrejetdepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->opevalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}"); ?>"
+                                        <a href="<?= site_url("Arretcaisses/adrejetdepense/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse_depens}/{$item->opevalidad}/{$conex->roleattribut}/{$bus_stop->idsousgare}{$date_uri}") . $escale_q; ?>"
                                             class="btn btn-secondary btn-space <?= ($item->is_conect === '0') ? 'btn-danger' : 'btn-warning'; ?>">
                                             <i class="fas fa-puzzle-piece"></i>
                                             &nbsp;REJETER&nbsp;

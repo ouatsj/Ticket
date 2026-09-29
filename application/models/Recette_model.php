@@ -1230,6 +1230,7 @@
                 AND r.actif_rect = 0
                 AND r.type_recet <> 'Courrier'
                 AND r.date_recet <= '$today'
+                " . caissier_escale_nom_filtre_sql('r.nom') . "
                 GROUP BY r.date_recet, cs.id_caiss, r.operavalidad, r.idcaisse, cs.gexp_caiss, cu.is_conect
                 ORDER BY r.date_recet ASC"
             )->result();
@@ -1281,6 +1282,7 @@
                 AND r.type_recet <> 'Courrier'
                 AND r.date_recet <= ?
                 {$dateSql}
+                " . caissier_escale_nom_filtre_sql('r.nom') . "
                 ORDER BY r.date_recet ASC, r.date_insertrecet ASC, r.id_recette ASC",
                 array($cid, $idcais, $gid, $today)
             )->result();

@@ -2547,7 +2547,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             $role_chef_sql = '';
         }
         list($scope_rec_sql, $scope_rec_bind) = caissier_arret_scope_sql('r.idopera', 'r.nom', $scope_ops);
-        list($scope_dep_sql, $scope_dep_bind) = caissier_arret_scope_sql('d.idop_dep', null, $scope_ops);
+        list($scope_dep_sql, $scope_dep_bind) = caissier_arret_scope_sql('d.idop_dep', 'd.nom_perso', $scope_ops);
         list($scope_depo_sql, $scope_depo_bind) = caissier_arret_scope_sql('d.idop_depot', 'd.nom_pre', $scope_ops);
         $rec_rows = $CI->db->query(
             "SELECT r.idopera AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total
@@ -2745,7 +2745,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
         };
 
         list($scope_rec_sql, $scope_rec_bind) = caissier_arret_scope_sql('r.idopera', 'r.nom', $scope_ops);
-        list($scope_dep_sql, $scope_dep_bind) = caissier_arret_scope_sql('d.idop_dep', null, $scope_ops);
+        list($scope_dep_sql, $scope_dep_bind) = caissier_arret_scope_sql('d.idop_dep', 'd.nom_perso', $scope_ops);
         list($scope_depo_sql, $scope_depo_bind) = caissier_arret_scope_sql('d.idop_depot', 'd.nom_pre', $scope_ops);
         $rec_rows = $CI->db->query(
             "SELECT r.operavalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total,
@@ -2851,7 +2851,7 @@ if (!function_exists('caissier_validation_adjoint_pending_totals')) {
     function caissier_validation_adjoint_pending_totals($ekey, $gid, $idcais, $adjoint_ra)
     {
         $pending = caissier_arret_pending_for_chef(
-            caissier_arret_pending_map_adjoint($ekey, $gid, $idcais),
+            caissier_arret_pending_map_adjoint($ekey, $gid, $idcais, caissier_escale_ops_from_request()),
             $adjoint_ra
         );
 
