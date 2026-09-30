@@ -418,23 +418,24 @@
                 $parent = trim((string) $this->input->post('ligne_parent'));
                 $id_depart = (int) $this->input->post('id_escale_depart');
                 $arrivee_raw = trim((string) $this->input->post('id_escale_arrivee'));
+                $dest_liaison_saisi = trim((string) $this->input->post('destination_liaison_nom'));
                 $prix_liaison = (float) str_replace(
                     array(' ', ','),
                     array('', '.'),
                     (string) $this->input->post('prix_liaison')
                 );
 
-                if ($parent === '' || $id_depart < 1 || $arrivee_raw === '' || $prix_liaison < 0) {
+                if ($parent === '' || $id_depart < 1 || ($dest_liaison_saisi === '' && $arrivee_raw === '') || $prix_liaison <= 0) {
                     $this->session->set_flashdata(
                         'error',
-                        'Parent, escale départ, arrivée (escale ou hub) et prix sont obligatoires.'
+                        'Parent, escale de départ (itinéraire parent), destination et prix sont obligatoires.'
                     );
                     $this->_redirect_itineraires('tpe');
                     return;
                 }
 
                 $dep = $this->db->query(
-                    "SELECT id_escale, id_lignes FROM itineraire_escales WHERE id_escale = ? LIMIT 1",
+                    "SELECT id_escale, id_lignes, nom_escale FROM itineraire_escales WHERE id_escale = ? LIMIT 1",
                     array($id_depart)
                 )->row();
                 if (!$dep || (string) $dep->id_lignes !== $parent) {
@@ -442,6 +443,51 @@
                         'error',
                         'L’escale de départ doit appartenir à l’itinéraire parent.'
                     );
+                    $this->_redirect_itineraires('tpe');
+                    return;
+                }
+
+                $dest_liaison = trim((string) $this->input->post('destination_liaison_nom'));
+                if ($dest_liaison !== '') {
+                    if ($prix_liaison <= 0) {
+                        $this->session->set_flashdata('error', 'Le prix du ticket est obligatoire.');
+                        $this->_redirect_itineraires('tpe');
+                        return;
+                    }
+                    if (!$this->_noms_distincts($dest_liaison, isset($dep->nom_escale) ? $dep->nom_escale : '')) {
+                        $this->session->set_flashdata(
+                            'error',
+                            'La destination doit être différente de l’escale de départ.'
+                        );
+                        $this->_redirect_itineraires('tpe');
+                        return;
+                    }
+                    $id_comp = '';
+                    foreach ((array) $this->m_lignes->getad($this->company->id_entreprise, FALSE, false) as $lg) {
+                        if ((string) $lg->ident_ligne === $parent) {
+                            $id_comp = isset($lg->id_compaga) ? (string) $lg->id_compaga : '';
+                            break;
+                        }
+                    }
+                    $id_arrivee = $this->m_itineraire_escale->ensure_destination_libre(
+                        $parent,
+                        $dest_liaison,
+                        $id_comp
+                    );
+                    if ($id_arrivee < 1 || $id_depart === $id_arrivee) {
+                        $this->session->set_flashdata(
+                            'error',
+                            'Impossible d’enregistrer cette destination.'
+                        );
+                        $this->_redirect_itineraires('tpe');
+                        return;
+                    }
+                    $id = $this->m_itineraire_escale->save_tpe_liaison($parent, $id_depart, $id_arrivee, $prix_liaison);
+                    if ($id) {
+                        $this->property['INSERT_SUCCESS'] = TRUE;
+                    } else {
+                        $this->session->set_flashdata('error', 'Impossible d\'enregistrer le prix vers cette destination.');
+                    }
                     $this->_redirect_itineraires('tpe');
                     return;
                 }
@@ -555,8 +601,10 @@
             }
             $code = trim($code);
             $nom = trim($nom);
+            $escale_libre = $is_tpe ? trim((string) $this->input->post('escale_nom_libre')) : '';
+            $destination_nom = $is_tpe ? trim((string) $this->input->post('destination_nom')) : '';
 
-            if ($parent === '' || $code === '') {
+            if ($parent === '' || ($code === '' && $escale_libre === '')) {
                 $this->session->set_flashdata('error', 'Itinéraire parent et escale sont obligatoires.');
                 $this->_redirect_itineraires($redirect_tab);
                 return;
@@ -585,6 +633,14 @@
                 $this->_redirect_itineraires($redirect_tab);
                 return;
             }
+            $id_comp = isset($parent_row->id_compaga) ? (string) $parent_row->id_compaga : '';
+            if ($escale_libre !== '') {
+                $resolved = $this->m_itineraire_escale->resolve_gare_nom($escale_libre, $id_comp);
+                $code = $resolved['code'];
+                $nom = $resolved['nom'];
+            }
+            $term_nom = !empty($parent_row->nom_gadest) ? trim((string) $parent_row->nom_gadest) : '';
+            $destination_libre = ($destination_nom !== '' && $this->_noms_distincts($destination_nom, $term_nom));
             if (isset($parent_row->gadest_lg) && (string) $parent_row->gadest_lg === $code) {
                 $this->session->set_flashdata('error', 'L\'escale ne peut pas être la destination finale de l\'itinéraire.');
                 $this->_redirect_itineraires($redirect_tab);
@@ -613,7 +669,7 @@
                     if ($this->db->field_exists('prix_escale_origine', 'itineraire_escales')) {
                         $payload['prix_escale_origine'] = $prix_origine;
                     }
-                    if ($this->db->field_exists('prix_escale_tpe', 'itineraire_escales')) {
+                    if ($this->db->field_exists('prix_escale_tpe', 'itineraire_escales') && !$destination_libre) {
                         $payload['prix_escale_tpe'] = $prix_tpe;
                     }
                     if ($ordre >= 1) {
@@ -624,6 +680,15 @@
                         if ($ok !== FALSE) {
                             $this->property['UPDATE_SUCCESS'] = TRUE;
                         }
+                    }
+                    if ($destination_libre) {
+                        $this->_tpe_lier_destination_libre(
+                            $parent,
+                            (int) $existing->id_escale,
+                            $destination_nom,
+                            $prix_tpe,
+                            $id_comp
+                        );
                     }
                     $this->_redirect_itineraires('tpe');
                     return;
@@ -653,7 +718,7 @@
                 if ($this->db->field_exists('prix_escale_origine', 'itineraire_escales')) {
                     $payload['prix_escale_origine'] = $prix_origine;
                 }
-                if ($this->db->field_exists('prix_escale_tpe', 'itineraire_escales')) {
+                if ($this->db->field_exists('prix_escale_tpe', 'itineraire_escales') && !$destination_libre) {
                     $payload['prix_escale_tpe'] = $prix_tpe;
                 }
             } else {
@@ -664,6 +729,15 @@
 
             if ($id) {
                 $this->property['INSERT_SUCCESS'] = TRUE;
+                if ($destination_libre) {
+                    $this->_tpe_lier_destination_libre(
+                        $parent,
+                        (int) $id,
+                        $destination_nom,
+                        $prix_tpe,
+                        $id_comp
+                    );
+                }
             }
             $this->_redirect_itineraires($redirect_tab);
         }
@@ -831,6 +905,50 @@
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             }
             $this->_redirect_itineraires('transit');
+        }
+
+        /**
+         * Destination TPE dont le nom n'est pas le terminus du parent.
+         * Le prix est celui du ticket. La destination sert aussi au bagage.
+         *
+         * @param string $parent
+         * @param int $id_depart
+         * @param string $nom
+         * @param float $prix
+         * @param string $id_comp
+         */
+        protected function _tpe_lier_destination_libre($parent, $id_depart, $nom, $prix, $id_comp)
+        {
+            $id_arrivee = $this->m_itineraire_escale->ensure_destination_libre($parent, $nom, $id_comp);
+            if ($id_arrivee < 1) {
+                $this->session->set_flashdata(
+                    'error',
+                    'Impossible d\'enregistrer cette destination hors itinéraire.'
+                );
+                return;
+            }
+            if ($id_arrivee === (int) $id_depart) {
+                return;
+            }
+            $ok = $this->m_itineraire_escale->save_tpe_liaison($parent, (int) $id_depart, $id_arrivee, $prix);
+            if (!$ok) {
+                $this->session->set_flashdata('error', 'La destination a été créée, mais le prix n\'a pas été lié.');
+            }
+        }
+
+        /**
+         * @param string $a
+         * @param string $b
+         * @return bool
+         */
+        protected function _noms_distincts($a, $b)
+        {
+            $norm = function ($s) {
+                $s = preg_replace('/\s+/', ' ', trim((string) $s));
+                return function_exists('mb_strtoupper') ? mb_strtoupper($s, 'UTF-8') : strtoupper($s);
+            };
+
+            return $norm($a) !== $norm($b);
         }
 
         /**

@@ -438,7 +438,7 @@ $escale_labels = function ($esc, $mode = 'tarif') {
                                                            value="<?= htmlspecialchars($L['nom_term']); ?>" readonly>
                                                 </div>
                                                 <div class="form-group">
-                                                    <label>PRIX ESCALE DESTINATION *</label>
+                                                    <label>PRIX DU TICKET (DESTINATION) *</label>
                                                     <input class="form-control form-control-sm" type="number" min="0" step="1"
                                                            name="prix_escale_tpe"
                                                            value="<?= $L['prix_dest'] !== null ? (int) $L['prix_dest'] : ''; ?>" required>
@@ -476,7 +476,7 @@ $escale_labels = function ($esc, $mode = 'tarif') {
                                 <th>ITINÉRAIRE PARENT (OD)</th>
                                 <th>ESCALE DÉPART</th>
                                 <th>ESCALE ARRIVÉE</th>
-                                <th>PRIX</th>
+                                <th>PRIX TICKET</th>
                                 <th class="actions">ACTION</th>
                             </tr>
                             </thead>
@@ -540,7 +540,7 @@ $escale_labels = function ($esc, $mode = 'tarif') {
                                                     <br><small><?= htmlspecialchars($lia->nom_ligne_parent); ?></small>
                                                 </p>
                                                 <div class="form-group">
-                                                    <label>PRIX *</label>
+                                                    <label>PRIX DU TICKET *</label>
                                                     <input class="form-control form-control-sm" type="number" min="0" step="1"
                                                            name="prix_liaison" value="<?= (int) $lia->prix_liaison; ?>" required>
                                                 </div>
@@ -725,17 +725,24 @@ $escale_labels = function ($esc, $mode = 'tarif') {
             <input type="checkbox" class="form-check-input" name="liaison_escale_escale" value="1"
                    id="tpe_liaison_check">
             <label class="form-check-label" for="tpe_liaison_check">
-                Prix escale → escale / hub (composition transit du parent)
+                Choisir l’escale de départ sur l’itinéraire parent, puis saisir la destination et le prix du ticket
             </label>
         </div>
 
         <!-- Mode standard : escale ↔ origine / destination -->
         <div id="tpe-block-od">
             <div class="form-group">
-                <label for="tpe_gare_escale">ESCALE *</label>
-                <select class="form-control form-control-sm" name="gare_escale" id="tpe_gare_escale" required disabled>
+                <label for="tpe_gare_escale">ESCALE</label>
+                <select class="form-control form-control-sm" name="gare_escale" id="tpe_gare_escale" disabled>
                     <option value="">Choisir d’abord le parent…</option>
                 </select>
+                <small class="text-muted">Liste des gares connues. Sinon, saisissez le nom ci-dessous.</small>
+            </div>
+            <div class="form-group">
+                <label for="tpe_escale_nom_libre">NOM DE L’ESCALE (hors itinéraire parent)</label>
+                <input class="form-control form-control-sm" type="text" name="escale_nom_libre"
+                       id="tpe_escale_nom_libre" maxlength="120"
+                       placeholder="Ex. Boromo — même si cette escale n’est pas sur le parent">
             </div>
 
             <div class="form-group">
@@ -751,13 +758,15 @@ $escale_labels = function ($esc, $mode = 'tarif') {
             </div>
 
             <div class="form-group">
-                <label for="tpe_escale_destination">ESCALE DESTINATION</label>
-                <input class="form-control form-control-sm" type="text" id="tpe_escale_destination" readonly
-                       placeholder="Rempli selon le parent…">
+                <label for="tpe_escale_destination">DESTINATION</label>
+                <input class="form-control form-control-sm" type="text" name="destination_nom"
+                       id="tpe_escale_destination" maxlength="120"
+                       placeholder="Terminus du parent, ou un autre nom">
+                <small class="text-muted">Vous pouvez saisir un nom qui n’est pas sur l’itinéraire parent. Le prix ci-dessous est celui du ticket uniquement. Cette destination sert aussi au bagage.</small>
             </div>
 
             <div class="form-group">
-                <label for="tpe_prix_dest">PRIX ESCALE DESTINATION *</label>
+                <label for="tpe_prix_dest">PRIX DU TICKET (DESTINATION) *</label>
                 <input class="form-control form-control-sm" type="number" min="0" step="1"
                        name="prix_escale_tpe" id="tpe_prix_dest" required placeholder="ex. 3500" disabled>
             </div>
@@ -769,29 +778,28 @@ $escale_labels = function ($esc, $mode = 'tarif') {
             </div>
         </div>
 
-        <!-- Mode liaison escale → escale / hub -->
+        <!-- Case cochée : départ sur le parent, destination saisie, prix -->
         <div id="tpe-block-liaison" style="display:none;">
             <div class="form-group">
-                <label for="tpe_escale_depart">ESCALE DÉPART *</label>
+                <label for="tpe_escale_depart">ESCALE DE DÉPART *</label>
                 <select class="form-control form-control-sm" name="id_escale_depart" id="tpe_escale_depart" disabled>
                     <option value="">Choisir d’abord le parent…</option>
                 </select>
+                <small class="text-muted">Uniquement les escales déjà présentes sur l’itinéraire parent.</small>
             </div>
             <div class="form-group">
-                <label for="tpe_escale_arrivee">ARRIVÉE (escale ou hub) *</label>
-                <select class="form-control form-control-sm" name="id_escale_arrivee" id="tpe_escale_arrivee" disabled>
-                    <option value="">Choisir d’abord le parent…</option>
-                </select>
+                <label for="tpe_destination_liaison">ESCALE DE DESTINATION *</label>
+                <input class="form-control form-control-sm" type="text" name="destination_liaison_nom"
+                       id="tpe_destination_liaison" maxlength="120" disabled
+                       placeholder="Nom de la destination">
+                <small class="text-muted">Saisissez la destination, même si elle n’est pas sur l’itinéraire parent. Elle pourra être utilisée pour le bagage. Le prix saisi est celui du ticket uniquement.</small>
             </div>
             <div class="form-group">
-                <label for="tpe_prix_liaison">PRIX ESCALE → ARRIVÉE *</label>
-                <input class="form-control form-control-sm" type="number" min="0" step="1"
+                <label for="tpe_prix_liaison">PRIX DU TICKET *</label>
+                <input class="form-control form-control-sm" type="number" min="1" step="1"
                        name="prix_liaison" id="tpe_prix_liaison" placeholder="ex. 1500" disabled>
+                <small class="text-muted">Prix du ticket seulement. Les frais de bagage se saisissent à la facturation du bagage.</small>
             </div>
-            <small class="text-muted d-block mb-2">
-                Départ = escale déjà sur le parent. Arrivée = autre escale <strong>ou hub</strong>
-                (gare intermédiaire de la composition transit du parent).
-            </small>
         </div>
 
         <div class="modal-footer">
@@ -1026,7 +1034,7 @@ $escale_labels = function ($esc, $mode = 'tarif') {
     var tpeBlockOd = document.getElementById('tpe-block-od');
     var tpeBlockLiaison = document.getElementById('tpe-block-liaison');
     var tpeDep = document.getElementById('tpe_escale_depart');
-    var tpeArr = document.getElementById('tpe_escale_arrivee');
+    var tpeDestLiaison = document.getElementById('tpe_destination_liaison');
     var tpePrixLiaison = document.getElementById('tpe_prix_liaison');
     var tpeMetaCache = {};
 
@@ -1042,7 +1050,6 @@ $escale_labels = function ($esc, $mode = 'tarif') {
 
     function fillTpeLiaisonSelects(meta) {
         var list = (meta && meta.escales_on_parent) ? meta.escales_on_parent.slice() : [];
-        var hubs = (meta && meta.hubs) ? meta.hubs.slice() : [];
         var htmlDep = '<option value="">Choisir l’escale…</option>';
         list.forEach(function (e) {
             htmlDep += '<option value="' + String(e.id_escale) + '">'
@@ -1052,48 +1059,16 @@ $escale_labels = function ($esc, $mode = 'tarif') {
             htmlDep = '<option value="">Aucune escale sur ce parent</option>';
         }
 
-        var escaleCodes = {};
-        list.forEach(function (e) {
-            if (e.code) escaleCodes[String(e.code)] = true;
-        });
-        var htmlArr = '<option value="">Choisir escale ou hub…</option>';
-        if (list.length > 0) {
-            htmlArr += '<optgroup label="Escales du parent">';
-            list.forEach(function (e) {
-                htmlArr += '<option value="' + String(e.id_escale) + '">'
-                    + String(e.nom || e.code) + '</option>';
-            });
-            htmlArr += '</optgroup>';
-        }
-        var hubsShown = 0;
-        var hubOpts = '';
-        hubs.forEach(function (h) {
-            var code = String(h.code || '');
-            if (!code || escaleCodes[code]) {
-                return;
-            }
-            var val = String(h.value || ('hub:' + code));
-            hubOpts += '<option value="' + val.replace(/"/g, '&quot;') + '">'
-                + String(h.nom || code) + ' (hub)</option>';
-            hubsShown++;
-        });
-        if (hubsShown > 0) {
-            htmlArr += '<optgroup label="Hubs (composition transit)">' + hubOpts + '</optgroup>';
-        }
-        if (list.length === 0 && hubsShown === 0) {
-            htmlArr = '<option value="">Aucune escale ni hub sur ce parent</option>';
-        }
-
         if (tpeDep) {
             tpeDep.innerHTML = htmlDep;
             tpeDep.disabled = list.length === 0 || !isLiaisonMode();
         }
-        if (tpeArr) {
-            tpeArr.innerHTML = htmlArr;
-            tpeArr.disabled = (list.length === 0) || !isLiaisonMode();
+        var can = list.length > 0 && isLiaisonMode();
+        if (tpeDestLiaison) {
+            tpeDestLiaison.disabled = !can;
+            if (!can) tpeDestLiaison.value = '';
         }
         if (tpePrixLiaison) {
-            var can = list.length > 0 && isLiaisonMode();
             tpePrixLiaison.disabled = !can;
             if (!can) tpePrixLiaison.value = '';
         }
@@ -1104,11 +1079,11 @@ $escale_labels = function ($esc, $mode = 'tarif') {
         if (tpeBlockOd) tpeBlockOd.style.display = liaison ? 'none' : '';
         if (tpeBlockLiaison) tpeBlockLiaison.style.display = liaison ? '' : 'none';
 
-        setRequired(tpeEscale, !liaison);
+        setRequired(tpeEscale, false);
         setRequired(tpePrixOrig, !liaison);
         setRequired(tpePrixDest, !liaison);
         setRequired(tpeDep, liaison);
-        setRequired(tpeArr, liaison);
+        setRequired(tpeDestLiaison, liaison);
         setRequired(tpePrixLiaison, liaison);
 
         if (liaison) {
@@ -1118,7 +1093,7 @@ $escale_labels = function ($esc, $mode = 'tarif') {
             fillTpeLiaisonSelects(tpeMetaCache[tpeParent ? tpeParent.value : ''] || null);
         } else {
             if (tpeDep) { tpeDep.disabled = true; tpeDep.value = ''; }
-            if (tpeArr) { tpeArr.disabled = true; tpeArr.value = ''; }
+            if (tpeDestLiaison) { tpeDestLiaison.disabled = true; tpeDestLiaison.value = ''; }
             if (tpePrixLiaison) { tpePrixLiaison.disabled = true; tpePrixLiaison.value = ''; }
             if (tpeParent && tpeParent.value && tpeMetaCache[tpeParent.value]) {
                 fillTpeFromMeta(tpeMetaCache[tpeParent.value]);
@@ -1134,6 +1109,8 @@ $escale_labels = function ($esc, $mode = 'tarif') {
         }
         if (tpeOrigine) tpeOrigine.value = '';
         if (tpeDest) tpeDest.value = '';
+        var tpeNomLibreReset = document.getElementById('tpe_escale_nom_libre');
+        if (tpeNomLibreReset) tpeNomLibreReset.value = '';
         if (tpePrixOrig) { tpePrixOrig.value = ''; tpePrixOrig.disabled = true; }
         if (tpePrixDest) { tpePrixDest.value = ''; tpePrixDest.disabled = true; }
         if (tpeDep) {
@@ -1141,11 +1118,7 @@ $escale_labels = function ($esc, $mode = 'tarif') {
             tpeDep.disabled = true;
             tpeDep.value = '';
         }
-        if (tpeArr) {
-            tpeArr.innerHTML = '<option value="">Choisir d’abord le parent…</option>';
-            tpeArr.disabled = true;
-            tpeArr.value = '';
-        }
+        if (tpeDestLiaison) { tpeDestLiaison.value = ''; tpeDestLiaison.disabled = true; }
         if (tpePrixLiaison) { tpePrixLiaison.value = ''; tpePrixLiaison.disabled = true; }
     }
 
@@ -1177,10 +1150,17 @@ $escale_labels = function ($esc, $mode = 'tarif') {
             if (tpePrixDest) { tpePrixDest.disabled = true; tpePrixDest.value = ''; }
         }
         fillTpeLiaisonSelects(meta);
+        onTpeEscaleChange();
+    }
+
+    function tpeEscaleChoisie() {
+        var libre = document.getElementById('tpe_escale_nom_libre');
+        var nom = libre ? String(libre.value || '').trim() : '';
+        return (!!(tpeEscale && tpeEscale.value) || nom !== '') && !isLiaisonMode();
     }
 
     function onTpeEscaleChange() {
-        var has = !!(tpeEscale && tpeEscale.value) && !isLiaisonMode();
+        var has = tpeEscaleChoisie();
         if (tpePrixOrig) tpePrixOrig.disabled = !has;
         if (tpePrixDest) tpePrixDest.disabled = !has;
         if (!has) {
@@ -1236,6 +1216,10 @@ $escale_labels = function ($esc, $mode = 'tarif') {
     }
     if (tpeEscale) {
         tpeEscale.addEventListener('change', onTpeEscaleChange);
+    }
+    var tpeNomLibre = document.getElementById('tpe_escale_nom_libre');
+    if (tpeNomLibre) {
+        tpeNomLibre.addEventListener('input', onTpeEscaleChange);
     }
     toggleTpeMode();
 })();

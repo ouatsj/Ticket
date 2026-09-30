@@ -397,7 +397,8 @@
                 AND cs.id_caiss = '$idca'
                 AND d.type_depense = '$grd'
                 AND gr.genre_depens = '$pk'
-                GROUP BY d.nom_perso")->result();
+                GROUP BY d.nom_perso
+                ORDER BY d.nom_perso ASC")->result();
 
         }
 

@@ -1074,6 +1074,13 @@ if (!function_exists('roleattribut_guard_uri_enforcement_skipped')) {
             return true;
         }
 
+        // Historique dépenses : /depenses/listenom/{id_caisse}/{type}/{genre}.
+        // L'id caisse (nombre) suivi du type (ex. Interne) est pris pour un roleattribut + code gare,
+        // et la page de connexion remplace le JSON — le select Nom reste vide hors admin/superviseur.
+        if ($controller === 'depenses' && in_array($method, array('listegenre', 'listenom'), true)) {
+            return true;
+        }
+
         if ($controller === 'arretcaisses') {
             $validation_methods = array(
                 'validrecette',

@@ -63,12 +63,13 @@ class Itineraire_escale_model extends CI_Model
                 JOIN lignes parent ON parent.ident_ligne = ie.id_lignes
                 JOIN gare_exp ge ON ge.code_gaexp = parent.gaexp_lg
                 JOIN gare_dest ga_term ON ga_term.code_gadest = parent.gadest_lg
-                JOIN gare_dest ga ON ga.code_gadest = ie.code_gadest
+                LEFT JOIN gare_dest ga ON ga.code_gadest = ie.code_gadest
                 JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.id_entreprise = ?
-                  AND ie.prix_escale_origine IS NOT NULL"
-            . ($has_tpe_dest ? ' AND ie.prix_escale_tpe IS NOT NULL' : '')
+                  AND (ie.prix_escale_origine IS NOT NULL"
+            . ($has_tpe_dest ? ' OR ie.prix_escale_tpe IS NOT NULL' : '')
+            . ')'
             . " ORDER BY ie.id_lignes, ie.ordre_escale, ie.id_escale";
         return $this->db->query($sql, array($cid))->result();
     }
@@ -297,13 +298,127 @@ class Itineraire_escale_model extends CI_Model
     {
         $sql = "SELECT ie.*, ga.nom_gadest AS arrivee_escale
                 FROM itineraire_escales ie
-                JOIN gare_dest ga ON ga.code_gadest = ie.code_gadest
+                LEFT JOIN gare_dest ga ON ga.code_gadest = ie.code_gadest
                 WHERE ie.id_lignes = ?";
         if ($actifs_only) {
             $sql .= " AND ie.actif_escale = 1";
         }
         $sql .= " ORDER BY ie.ordre_escale, ie.id_escale";
         return $this->db->query($sql, array($parent_ligne))->result();
+    }
+
+    /**
+     * Gare connue par son nom, même hors itinéraire parent.
+     * Préfère la compagnie de la ligne, puis n'importe quelle gare du même nom.
+     *
+     * @param string $nom
+     * @param string|int|null $id_compagnie
+     * @return array{code:string,nom:string}
+     */
+    public function resolve_gare_nom($nom, $id_compagnie = null)
+    {
+        $nom = preg_replace('/\s+/', ' ', trim((string) $nom));
+        $gare = $this->_gare_par_nom($nom, $id_compagnie);
+        if ($gare) {
+            return $gare;
+        }
+
+        return array(
+            'code' => 'L' . substr(md5($nom), 0, 12),
+            'nom' => $nom,
+        );
+    }
+
+    /**
+     * Crée l'escale sur le parent si ce nom n'y est pas encore, pour la vendre en TPE.
+     *
+     * @param string $id_lignes
+     * @param string $nom
+     * @param string|int|null $id_compagnie
+     * @return int
+     */
+    public function ensure_destination_libre($id_lignes, $nom, $id_compagnie = null)
+    {
+        $id_lignes = trim((string) $id_lignes);
+        $nom = preg_replace('/\s+/', ' ', trim((string) $nom));
+        if ($id_lignes === '' || $nom === '') {
+            return 0;
+        }
+        $deja = $this->db->query(
+            "SELECT id_escale FROM itineraire_escales
+             WHERE id_lignes = ? AND UPPER(TRIM(nom_escale)) = UPPER(TRIM(?))
+             LIMIT 1",
+            array($id_lignes, $nom)
+        )->row();
+        if ($deja) {
+            return (int) $deja->id_escale;
+        }
+        $resolved = $this->resolve_gare_nom($nom, $id_compagnie);
+        $code = $resolved['code'];
+        $par_code = $this->db->query(
+            "SELECT id_escale FROM itineraire_escales
+             WHERE id_lignes = ? AND code_gadest = ?
+             LIMIT 1",
+            array($id_lignes, $code)
+        )->row();
+        if ($par_code) {
+            return (int) $par_code->id_escale;
+        }
+        $id = $this->create(array(
+            'id_lignes' => $id_lignes,
+            'code_gadest' => $code,
+            'nom_escale' => $resolved['nom'],
+            'ordre_escale' => $this->next_ordre($id_lignes),
+            'actif_escale' => 1,
+            'prix_escale' => 0,
+        ));
+
+        return (int) $id;
+    }
+
+    /**
+     * @param string $nom
+     * @param string|int|null $id_compagnie
+     * @return array{code:string,nom:string}|null
+     */
+    protected function _gare_par_nom($nom, $id_compagnie = null)
+    {
+        $nom = trim((string) $nom);
+        if ($nom === '') {
+            return null;
+        }
+        $id_compagnie = trim((string) $id_compagnie);
+        if ($id_compagnie !== '') {
+            $row = $this->db->query(
+                "SELECT code_gadest, nom_gadest FROM gare_dest
+                 WHERE UPPER(TRIM(nom_gadest)) = UPPER(TRIM(?))
+                   AND id_compaga = ?
+                 ORDER BY code_gadest ASC
+                 LIMIT 1",
+                array($nom, $id_compagnie)
+            )->row();
+            if ($row && trim((string) $row->code_gadest) !== '') {
+                return array(
+                    'code' => (string) $row->code_gadest,
+                    'nom' => trim((string) $row->nom_gadest),
+                );
+            }
+        }
+        $row = $this->db->query(
+            "SELECT code_gadest, nom_gadest FROM gare_dest
+             WHERE UPPER(TRIM(nom_gadest)) = UPPER(TRIM(?))
+             ORDER BY code_gadest ASC
+             LIMIT 1",
+            array($nom)
+        )->row();
+        if (!$row || trim((string) $row->code_gadest) === '') {
+            return null;
+        }
+
+        return array(
+            'code' => (string) $row->code_gadest,
+            'nom' => trim((string) $row->nom_gadest),
+        );
     }
 
     public function create(array $data)
