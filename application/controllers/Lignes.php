@@ -1075,6 +1075,44 @@
                     return strcasecmp((string) $a['nom'], (string) $b['nom']);
                 });
 
+                // Configuration TPE : escales du parent + escales des tronçons
+                // (Banfora–Hamélé → Bobo–Hamélé). Les gares inactives restent
+                // inactives : on ne touche pas actif_ga.
+                $out['escales_tpe'] = $out['escales_on_parent'];
+                $seen_tpe = array();
+                foreach ($out['escales_tpe'] as $ex) {
+                    $c = isset($ex['code']) ? trim((string) $ex['code']) : '';
+                    if ($c !== '') {
+                        $seen_tpe[$c] = true;
+                    }
+                }
+                if (!isset($this->m_itineraire_etape)) {
+                    $this->load->model('Itineraire_etape_model', 'm_itineraire_etape');
+                }
+                foreach ((array) $this->m_itineraire_etape->get_by_parent($ckey, $ident_ligne) as $etape) {
+                    $child = isset($etape->code_itineraires) ? trim((string) $etape->code_itineraires) : '';
+                    if ($child === '' || $child === $ident_ligne) {
+                        continue;
+                    }
+                    foreach ((array) $this->m_itineraire_escale->get_by_parent($child, TRUE) as $ex) {
+                        $code = isset($ex->code_gadest) ? trim((string) $ex->code_gadest) : '';
+                        if ($code === '' || $code === $orig_code || $code === $term_code || isset($seen_tpe[$code])) {
+                            continue;
+                        }
+                        $nom = trim((string) $ex->nom_escale);
+                        if ($nom === '' && !empty($ex->arrivee_escale)) {
+                            $nom = trim((string) $ex->arrivee_escale);
+                        }
+                        $seen_tpe[$code] = true;
+                        $out['escales_tpe'][] = array(
+                            'id_escale' => 0,
+                            'code' => $code,
+                            'nom' => $nom !== '' ? $nom : $code,
+                            'ordre' => (int) $ex->ordre_escale,
+                        );
+                    }
+                }
+
                 // Hubs = arrivées intermédiaires de la composition transit du parent
                 $out['hubs'] = array();
                 if (!isset($this->m_itineraire_etape)) {

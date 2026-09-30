@@ -1130,19 +1130,19 @@ $escale_labels = function ($esc, $mode = 'tarif') {
             tpeDest.value = (meta.terminus && meta.terminus.nom) ? meta.terminus.nom : '';
         }
         if (tpeEscale) {
-            var list = (meta.escales || []).slice();
-            list.sort(function (a, b) {
-                var na = (a.nom || a.code || '').toString();
-                var nb = (b.nom || b.code || '').toString();
-                return na.localeCompare(nb, 'fr', { sensitivity: 'base' });
-            });
+            // Ordre du serveur : parent, puis chaque tronçon (gares inactives incluses).
+            var list = (meta.escales_tpe || meta.escales_on_parent || []).slice();
             var html = '<option value="">Choisir l’escale…</option>';
             list.forEach(function (e) {
-                html += '<option value="' + String(e.value).replace(/"/g, '&quot;') + '">'
-                    + String(e.nom || e.code) + '</option>';
+                var code = String(e.code || '');
+                var nom = String(e.nom || e.code || '');
+                if (!code) return;
+                var val = code + '.' + nom;
+                html += '<option value="' + val.replace(/"/g, '&quot;') + '">'
+                    + nom + '</option>';
             });
             if (list.length === 0) {
-                html = '<option value="">Aucune escale disponible pour ce parent</option>';
+                html = '<option value="">Aucune escale sur ce parent</option>';
             }
             tpeEscale.innerHTML = html;
             tpeEscale.disabled = list.length === 0 || isLiaisonMode();
