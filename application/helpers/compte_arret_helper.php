@@ -2374,6 +2374,128 @@ if (!function_exists('caissier_escale_commentaire_visible')) {
     }
 }
 
+if (!function_exists('caissier_escale_solde_ouvert')) {
+    /**
+     * Solde encore ouvert de l'escale, même formule que la carte d'une sous-gare.
+     * Le rattachement est le vendeur de l'escale, pas l'identifiant de sous-gare.
+     *
+     * @param string $ekey
+     * @param int $caisse_id
+     * @param string $gexp
+     * @param int $validator_id
+     * @param int[] $ops
+     * @param string $niveau adjoint|principal
+     * @param string $escale_label
+     * @param bool $tous_validateurs
+     * @return float
+     */
+    function caissier_escale_solde_ouvert($ekey, $caisse_id, $gexp, $validator_id, array $ops, $niveau, $escale_label = '', $tous_validateurs = false)
+    {
+        $CI =& get_instance();
+        $caisse_id = (int) $caisse_id;
+        $validator_id = (int) $validator_id;
+        if ($caisse_id <= 0 || !$ops || !function_exists('recette_role_ops_ou_nom_sql')) {
+            return 0.0;
+        }
+        if (!$tous_validateurs && $validator_id <= 0) {
+            return 0.0;
+        }
+        $ekey = $CI->db->escape_str($ekey);
+        $gexp = $CI->db->escape_str($gexp);
+        $niveau = ($niveau === 'adjoint') ? 'adjoint' : 'principal';
+        $scope = function ($id_col, $nom_col) use ($CI, $ops, $escale_label) {
+            $sql = recette_role_ops_ou_nom_sql(array($id_col), $nom_col, $ops);
+            $mark = function_exists('caissier_escale_marqueur') ? caissier_escale_marqueur($escale_label) : '';
+            if ($mark !== '' && $nom_col === 'r.nom' && $sql !== '' && $sql !== 'AND 1=0') {
+                $sql = 'AND (' . preg_replace('/^AND\s+/', '', $sql)
+                    . ' OR r.commentaire_recet LIKE ' . $CI->db->escape('%' . $mark . '%') . ')';
+            }
+
+            return $sql;
+        };
+        $montant = function ($sql) use ($CI) {
+            $q = $CI->db->query($sql);
+            $row = ($q && is_object($q)) ? $q->row() : null;
+            if (!$row) {
+                return 0.0;
+            }
+            foreach ($row as $valeur) {
+                return (float) $valeur;
+            }
+
+            return 0.0;
+        };
+        $base = "JOIN caisse cs ON %s = cs.id_caiss
+            JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+            JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = '{$ekey}'
+            AND cs.id_caiss = {$caisse_id}
+            AND ex.code_gaexp = '{$gexp}'";
+        if ($niveau === 'adjoint') {
+            $qui_r = $tous_validateurs ? '' : "AND r.operavalidad = {$validator_id}";
+            $qui_d = $tous_validateurs ? '' : "AND d.opevalidad = {$validator_id}";
+            $qui_p = $tous_validateurs ? '' : "AND dp.opvalidad = {$validator_id}";
+            $qui_v = $tous_validateurs ? '' : "AND v.validopad = {$validator_id}";
+            $recettes = $montant(
+                "SELECT SUM(r.montant_recet) AS total FROM recette r "
+                . sprintf($base, 'r.idcaisse') . "
+                AND r.ferme_caisrecet = 0 AND r.is_actifrecetad = 1
+                AND r.type_recet <> 'Courrier' {$qui_r} " . $scope('r.idopera', 'r.nom')
+            );
+            $depenses = $montant(
+                "SELECT SUM(d.montant_depens) AS total FROM depense d "
+                . sprintf($base, 'd.idcaisse_depens') . "
+                AND d.ferme_caisdep = 0 AND d.is_actifdepad = 1
+                AND d.type_depense <> 'Courrier' {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
+            );
+            $depots = $montant(
+                "SELECT SUM(dp.montant_depot) AS total FROM depot dp "
+                . sprintf($base, 'dp.idcaisse_depot') . "
+                AND dp.ferme_caisdepo = 0 AND dp.is_validdepo = 1 AND dp.is_actifdepoad = 1
+                AND dp.type_depot <> 'Courrier' {$qui_p} " . $scope('dp.idop_depot', 'dp.nom_pre')
+            );
+            $versements = $montant(
+                "SELECT SUM(v.montant_verser) AS total FROM versements v "
+                . sprintf($base, 'v.idcaisse_versement') . "
+                AND v.ferme_caisvers = 0 AND v.is_actifverserad = 1
+                AND v.type_versement <> 'Courrier' {$qui_v} " . $scope('v.idop_versement', 'v.nom_beneficiaire')
+            );
+        } else {
+            $qui_r = $tous_validateurs ? '' : "AND r.operavalid = {$validator_id}";
+            $qui_d = $tous_validateurs ? '' : "AND d.opevalid = {$validator_id}";
+            $qui_p = $tous_validateurs ? '' : "AND dp.opvalid = {$validator_id}";
+            $qui_v = $tous_validateurs ? '' : "AND v.validop = {$validator_id}";
+            $recettes = $montant(
+                "SELECT SUM(r.montant_recet) AS total FROM recette r "
+                . sprintf($base, 'r.idcaisse') . "
+                AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1
+                AND r.type_recet <> 'Courrier' {$qui_r} " . $scope('r.idopera', 'r.nom')
+            );
+            $depenses = $montant(
+                "SELECT SUM(d.montant_depens) AS total FROM depense d "
+                . sprintf($base, 'd.idcaisse_depens') . "
+                AND d.ferme_caisdep = 0 AND d.is_actifdep = 1
+                AND d.type_depense <> 'Courrier' {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
+            );
+            $depots = $montant(
+                "SELECT SUM(dp.montant_depot) AS total FROM depot dp "
+                . sprintf($base, 'dp.idcaisse_depot') . "
+                AND dp.ferme_caisdepo = 0 AND dp.is_validdepo = 1
+                AND dp.type_depot <> 'Courrier' {$qui_p} " . $scope('dp.idop_depot', 'dp.nom_pre')
+            );
+            $versements = $montant(
+                "SELECT SUM(v.montant_verser) AS total FROM versements v "
+                . sprintf($base, 'v.idcaisse_versement') . "
+                AND v.ferme_caisvers = 0 AND v.is_actifverser = 1
+                AND v.type_versement <> 'Courrier' {$qui_v} " . $scope('v.idop_versement', 'v.nom_beneficiaire')
+            );
+        }
+
+        return ($depots + $recettes) - ($versements + $depenses);
+    }
+}
+
 if (!function_exists('caissier_escale_filtrer_lignes')) {
     /**
      * Ne garde que les lignes de l'escale demandée. Hors escale, la liste est inchangée.

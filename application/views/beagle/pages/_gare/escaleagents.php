@@ -70,6 +70,9 @@
                                         <?php endif; ?>
                                     </div>
                                     <div class="card-body">
+                                        <?php if (!empty($escale_soldes) && isset($escale_soldes[$tache['badge']])): ?>
+                                            <p class="form-group text-center">Solde <?= htmlspecialchars($escale_label, ENT_QUOTES, 'UTF-8'); ?> : <?= number_format($escale_soldes[$tache['badge']], 0, '', ' '); ?> F</p>
+                                        <?php endif; ?>
                                         <?php foreach ($tache['links'] as $act): ?>
                                             <a href="<?= htmlspecialchars($act['url'], ENT_QUOTES, 'UTF-8'); ?>"
                                                class="btn btn-block btn-rounded text-dark bg-white mb-1">
@@ -140,6 +143,9 @@
                         <?php endif; ?>
                     </div>
                     <div class="card-body">
+                        <?php if (!empty($escale_soldes) && isset($escale_soldes[$tache['badge']])): ?>
+                            <p class="form-group text-center">Solde <?= htmlspecialchars($escale_label, ENT_QUOTES, 'UTF-8'); ?> : <?= number_format($escale_soldes[$tache['badge']], 0, '', ' '); ?> F</p>
+                        <?php endif; ?>
                         <?php foreach ($tache['links'] as $act): ?>
                             <a href="<?= htmlspecialchars($act['url'], ENT_QUOTES, 'UTF-8'); ?>"
                                class="btn btn-block btn-rounded text-dark bg-white mb-1">

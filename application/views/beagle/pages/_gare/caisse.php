@@ -160,10 +160,14 @@
                             AND ar.activeattrib = 1")->row();
 
                         $ut = $ents->roleattribut;
+                        $hors_r = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
+                        $hors_d = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
+                        $hors_dp = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('dp.nom_pre', 'dp.idop_depot') : '';
+                        $hors_v = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
 
 
                         $versements = $this->db->query(
-                            "SELECT SUM(montant_verser) AS montant_verser FROM versements v
+                            "SELECT SUM(montant_verser) AS montant_verser FROM versements v"
                             JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                             JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                             JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
@@ -175,6 +179,7 @@
                             AND cs.id_caiss = '$item->id_caiss'
                             AND v.validop = '$ut'
 			                AND v.sgareidvers = '$gare_stop->idsousgare'
+                            {$hors_v}
                             GROUP BY cs.id_caiss, v.sgareidvers")->row();
                             $recettes = $this->db->query(
                                 "SELECT SUM(montant_recet) AS montant_recet FROM recette r
@@ -189,6 +194,7 @@
                                 AND cs.id_caiss = '$item->id_caiss'
 				                AND r.recetsgid = '$gare_stop->idsousgare'
                                 AND r.operavalid = '$ut'
+                                {$hors_r}
                                 GROUP BY cs.id_caiss, r.recetsgid")->row();
                                 $depenses = $this->db->query(
                                     "SELECT SUM(montant_depens) AS montant_depens FROM depense d
@@ -203,6 +209,7 @@
                                     AND cs.id_caiss = '$item->id_caiss'
 				                    AND d.sousgidepens = '$gare_stop->idsousgare'
                                     AND d.opevalid = '$ut'
+                                    {$hors_d}
                                     GROUP BY cs.id_caiss, d.sousgidepens")->row();
                                     $depots = $this->db->query(
                                         "SELECT SUM(montant_depot) AS montant_depot FROM depot dp
@@ -218,6 +225,7 @@
                                         AND cs.id_caiss = '$item->id_caiss'
                                         AND dp.opvalid = '$ut'
 					                    AND dp.sousgdepot = '$gare_stop->idsousgare'
+                                        {$hors_dp}
                                         GROUP BY cs.id_caiss, dp.sousgdepot")->row();?>
                                     <? if($versements == NULL):?><?$v=0;?><? else:?><? $v = $versements->montant_verser;?><?endif;?>
                                     <? if($recettes == NULL):?><?$r=0;?><? else:?><? $r = $recettes->montant_recet;?><?endif;?>
@@ -366,10 +374,14 @@
                             AND ar.activeattrib = 1")->row();
 
                         $ut = $ents->roleattribut;
+                        $hors_r = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
+                        $hors_d = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
+                        $hors_dp = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('dp.nom_pre', 'dp.idop_depot') : '';
+                        $hors_v = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
 
 
                         $versements = $this->db->query(
-                            "SELECT SUM(montant_verser) AS montant_verser FROM versements v
+                            "SELECT SUM(montant_verser) AS montant_verser FROM versements v"
                             JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                             JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                             JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
@@ -381,6 +393,7 @@
                             AND cs.id_caiss = '$item->id_caiss'
                             AND v.validopad = '$ut'
                             AND v.sgareidvers = '$gare_stop->idsousgare'
+                            {$hors_v}
                             GROUP BY cs.id_caiss, v.sgareidvers")->row();
                             $recettes = $this->db->query(
                                 "SELECT SUM(montant_recet) AS montant_recet FROM recette r
@@ -395,6 +408,7 @@
                                 AND cs.id_caiss = '$item->id_caiss'
                                 AND r.recetsgid = '$gare_stop->idsousgare'
                                 AND r.operavalidad = '$ut'
+                                {$hors_r}
                                 GROUP BY cs.id_caiss, r.recetsgid")->row();
                                 $depenses = $this->db->query(
                                     "SELECT SUM(montant_depens) AS montant_depens FROM depense d
@@ -409,6 +423,7 @@
                                     AND cs.id_caiss = '$item->id_caiss'
                                     AND d.sousgidepens = '$gare_stop->idsousgare'
                                     AND d.opevalidad = '$ut'
+                                    {$hors_d}
                                     GROUP BY cs.id_caiss, d.sousgidepens")->row();
                                     $depots = $this->db->query(
                                         "SELECT SUM(montant_depot) AS montant_depot FROM depot dp
@@ -425,6 +440,7 @@
                                         AND cs.id_caiss = '$item->id_caiss'
                                         AND dp.opvalidad = '$ut'
                                         AND dp.sousgdepot = '$gare_stop->idsousgare'
+                                        {$hors_dp}
                                         GROUP BY cs.id_caiss, dp.sousgdepot")->row();?>
                                     <? if($versements == NULL):?><?$v=0;?><? else:?><? $v = $versements->montant_verser;?><?endif;?>
                                     <? if($recettes == NULL):?><?$r=0;?><? else:?><? $r = $recettes->montant_recet;?><?endif;?>
@@ -551,6 +567,10 @@
                         <? $cd = $this->session->company->ekey;
 
                             $solde_ad = 0;
+                            $hors_r = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
+                            $hors_d = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
+                            $hors_dp = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('dp.nom_pre', 'dp.idop_depot') : '';
+                            $hors_v = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
                             $versements_ad = $this->db->query(
                                 "SELECT SUM(montant_verser) AS montant_verse FROM versements v
                                 JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
@@ -568,6 +588,7 @@
                                 AND v.idop_versement = '$conex->roleattribut'
 				                AND v.sgareidvers = '$gare_stop->idsousgare'
                                 AND ex.code_gaexp = '$item->gexp_caiss'
+                                {$hors_v}
                                 GROUP BY cs.id_caiss, v.idop_versement, v.sgareidvers")->row();
                             $recettes_ad = $this->db->query(
                                 "SELECT SUM(montant_recet) AS montant_rec FROM recette r
@@ -585,6 +606,7 @@
                                 AND r.idopera = '$conex->roleattribut'
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND r.recetsgid = '$gare_stop->idsousgare'
+                                {$hors_r}
                                 GROUP BY cs.id_caiss, r.idopera, r.recetsgid")->row();
                             $depenses_ad = $this->db->query(
                                 "SELECT SUM(montant_depens) AS montant_depen FROM depense d
@@ -604,6 +626,7 @@
                                 AND d.idop_dep = '$conex->roleattribut'
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND d.sousgidepens = '$gare_stop->idsousgare'
+                                {$hors_d}
                                 GROUP BY cs.id_caiss, d.idop_dep, d.sousgidepens")->row();
                             $depots_ad = $this->db->query(
                                 "SELECT SUM(montant_depot) AS montant_depo FROM depot dp
@@ -621,6 +644,7 @@
                                 AND dp.idop_depot = '$conex->roleattribut'
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND dp.sousgdepot = '$gare_stop->idsousgare'
+                                {$hors_dp}
                                 GROUP BY cs.id_caiss, dp.idop_depot, dp.sousgdepot")->row();
                         ?>
 

@@ -1492,6 +1492,17 @@
 
             $caisse = $this->_escale_caisse($gare_id, $gid);
             $this->property['caisseident'] = $caisse;
+            $caisse_id = ($caisse && !empty($caisse->id_caiss)) ? (int) $caisse->id_caiss : 0;
+            $gexp_solde = ($caisse && !empty($caisse->gexp_caiss)) ? $caisse->gexp_caiss : '';
+            $tous_validateurs = in_array($userole, array('1', '2'), true);
+            $this->property['escale_soldes'] = array(
+                'Adjoint caisse' => caissier_escale_solde_ouvert(
+                    $this->company->ekey, $caisse_id, $gexp_solde, (int) $viewer, $ids, 'adjoint', $wanted, $tous_validateurs
+                ),
+                'Caissier' => caissier_escale_solde_ouvert(
+                    $this->company->ekey, $caisse_id, $gexp_solde, (int) $viewer, $ids, 'principal', $wanted, $tous_validateurs
+                ),
+            );
             $this->property['voir_recette_escale'] = in_array($userole, array('5', '16'), true);
             $this->property['escale_admin'] = ($userole === '1');
             $this->property['escale_label'] = $label;
