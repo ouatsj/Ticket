@@ -150,8 +150,11 @@
         {
             $op_sql = recette_role_ops_ou_nom_sql(array('pt.idop_depot'), 'pt.nom_pre', $ops);
             $etat = ($niveau === 'adjoint')
-                ? 'AND pt.is_actifdepoad = 1 AND (pt.is_actifdepo = 0 OR pt.is_actifdepo IS NULL) AND (pt.is_validdepo = 0 OR pt.is_validdepo IS NULL)'
-                : 'AND pt.is_validdepo = 1';
+                ? 'AND pt.ferme_caisdepo = 0 AND pt.is_validdepo = 1 AND pt.is_actifdepoad = 1'
+                : 'AND pt.ferme_caisdepo = 0 AND pt.is_validdepo = 1';
+            $qui = function_exists('caissier_escale_validateur_sql')
+                ? caissier_escale_validateur_sql(($niveau === 'adjoint') ? 'pt.opvalidad' : 'pt.opvalid')
+                : '';
             $genre_sql = ($genre === 'client')
                 ? "AND gr.genre_depot <> 'Bancaire'"
                 : "AND pt.type_depot = 'externe' AND gr.genre_depot = 'Bancaire'";
@@ -165,12 +168,11 @@
                 JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND pt.arret_caisdepo = 0
-                AND pt.actif_depo = 0
                 AND cs.gexp_caiss = '$gid'
                 AND pt.type_depot <> 'Courrier'
                 {$genre_sql}
                 {$etat}
+                {$qui}
                 {$op_sql}
                 ORDER BY pt.id_depot DESC"
             )->result();

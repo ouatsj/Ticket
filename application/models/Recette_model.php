@@ -1592,7 +1592,6 @@
          */
         public function liste_caisse_escale($cid, $idg, array $ops, $niveau)
         {
-            $today = mdate('%Y-%m-%d', now());
             $cols = array('r.idopera');
             if ($this->db->field_exists('iduseescal', 'recette')) {
                 $cols[] = 'r.iduseescal';
@@ -1605,8 +1604,11 @@
                     . ' OR r.commentaire_recet LIKE ' . $this->db->escape('%' . $marqueur . '%') . ')';
             }
             $etat = ($niveau === 'adjoint')
-                ? 'AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0'
-                : 'AND r.is_actifrecet = 1';
+                ? 'AND r.ferme_caisrecet = 0 AND r.is_actifrecetad = 1'
+                : 'AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1';
+            $qui = function_exists('caissier_escale_validateur_sql')
+                ? caissier_escale_validateur_sql(($niveau === 'adjoint') ? 'r.operavalidad' : 'r.operavalid')
+                : '';
 
             return $this->db->query(
                 "SELECT * FROM recette r
@@ -1617,12 +1619,9 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND cs.gexp_caiss = '$idg'
-                AND r.active_recet = 1
-                AND r.arret_caisrecet = 0
-                AND r.actif_rect = 0
-                AND r.date_recet = '$today'
                 AND r.type_recet <> 'Courrier'
                 {$etat}
+                {$qui}
                 {$op_sql}
                 ORDER BY r.id_recette DESC"
             )->result();

@@ -1317,11 +1317,13 @@
          */
         public function liste_caisse_escale($cid, $idg, array $ops, $niveau)
         {
-            $today = mdate('%Y-%m-%d', now());
             $op_sql = recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $ops);
             $etat = ($niveau === 'adjoint')
-                ? 'AND d.is_actifdepad = 1 AND d.is_actifdep = 0'
-                : 'AND d.is_actifdep = 1';
+                ? 'AND d.ferme_caisdep = 0 AND d.is_actifdepad = 1'
+                : 'AND d.ferme_caisdep = 0 AND d.is_actifdep = 1';
+            $qui = function_exists('caissier_escale_validateur_sql')
+                ? caissier_escale_validateur_sql(($niveau === 'adjoint') ? 'd.opevalidad' : 'd.opevalid')
+                : '';
 
             return $this->db->query(
                 "SELECT * FROM depense d
@@ -1333,12 +1335,9 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND cs.gexp_caiss = '$idg'
-                AND d.active_dep = 1
-                AND d.arret_caisdep = 0
-                AND d.actif_deps = 0
-                AND d.date_depens = '$today'
                 AND d.type_depense <> 'Courrier'
                 {$etat}
+                {$qui}
                 {$op_sql}
                 ORDER BY d.id_depense DESC"
             )->result();

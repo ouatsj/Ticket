@@ -274,6 +274,12 @@ if (!function_exists('layout_restreindre_escale')) {
                     if (!$garder && $nom_cle !== '' && isset($noms_escale[$nom_cle])) {
                         $garder = true;
                     }
+                    if (!$garder && isset($row->commentaire_recet) && function_exists('caissier_escale_marqueur')) {
+                        $mark = caissier_escale_marqueur($escale);
+                        if ($mark !== '' && strpos((string) $row->commentaire_recet, $mark) !== false) {
+                            $garder = true;
+                        }
+                    }
                 } else {
                     $garder = true;
                     foreach ($trouves as $valeur) {

@@ -167,7 +167,7 @@
 
 
                         $versements = $this->db->query(
-                            "SELECT SUM(montant_verser) AS montant_verser FROM versements v"
+                            "SELECT SUM(montant_verser) AS montant_verser FROM versements v
                             JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                             JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                             JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
@@ -381,7 +381,7 @@
 
 
                         $versements = $this->db->query(
-                            "SELECT SUM(montant_verser) AS montant_verser FROM versements v"
+                            "SELECT SUM(montant_verser) AS montant_verser FROM versements v
                             JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                             JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                             JOIN compagnies c ON ex.id_compagd = c.cle_compagnie

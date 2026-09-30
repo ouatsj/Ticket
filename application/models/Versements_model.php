@@ -974,8 +974,11 @@
         {
             $op_sql = recette_role_ops_ou_nom_sql(array('v.idop_versement'), 'v.nom_beneficiaire', $ops);
             $etat = ($niveau === 'adjoint')
-                ? "AND v.is_actifverser = 0 AND v.validopad IS NOT NULL AND v.validopad <> '' AND v.validopad <> '0'"
+                ? 'AND v.is_actifverserad = 1'
                 : 'AND v.is_actifverser = 1';
+            $qui = function_exists('caissier_escale_validateur_sql')
+                ? caissier_escale_validateur_sql(($niveau === 'adjoint') ? 'v.validopad' : 'v.validop')
+                : '';
             if ($genre === 'particulier') {
                 $genre_sql = "AND gr.genre_depot <> 'Banque'";
             } elseif ($genre === 'caisse') {
@@ -1002,6 +1005,7 @@
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 {$genre_sql}
                 {$etat}
+                {$qui}
                 {$op_sql}
                 ORDER BY v.id_versements DESC"
             )->result();

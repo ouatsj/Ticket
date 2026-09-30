@@ -2374,6 +2374,33 @@ if (!function_exists('caissier_escale_commentaire_visible')) {
     }
 }
 
+if (!function_exists('caissier_escale_validateur_sql')) {
+    /**
+     * Limite au caissier connecté, comme la carte. L'admin et le superviseur voient tout le niveau.
+     *
+     * @param string $colonne
+     * @return string
+     */
+    function caissier_escale_validateur_sql($colonne)
+    {
+        if (!preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $colonne)) {
+            return '';
+        }
+        $CI =& get_instance();
+        $agent = $CI->session->userdata('agent');
+        $role = ($agent && isset($agent->userole)) ? (string) $agent->userole : '';
+        if (in_array($role, array('1', '2'), true)) {
+            return '';
+        }
+        $id = ($agent && isset($agent->roleattribut)) ? (int) $agent->roleattribut : 0;
+        if ($id <= 0) {
+            return 'AND 1=0';
+        }
+
+        return 'AND ' . $colonne . ' = ' . $id;
+    }
+}
+
 if (!function_exists('caissier_escale_solde_ouvert')) {
     /**
      * Solde encore ouvert de l'escale, même formule que la carte d'une sous-gare.
