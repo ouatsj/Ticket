@@ -78,6 +78,18 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!escaleSeule) {
         return;
     }
+    document.querySelectorAll('form').forEach(function (form) {
+        Object.keys(champs).forEach(function (cle) {
+            if (!champs[cle] || form.querySelector('[name="' + cle + '"]')) {
+                return;
+            }
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = cle;
+            input.value = champs[cle];
+            form.appendChild(input);
+        });
+    });
     function estGareDepart(sel) {
         var nom = (sel.getAttribute('name') || '');
         return nom.indexOf('departgar') === 0 || nom.indexOf('nomgare') === 0 || nom.indexOf('deptgare') === 0;

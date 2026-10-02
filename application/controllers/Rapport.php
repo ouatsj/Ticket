@@ -215,6 +215,101 @@
             return array($days, $days1);
         }
 
+        /** Nom de gare (code_gaexp ou garesid). Vide si inconnu. */
+        protected function _etat_nom_gare_code($raw)
+        {
+            $raw = trim((string) $raw);
+            if ($raw === '' || $raw === '0') {
+                return '';
+            }
+            $row = $this->db->query(
+                "SELECT nom_gaep FROM gare_exp WHERE code_gaexp = ? OR garesid = ? LIMIT 1",
+                array($raw, $raw)
+            )->row();
+            if ($row && trim((string) $row->nom_gaep) !== '') {
+                return trim((string) $row->nom_gaep);
+            }
+            return '';
+        }
+
+        /**
+         * Lieu du tri pour le titre : escale, gare choisie, gare de la page,
+         * ou toutes les gares si aucun filtre.
+         */
+        protected function _etat_libelle_lieu()
+        {
+            if (!function_exists('role17_nom_lieu_escale')) {
+                $this->load->helper('role17_context');
+            }
+            $escale = trim((string) $this->input->get_post('escale_nom'));
+            if ($escale !== '' && function_exists('role17_nom_lieu_escale')) {
+                $escale = role17_nom_lieu_escale($escale);
+            }
+            if ($escale !== '') {
+                return $escale;
+            }
+
+            $code = '';
+            $champGare = false;
+            $sources = array();
+            $post = $this->input->post();
+            $get = $this->input->get();
+            if (is_array($post)) {
+                $sources[] = $post;
+            }
+            if (is_array($get)) {
+                $sources[] = $get;
+            }
+            foreach ($sources as $bag) {
+                foreach ($bag as $k => $v) {
+                    if (!preg_match('/^(departgar|nomgare|deptgare)/', (string) $k)) {
+                        continue;
+                    }
+                    $champGare = true;
+                    $v = trim((string) $v);
+                    if ($code === '' && $v !== '' && $v !== '0') {
+                        $code = $v;
+                    }
+                }
+            }
+            if ($code !== '') {
+                $nom = $this->_etat_nom_gare_code($code);
+                return $nom !== '' ? $nom : $code;
+            }
+            if (!$champGare) {
+                $connect = trim((string) $this->input->get_post('gareconnect'));
+                if ($connect !== '' && $connect !== '0') {
+                    $code = $connect;
+                }
+            }
+            if ($code === '') {
+                $code = trim((string) $this->uri->segment(4));
+            }
+            $nom = $this->_etat_nom_gare_code($code);
+            if ($nom !== '') {
+                return $nom;
+            }
+            return 'TOUTES LES GARES';
+        }
+
+        /** Insère le lieu dans le titre, avant la période. */
+        protected function _etat_completer_titre_lieu($titre)
+        {
+            $titre = trim((string) $titre);
+            $lieu = trim((string) $this->_etat_libelle_lieu());
+            if ($titre === '' || $lieu === '') {
+                return $titre;
+            }
+            $quoted = preg_quote($lieu, '/');
+            if (preg_match('/(^|[^[:alnum:]])' . $quoted . '([^[:alnum:]]|$)/iu', $titre)) {
+                return $titre;
+            }
+            if (preg_match('/\sDU\s/u', $titre)) {
+                return preg_replace('/\sDU\s/u', ' ' . $lieu . ' DU ', $titre, 1);
+            }
+            return $titre . ' ' . $lieu;
+        }
+
         /**
          * Montant ligne PDF : préfère SUM SQL, sinon nbr × prix unitaire.
          */
@@ -1217,6 +1312,9 @@
         protected function _etat_render_view($page_label, array $payload)
         {
             $payload = $this->_etat_ordonner_par_ligne($payload);
+            $payload['titre'] = $this->_etat_completer_titre_lieu(
+                isset($payload['titre']) ? $payload['titre'] : $page_label
+            );
             $this->property['title'] = $page_label;
             $ent = isset($this->entreprise->nom_entreprise) ? $this->entreprise->nom_entreprise : '';
             $this->property['pagetitle'] = utf8_encode(strftime('%d %b %G', now()))
@@ -1393,6 +1491,9 @@
         protected function _etat_export_dispatch(array $payload)
         {
             $payload = $this->_etat_ordonner_par_ligne($payload);
+            $payload['titre'] = $this->_etat_completer_titre_lieu(
+                isset($payload['titre']) ? $payload['titre'] : 'ETAT'
+            );
             $format = strtolower(trim((string) $this->input->get('format')));
             if ($format === 'csv') {
                 $this->_etat_output_csv($payload, false);
