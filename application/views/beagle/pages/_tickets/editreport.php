@@ -92,13 +92,13 @@
                                 </tr>
                                 <tr><td align=left style="font-size: 15px;"><?= $day; ?> <?= $heures;?> <?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td colspan="3" align=left style="font-size: 15px;"><?= $sg_label; ?>:<?= $day;?></td><td style="font-size: 17px;">HEURE:<?= $heures;?></td>
                                 </tr>
-                                <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left>PRIX:<?= number_format($item->prix, 0, '', ' ');?>FCFA</td>
+                                <tr><td align=left><?= $item->nom_client; ?></td><td td colspan="3" align=left>TEL:<?= $item->contact_client; ?></td><td align=left></td>
                                 </tr>
                                 <tr><td align=left width="30%"><?= $item->prenom_client; ?></td><td align=center colspan="3"> <?= ticket_barcode_img($item->tamponcod, 200, 35); ?></td><td align=left></td>
                                 </tr>
                                 <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet non remboursable</td><td align=right>CONVOCATION 45 mn avant le départ</td>
                                 </tr>
-                                <tr><td align=left><?= number_format($item->prix, 0, '', ' ');?> FCFA <?= $nge;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $item->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
+                                <tr><td align=left><?= $nge;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $item->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
                                 </tr>
                                 <tr><td align=left style="font-size: 9px;"><?= $item->tamponcod;?></td><td align=left>NON REPROGRAMMABLE</td><td colspan="3" align=center style="font-size: 9px;">Suivez et surveillez bien vos bagages</td>
                                 </tr>

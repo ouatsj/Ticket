@@ -91,7 +91,7 @@
 
                             <tr><td align=left style="font-size: 15px;"><?= $item->nom_ligne; ?></td><td colspan="2" align=left style="font-size: 12px;"></td><td align=center style="font-size: 13px;">QUARTIER:<?= $item->quart;?></td><td style="font-size: 15px;" align=left><?= $fiche->codeticket; ?></td><td style="font-size: 15px;" align=left><?= $fiche->codeticket; ?></td>
                             </tr>
-                            <tr><td align=left><?= $ressougare->nomsousgare; ?></td><td align=left colspan="2" style="font-size: 10px;"></td><td align=center style="font-size: 12px;">PRIX:<?= number_format($item->prix+$item->prix, 0, '', ' ');?>FCFA</td><td align=left style="font-size: 15px;"><?= $ressougare->nomsousgare; ?>:<?= $day;?></td><td align=left style="font-size: 15px;">DATE:</td>
+                            <tr><td align=left><?= $ressougare->nomsousgare; ?></td><td align=left colspan="2" style="font-size: 10px;"></td><td align=center style="font-size: 12px;"></td><td align=left style="font-size: 15px;"><?= $ressougare->nomsousgare; ?>:<?= $day;?></td><td align=left style="font-size: 15px;">DATE:</td>
                             </tr>
                             <tr><td align=left style="font-size: 15px;"><?= $day; ?> <?= $heures;?> <?= str_pad($item->num_siege_categorie, 2, "0", STR_PAD_LEFT); ?></td><td colspan="2" align=center></td><td style="font-size: 12px;" align=center>TEL:<?= $item->contact_client; ?></td><td style="font-size: 15px;">HEURE:<?= $heures;?></td><td style="font-size: 15px;">HEURE:</td>
                             </tr>
@@ -101,7 +101,7 @@
                             </tr>
                             <tr><td align=left><?= $item->contact_client; ?></td><td colspan="3" align=center style="font-size: 8px;">Billet non remboursable</td><td align=left colspan="2">CONVOCATION 45 mn avant le départ</td>
                             </tr>
-                            <tr><td align=left><?= number_format($item->prix+$item->prix, 0, '', ' ');?> FCFA <?= $codb;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $item->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
+                            <tr><td align=left><?= $codb;?></td><td colspan="3" align="center" style="font-size: 9px;"><?= $item->nom_compagnie;?> décline toute responsabilité en cas de perte ou de vol de billet et de bagages même payés.</td>
                             </tr>
                             <tr><td align=left style="font-size: 9px;"><?= $item->tamponcod;?></td><td align=left>NON REPROGRAMMABLE</td><td colspan="3" align=center style="font-size: 9px;">Suivez et surveillez bien vos bagages</td>
                             </tr>
