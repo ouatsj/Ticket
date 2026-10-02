@@ -188,41 +188,26 @@
         }
 
 
-        public function getrecettrisss($cid, $idcais, $gid, $conect, $ddbut, $dfin, $co =FALSE)
+        public function getrecettrisss($cid, $idcais, $gid, $conect, $ddbut, $dfin, $co = FALSE, $toutes = false)
         {
-            if($co === ''){
-                return $this->db->query(
+            $copSql = (trim((string) $co) !== '')
+                ? " AND r.compkey_recet = '" . $this->db->escape_str($co) . "'"
+                : '';
+            $ownerSql = $toutes ? '' : " AND r.idopera = '" . (int) $conect . "'";
+            return $this->db->query(
                 "SELECT * FROM recette r
                 JOIN type_personnel tp ON r.id_genre_recet = tp.idtyperso
                 JOIN caisse cs ON r.idcaisse = cs.id_caiss
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND r.active_recet = 1
-                AND cs.id_caiss = '$idcais'
+                WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
+                AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
+                AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'
                 AND r.type_recet <> 'Courrier'
-                AND r.operavalid = '$conect'
-                AND cs.gexp_caiss = '$gid'
-                AND r.date_recet BETWEEN '$ddbut' AND '$dfin'
-                ORDER BY r.id_recette DESC")->result();
-            }
-            
-                return $this->db->query(
-                "SELECT * FROM recette r
-                JOIN type_personnel tp ON r.id_genre_recet = tp.idtyperso
-                JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND r.compkey_recet = '$co'
-                AND r.active_recet = 1
-                AND cs.id_caiss = '$idcais'
-                AND r.type_recet <> 'Courrier'
-                AND cs.gexp_caiss = '$gid'
-                AND r.operavalid = '$conect'
-                AND r.date_recet BETWEEN '$ddbut' AND '$dfin'
+                AND r.date_recet BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
+                {$copSql}
+                {$ownerSql}
                 ORDER BY r.id_recette DESC")->result();
         }
 
@@ -327,8 +312,12 @@
         }
         
 
-        public function getupdate($cid, $idcais, $gid, $conect, $ddbut, $dfin, $co)
+        public function getupdate($cid, $idcais, $gid, $conect, $ddbut, $dfin, $co, $toutes = false)
         {
+                $copSql = (trim((string) $co) !== '')
+                    ? " AND r.compkey_recet = '" . $this->db->escape_str($co) . "'"
+                    : '';
+                $ownerSql = $toutes ? '' : " AND r.idopera = '" . (int) $conect . "'";
                 return $this->db->query(
                 "SELECT * FROM recette r
                 JOIN sousgare sg ON r.recetsgid = sg.idsousgare
@@ -337,15 +326,13 @@
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND r.compkey_recet = '$co'
-                AND r.actif_rect = 0
-                AND r.active_recet = 0
-                AND cs.id_caiss = '$idcais'
-                AND r.idopera = '$conect'
-                AND cs.gexp_caiss = '$gid'
+                WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
+                AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
+                AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'
                 AND r.type_recet <> 'Courrier'
-                AND r.date_recet BETWEEN '$ddbut' AND '$dfin' 
+                AND r.date_recet BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
+                {$copSql}
+                {$ownerSql}
                 ORDER BY r.id_recette DESC")->result();
         }
         //recette non valide pour une caisse

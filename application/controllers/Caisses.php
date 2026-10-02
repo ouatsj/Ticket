@@ -1123,6 +1123,12 @@
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
+            $ligne = $this->db->query('SELECT * FROM recette WHERE id_recette = ? LIMIT 1', array((int) $recet))->row();
+            if (!saisie_recette_modifiable($ligne)) {
+                $this->session->set_flashdata('error', 'Cette recette ne peut plus être modifiée.');
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
             if($this->input->post('daterecep')!= '')
             {
                 $arrayrecette = array(
@@ -1160,6 +1166,12 @@
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
+            $ligne = $this->db->query('SELECT * FROM recette WHERE id_recette = ? LIMIT 1', array((int) $recet))->row();
+            if (!saisie_recette_modifiable($ligne)) {
+                $this->session->set_flashdata('error', 'Cette recette ne peut plus être modifiée.');
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
             if($this->input->post('daterecep')!= '')
             {
                 $arrayrecette = array(

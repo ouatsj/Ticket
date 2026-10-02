@@ -226,9 +226,12 @@
                 ORDER BY d.id_depense DESC")->row();
         }
 
-        public function getsdepen($cid, $idcais, $gid, $usc, $ddbut, $dfin, $cop)
-        {   
-            
+        public function getsdepen($cid, $idcais, $gid, $usc, $ddbut, $dfin, $cop, $toutes = false)
+        {
+                $copSql = (trim((string) $cop) !== '')
+                    ? " AND d.compkey_dep = '" . $this->db->escape_str($cop) . "'"
+                    : '';
+                $ownerSql = $toutes ? '' : " AND d.idop_dep = '" . (int) $usc . "'";
                 return $this->db->query(
                 "SELECT * FROM depense d
                 JOIN sousgare sg ON d.sousgidepens = sg.idsousgare
@@ -238,15 +241,13 @@
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND d.compkey_dep = '$cop'
-                AND d.active_dep = 1
-                AND cs.id_caiss = '$idcais'
-                AND d.opevalid = '$usc'
-                AND cs.gexp_caiss = '$gid'
+                WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
+                AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
+                AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'
                 AND d.type_depense <> 'Courrier'
-                AND d.ferme_caisdep = 0
-                AND d.date_depens BETWEEN '$ddbut' AND '$dfin'
+                AND d.date_depens BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
+                {$copSql}
+                {$ownerSql}
                 ORDER BY d.id_depense DESC")->result();
             
         }
@@ -276,9 +277,15 @@
             
         }
         
-        public function getadjointdepen($cid, $idcais, $gid, $conect, $ddbut, $dfin, $cop)
+        public function getadjointdepen($cid, $idcais, $gid, $conect, $ddbut, $dfin, $cop, $toutes = false)
         {
-            
+                $copSql = (trim((string) $cop) !== '')
+                    ? " AND d.compkey_dep = '" . $this->db->escape_str($cop) . "'"
+                    : '';
+                $ownerSql = $toutes ? '' : " AND d.idop_dep = '" . (int) $conect . "'";
+                $gidSql = (trim((string) $gid) !== '')
+                    ? " AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'"
+                    : '';
                 return $this->db->query(
                 "SELECT * FROM depense d
                 JOIN type_personnel tp ON d.typpersonel = tp.idtyperso
@@ -287,15 +294,13 @@
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND d.compkey_dep = '$cop'
-                AND d.idop_dep = '$conect'
-                AND d.active_dep = 1
-                AND d.arret_caisdep = 0
-                AND cs.id_caiss = '$idcais'
+                WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
+                AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
                 AND d.type_depense <> 'Courrier'
-                AND d.actif_deps = 0
-                AND d.date_depens BETWEEN '$ddbut' AND '$dfin'
+                AND d.date_depens BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
+                {$gidSql}
+                {$copSql}
+                {$ownerSql}
                 ORDER BY d.id_depense DESC")->result();
             
         }

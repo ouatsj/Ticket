@@ -138,7 +138,7 @@
                                 <td><span><?= $item->commentaire_recet;?></span></td>
                                 <td>
 
-                                    <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '5'): ?>
+                                    <? if (($this->session->agent->userole === '1' OR $this->session->agent->userole === '5' OR $this->session->agent->userole === '16') && saisie_recette_modifiable($item)): ?>
                                         <a href="<?= "#?{$item->id_recette}&&&"; ?>"
                                             class="md-trigger" data-modal="recette-edit-<?= $item->id_recette; ?>">
                                             <span class="fas fa-edit text-warning"></span>

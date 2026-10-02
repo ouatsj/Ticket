@@ -37,19 +37,29 @@
        {
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $d = $this->input->post('datedebut');
-            $f = $this->input->post('datefin');
+            $d = trim((string) $this->input->post('datedebut'));
+            $f = trim((string) $this->input->post('datefin'));
             $cop = $this->input->post('_compag');
             $gid = $this->input->post('gareconnect');
-            $iduser = roleattribut_guard_post_hint($this->company->ekey);
+            $iduser = roleattribut_guard_session_ra();
+            $pageUser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
+            $date_debut = DateTime::createFromFormat('!Y-m-d', $d);
+            $date_fin = DateTime::createFromFormat('!Y-m-d', $f);
+            if (!$date_debut || !$date_fin || $date_debut->format('Y-m-d') !== $d || $date_fin->format('Y-m-d') !== $f || $date_debut > $date_fin) {
+                $this->session->set_flashdata('error', 'Veuillez choisir une date de début et une date de fin valides.');
+                redirect('caisses/' . $this->company->ekey . '/gTv/' . $idgd . '/' . (int) $idcais . '/depense/' . (int) $iduser . '/' . (int) $sgid . '/' . mdate('%d/%m/%Y', now('UTC')));
+                return;
+            }
             $this->property['pagetitle'] .= " LES DEPENSES &nbsp; <strong>{$d} au &nbsp;{$f}</strong>";
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $idgd, $sgid);
             $this->property['bus_stop'] = $bus_stop;
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $iduser);
+            $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $pageUser ? $pageUser : $iduser);
             $this->property['conex'] = $conex;
-            $this->property['depenses'] = $this->m_depense->getsdepen($this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop);
+            $this->property['depenses'] = $this->m_depense->getsdepen(
+                $this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop, saisie_tri_est_admin()
+            );
 			$caisseident = $this->m_caisse->get($this->company->id_entreprise, $idgd, $idcais);
               $this->property['caisseident'] = $caisseident;
 			  $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $idcais, $idgd, $iduser);
@@ -70,20 +80,30 @@
        {
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $d = $this->input->post('datedebut');
-            $f = $this->input->post('datefin');
+            $d = trim((string) $this->input->post('datedebut'));
+            $f = trim((string) $this->input->post('datefin'));
             $cop = $this->input->post('_compag');
 
             $gid = $this->input->post('gareconnect');
-            $iduser = roleattribut_guard_post_hint($this->company->ekey);
+            $iduser = roleattribut_guard_session_ra();
+            $pageUser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
+            $date_debut = DateTime::createFromFormat('!Y-m-d', $d);
+            $date_fin = DateTime::createFromFormat('!Y-m-d', $f);
+            if (!$date_debut || !$date_fin || $date_debut->format('Y-m-d') !== $d || $date_fin->format('Y-m-d') !== $f || $date_debut > $date_fin) {
+                $this->session->set_flashdata('error', 'Veuillez choisir une date de début et une date de fin valides.');
+                redirect('caisses/' . $this->company->ekey . '/cais/' . $idgd . '/' . (int) $idcais . '/' . (int) $iduser . '/depense_adjoint/' . (int) $sgid . '/' . mdate('%d/%m/%Y', now('UTC')));
+                return;
+            }
             $this->property['pagetitle'] .= " LES DEPENSES &nbsp; <strong>{$d} au &nbsp;{$f}</strong>";
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $idgd, $sgid);
             $this->property['bus_stop'] = $bus_stop;
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $iduser);
+            $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $pageUser ? $pageUser : $iduser);
             $this->property['conex'] = $conex;
-            $this->property['depenses'] = $this->m_depense->getadjointdepen($this->company->ekey, $idcais, $gid, $iduser, $d, $f, $cop);
+            $this->property['depenses'] = $this->m_depense->getadjointdepen(
+                $this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop, saisie_tri_est_admin()
+            );
 			$caisseident = $this->m_caisse->get($this->company->id_entreprise, $idgd, $idcais);
               $this->property['caisseident'] = $caisseident;
 			  $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $idcais, $idgd);
@@ -314,6 +334,12 @@
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
+                $ligne = $this->db->query('SELECT * FROM depense WHERE id_depense = ? LIMIT 1', array((int) $dep))->row();
+                if (!saisie_depense_modifiable($ligne)) {
+                    $this->session->set_flashdata('error', 'Cette dépense ne peut plus être modifiée.');
+                    redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    return;
+                }
 
                 if($this->input->post('datereception')!= '')
                 {
@@ -354,6 +380,12 @@
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
+                $ligne = $this->db->query('SELECT * FROM depense WHERE id_depense = ? LIMIT 1', array((int) $dep))->row();
+                if (!saisie_depense_modifiable($ligne)) {
+                    $this->session->set_flashdata('error', 'Cette dépense ne peut plus être modifiée.');
+                    redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    return;
+                }
                 if($this->input->post('datereception')!= '')
                 {
                         $arraydep = array(

@@ -43,6 +43,9 @@
                         </thead>
 
                         <tbody class="no-border-x">
+                        <? if (empty($depenses)): ?>
+                            <tr><td colspan="8" class="text-center text-muted">Aucune dépense sur cette période.</td></tr>
+                        <? else: ?>
                         <? foreach ($depenses as $item): ?>
                             <tr>
                                 <td><span><?= $item->date_depens;?></span></td>
@@ -53,10 +56,12 @@
                                 <td><span><?= $item->montant_depens;?></span></td>
                                 <td><span><?= $item->commentaire;?></span></td>
                                 <td>
+                                    <? if (saisie_depense_modifiable($item)): ?>
                                     <a href="<?= "#?{$item->id_depense}&&&"; ?>"
                                         class="md-trigger" data-modal="depense-edit-<?= $item->id_depense; ?>">
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
+                                    <? endif; ?>
 
                                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="depense-edit-<?= $item->id_depense; ?>">
@@ -188,6 +193,7 @@
                                 </td>
                             </tr>
                             <? endforeach; ?>
+                        <? endif; ?>
                         </tbody>
 
                     </table>

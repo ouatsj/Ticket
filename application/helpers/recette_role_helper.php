@@ -423,6 +423,82 @@ if (!function_exists('recette_role_rd_active_depense_sql')) {
     }
 }
 
+if (!function_exists('saisie_tri_est_admin')) {
+    function saisie_tri_est_admin($userole = null)
+    {
+        if ($userole === null) {
+            $CI =& get_instance();
+            $agent = $CI->session->userdata('agent') ? $CI->session->agent : null;
+            $userole = ($agent && !empty($agent->userole)) ? $agent->userole : '';
+        }
+        return (string) $userole === '1';
+    }
+}
+
+if (!function_exists('saisie_ligne_arret_valide')) {
+    /**
+     * Ligne envoyée par un arrêt et déjà validée : plus modifiable, sauf l'admin.
+     */
+    function saisie_ligne_arret_valide($row, $arretField, array $validFields)
+    {
+        if (!$row || !isset($row->{$arretField}) || (int) $row->{$arretField} !== 1) {
+            return false;
+        }
+        foreach ($validFields as $field) {
+            if (isset($row->{$field}) && (int) $row->{$field} === 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+if (!function_exists('saisie_depense_modifiable')) {
+    function saisie_depense_modifiable($row, $roleattribut = null, $userole = null)
+    {
+        if (saisie_tri_est_admin($userole)) {
+            return (bool) $row;
+        }
+        if ($roleattribut === null && function_exists('roleattribut_guard_session_ra')) {
+            $roleattribut = roleattribut_guard_session_ra();
+        }
+        $owner = ($row && isset($row->idop_dep)) ? (int) $row->idop_dep : 0;
+        if ($owner <= 0 || $owner !== (int) $roleattribut) {
+            return false;
+        }
+        return !saisie_ligne_arret_valide($row, 'arret_caisdep', array(
+            'is_validedep',
+            'is_actifdep',
+            'is_actifdepad',
+            'ferme_caisdep',
+            'validcptabledep',
+        ));
+    }
+}
+
+if (!function_exists('saisie_recette_modifiable')) {
+    function saisie_recette_modifiable($row, $roleattribut = null, $userole = null)
+    {
+        if (saisie_tri_est_admin($userole)) {
+            return (bool) $row;
+        }
+        if ($roleattribut === null && function_exists('roleattribut_guard_session_ra')) {
+            $roleattribut = roleattribut_guard_session_ra();
+        }
+        $owner = ($row && isset($row->idopera)) ? (int) $row->idopera : 0;
+        if ($owner <= 0 || $owner !== (int) $roleattribut) {
+            return false;
+        }
+        return !saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
+            'is_validerecet',
+            'is_actifrecet',
+            'is_actifrecetad',
+            'ferme_caisrecet',
+            'valid_cptablerecet',
+        ));
+    }
+}
+
 if (!function_exists('recette_role_after_pending_rd_date')) {
     /**
      * Date de coupure affichage RD : après le dernier arrêt recettes/dépenses (le plus récent).

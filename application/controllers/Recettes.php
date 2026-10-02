@@ -82,12 +82,10 @@
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $cpr);
             $this->property['conex'] = $conex;
             $this->property['pagetitle'] .= " LES RECETTES&nbsp; <strong>{$d} au &nbsp;{$f}</strong>";
-            if (caissier_escale_ops_from_request() && (string) $this->session->agent->userole === '18') {
-                $lignes_tri = $this->m_recette->adgetrecettrisss($this->company->ekey, $idcais, $idgd, $cpr, $d, $f, $co);
-            } else {
-                $lignes_tri = $this->m_recette->getrecettrisss($this->company->ekey, $idcais, $idgd, $cpr, $d, $f, $co);
-            }
-            $this->property['recettes'] = caissier_escale_filtrer_lignes($lignes_tri);
+            $ra = roleattribut_guard_session_ra();
+            $admin = saisie_tri_est_admin();
+            $lignes_tri = $this->m_recette->getrecettrisss($this->company->ekey, $idcais, $idgd, $ra, $d, $f, $co, $admin);
+            $this->property['recettes'] = $admin ? $lignes_tri : caissier_escale_filtrer_lignes($lignes_tri);
             $this->property['genrespersonnels'] = $this->m_type_personnel->get();
             $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
             $this->property['typedocuments'] = $this->m_typedocument->get();
@@ -102,9 +100,24 @@
        {
 
             $this->company = $this->m_entreprises->get_key($ckey);
-            $d = $this->input->post('datedebut');
-            $f = $this->input->post('datefin');
+            $d = trim((string) $this->input->post('datedebut'));
+            $f = trim((string) $this->input->post('datefin'));
             $co = $this->input->post('_compag');
+            $date_debut = DateTime::createFromFormat('!Y-m-d', $d);
+            $date_fin = DateTime::createFromFormat('!Y-m-d', $f);
+            if (!$date_debut || !$date_fin || $date_debut->format('Y-m-d') !== $d || $date_fin->format('Y-m-d') !== $f || $date_debut > $date_fin) {
+                $this->session->set_flashdata('error', 'Veuillez choisir une date de début et une date de fin valides.');
+                redirect(
+                    'caisses/' . $this->company->ekey
+                    . '/cais/' . $idgd
+                    . '/' . (int) $idcais
+                    . '/' . (int) $cpr
+                    . '/recette_adjoint/' . (int) $sg
+                    . '/' . mdate('%d/%m/%Y', now('UTC'))
+                    . caissier_escale_query_suffix()
+                );
+                return;
+            }
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $idgd, $sg);
             $this->property['bus_stop'] = $bus_stop;
             
@@ -112,7 +125,9 @@
             $this->property['conex'] = $conex;
 
             $this->property['pagetitle'] .= " LES RECETTES&nbsp; <strong>{$d} au &nbsp;{$f}</strong>";
-            $this->property['recettes'] = $this->m_recette->getupdate($this->company->ekey, $idcais, $idgd, $cpr, $d, $f, $co);
+            $this->property['recettes'] = $this->m_recette->getupdate(
+                $this->company->ekey, $idcais, $idgd, roleattribut_guard_session_ra(), $d, $f, $co, saisie_tri_est_admin()
+            );
             $this->property['genrespersonnels'] = $this->m_type_personnel->get();
             $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
             $this->property['typedocuments'] = $this->m_typedocument->get();
@@ -337,6 +352,12 @@
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
+            $ligne = $this->db->query('SELECT * FROM recette WHERE id_recette = ? LIMIT 1', array((int) $recet))->row();
+            if (!saisie_recette_modifiable($ligne)) {
+                $this->session->set_flashdata('error', 'Cette recette ne peut plus être modifiée.');
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
             if($this->input->post('daterecep')!= '')
             {
                

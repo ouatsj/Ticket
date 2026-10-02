@@ -107,7 +107,7 @@
                                 <td><span><?= $item->montant_depens;?></span></td>
                                 <td><span><?= $item->commentaire;?></span></td>
                                 <td>
-                                    <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
+                                    <? if (($this->session->agent->userole === '1' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18') && saisie_depense_modifiable($item)): ?>
                                         <a href="<?= "#?{$item->id_depense}&&&"; ?>"
                                             class="md-trigger" data-modal="depense-edit-<?= $item->id_depense; ?>">
                                             <span class="fas fa-edit text-warning"></span>

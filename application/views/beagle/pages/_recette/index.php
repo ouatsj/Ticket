@@ -151,7 +151,7 @@
                                 <td><span><?= $item->montant_recet;?></span></td>
                                 <td><span><?= function_exists('caissier_escale_commentaire_visible') ? caissier_escale_commentaire_visible($item->commentaire_recet) : $item->commentaire_recet; ?></span></td>
                                 <td>
-                                    <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
+                                    <? if (($this->session->agent->userole === '1' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18') && saisie_recette_modifiable($item)): ?>
                                         <a href="<?= "#?{$item->id_recette}&&&"; ?>"
                                             class="md-trigger" data-modal="recette-edit-<?= $item->id_recette; ?>">
                                             <span class="fas fa-edit text-warning"></span>

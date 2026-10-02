@@ -51,6 +51,9 @@
                         </thead>
 
                         <tbody class="no-border-x">
+                        <? if (empty($recettes)): ?>
+                            <tr><td colspan="8" class="text-center text-muted">Aucune recette sur cette période.</td></tr>
+                        <? else: ?>
                         <?foreach ($recettes as $item): ?>
                             <tr>
                                 <td><span><?= $item->date_recet;?></span></td>
@@ -61,10 +64,12 @@
                                 <td><span><?= $item->montant_recet;?></span></td>
                                 <td><span><?= $item->commentaire_recet;?></span></td>
                                 <td>
+                                    <? if (saisie_recette_modifiable($item)): ?>
                                     <a href="<?= "#?{$item->id_recette}&&&"; ?>"
                                         class="md-trigger" data-modal="recette-edit-<?= $item->id_recette; ?>">
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
+                                    <? endif; ?>
 
                                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="recette-edit-<?= $item->id_recette; ?>">
@@ -169,6 +174,7 @@
                                 </td>
                             </tr>
                             <? endforeach; ?>
+                        <? endif; ?>
                         </tbody>
 
                     </table>
