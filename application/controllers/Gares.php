@@ -2100,8 +2100,20 @@
                     $bus_stop = $this->m_gare_depart->get($this->company->id_entreprise, $cdg);
                             $this->property['bus_stop'] = $bus_stop;
 
-                    // Liste admin : tous les départs de la gare (y compris portées multi SG).
-                    $this->property['progs'] = $this->m_programme->getall($this->company->id_entreprise, $cdg);
+                    // Un seul jour. La compagnie vient de ?cie= (bouton Suivant la conserve).
+                    $prog_jour = trim((string) $this->input->get('jour'));
+                    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $prog_jour)) {
+                        $prog_jour = mdate('%Y-%m-%d', now('UTC'));
+                    }
+                    $prog_cie = preg_replace('/[^0-9]/', '', (string) $this->input->get('cie'));
+                    $this->property['progs'] = $this->m_programme->getall(
+                        $this->company->id_entreprise,
+                        $cdg,
+                        FALSE,
+                        null,
+                        $prog_jour,
+                        $prog_cie
+                    );
                     $prog_codes = array();
                     foreach ($this->property['progs'] as $__prog_row) {
                         if (!empty($__prog_row->code_progr)) {
@@ -2109,6 +2121,9 @@
                         }
                     }
                     $this->property['prog_page_stats'] = $this->m_programme->preload_page_stats($prog_codes);
+                    $this->property['prog_page_stats']['sieges_occupes'] = $this->m_programme->preload_sieges_occupes(
+                        $this->property['progs']
+                    );
                     $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $sg);
                         $this->property['gare_stop'] = $gare_stop;
                     
@@ -2138,6 +2153,23 @@
                             'Impossible d\'ouvrir la page programmes pour cette gare.'
                         );
                     }
+
+                    $prog_today = mdate('%Y-%m-%d', now('UTC'));
+                    $prog_prev = ($prog_jour > $prog_today)
+                        ? date('Y-m-d', strtotime($prog_jour . ' -1 day'))
+                        : null;
+                    $this->property['prog_nav'] = array(
+                        'jour' => $prog_jour,
+                        'jour_fr' => date('d/m/Y', strtotime($prog_jour)),
+                        'cie' => $prog_cie,
+                        'prev' => $prog_prev,
+                        'next' => date('Y-m-d', strtotime($prog_jour . ' +1 day')),
+                        'compagnies' => $this->m_programme->compagnies_programmes_gare($this->company->id_entreprise, $cdg),
+                        'base' => site_url(
+                            'gares/' . $this->company->ekey . '/gTv/' . $cdg
+                            . '/prog/' . $cpus . '/' . $sg . '/' . $date_seg
+                        ),
+                    );
 
                     $cid = $this->company->id_entreprise;
                     $ekey = $this->company->ekey;
@@ -2177,9 +2209,6 @@
                         return $this->m_position->get();
                     });
                     $this->property['lignes'] = $this->m_lignes->getgid($cid, $gare_id);
-                    $this->property['nonpersonnels'] = app_cache_remember('clients_p_all', 300, function () {
-                        return $this->m_client->getp();
-                    });
                     $this->property['bases'] = app_cache_remember('tarifs_all', 600, function () {
                         return $this->m_tarifs->get();
                     });

@@ -830,6 +830,278 @@
         }
 
         /**
+         * Sièges occupés de toute la liste programmes, en quelques requêtes.
+         * Même règle que sieges_occupes_programme (stock partagé, reconduction, frères).
+         *
+         * @param object[] $programmes lignes déjà chargées (code_progr, depart_code, date_progr)
+         * @return array<string,int[]> code_progr => numéros de sièges
+         */
+        public function preload_sieges_occupes(array $programmes)
+        {
+            $page = array();
+            foreach ($programmes as $row) {
+                $code = isset($row->code_progr) ? trim((string) $row->code_progr) : '';
+                if ($code === '') {
+                    continue;
+                }
+                $date = isset($row->date_progr) ? substr((string) $row->date_progr, 0, 10) : '';
+                $page[$code] = array(
+                    'depart' => isset($row->depart_code) ? trim((string) $row->depart_code) : '',
+                    'date' => $date,
+                );
+            }
+            if (empty($page)) {
+                return array();
+            }
+
+            $pageCodes = array_keys($page);
+            $recoSources = array();
+            $ph = implode(',', array_fill(0, count($pageCodes), '?'));
+            foreach ($this->db->query(
+                "SELECT code_progr_cible, code_progr_source
+                 FROM programme_reconduction
+                 WHERE code_progr_cible IN ({$ph})",
+                $pageCodes
+            )->result() as $r) {
+                $cible = trim((string) $r->code_progr_cible);
+                if ($cible !== '') {
+                    $recoSources[$cible] = trim((string) $r->code_progr_source);
+                }
+            }
+
+            $pairs = array();
+            foreach ($page as $code => $meta) {
+                if (isset($recoSources[$code]) || $meta['depart'] === '' || $meta['date'] === '') {
+                    continue;
+                }
+                $pairs[$meta['depart'] . '|' . $meta['date']] = array($meta['depart'], $meta['date']);
+            }
+
+            $siblings = array();
+            if (!empty($pairs)) {
+                $tuple = array();
+                $bind = array();
+                foreach ($pairs as $pair) {
+                    $tuple[] = '(?,?)';
+                    $bind[] = $pair[0];
+                    $bind[] = $pair[1];
+                }
+                foreach ($this->db->query(
+                    "SELECT pr.code_progr, pr.depart_code, pr.date_progr
+                     FROM programme pr
+                     LEFT JOIN programme_reconduction r ON r.code_progr_cible = pr.code_progr
+                     WHERE r.code_progr_cible IS NULL
+                       AND (pr.depart_code, pr.date_progr) IN (" . implode(',', $tuple) . ")",
+                    $bind
+                )->result() as $s) {
+                    $key = trim((string) $s->depart_code) . '|' . substr((string) $s->date_progr, 0, 10);
+                    $c = trim((string) $s->code_progr);
+                    if ($c !== '') {
+                        $siblings[$key][$c] = $c;
+                    }
+                }
+            }
+
+            $all = $pageCodes;
+            foreach ($recoSources as $src) {
+                if ($src !== '') {
+                    $all[] = $src;
+                }
+            }
+            foreach ($siblings as $list) {
+                foreach ($list as $c) {
+                    $all[] = $c;
+                }
+            }
+            $liensParCode = $this->_liens_occupation_par_code(array_values(array_unique($all)));
+
+            $sets = array();
+            $union = array();
+            foreach ($page as $code => $meta) {
+                $set = $this->_partages_depuis_liens($code, $liensParCode);
+                if (!empty($recoSources[$code])) {
+                    $set[$recoSources[$code]] = true;
+                    $set[$code] = true;
+                }
+                if (!isset($recoSources[$code]) && $meta['depart'] !== '' && $meta['date'] !== '') {
+                    $key = $meta['depart'] . '|' . $meta['date'];
+                    if (!empty($siblings[$key])) {
+                        foreach ($siblings[$key] as $sib) {
+                            if ($this->_occupation_compatible_liens($code, $sib, $liensParCode)) {
+                                $set[$sib] = true;
+                            }
+                        }
+                    }
+                }
+                $set[$code] = true;
+                $sets[$code] = $set;
+                foreach ($set as $c => $on) {
+                    if ($on && $c !== '') {
+                        $union[$c] = true;
+                    }
+                }
+            }
+
+            $seats = array();
+            $unionCodes = array_keys($union);
+            if (!empty($unionCodes)) {
+                $phSeats = implode(',', array_fill(0, count($unionCodes), '?'));
+                foreach ($this->db->query(
+                    "SELECT code_pro, num_siege_categorie AS n
+                     FROM passager
+                     WHERE code_pro IN ({$phSeats})
+                       AND num_siege_categorie IS NOT NULL
+                       AND num_siege_categorie > 0
+                       AND actif_pas = 0
+                     GROUP BY code_pro, num_siege_categorie",
+                    $unionCodes
+                )->result() as $row) {
+                    $n = (int) $row->n;
+                    if ($n > 0) {
+                        $seats[$row->code_pro][$n] = $n;
+                    }
+                }
+            }
+
+            $out = array();
+            foreach ($sets as $code => $set) {
+                $occ = array();
+                foreach ($set as $c => $on) {
+                    if (!$on || empty($seats[$c])) {
+                        continue;
+                    }
+                    foreach ($seats[$c] as $n => $keep) {
+                        $occ[$n] = $n;
+                    }
+                }
+                ksort($occ);
+                $out[$code] = array_values($occ);
+            }
+
+            return $out;
+        }
+
+        /**
+         * @param string[] $codes
+         * @return array<string,object[]>
+         */
+        protected function _liens_occupation_par_code(array $codes)
+        {
+            $clean = array();
+            foreach ($codes as $c) {
+                $c = trim((string) $c);
+                if ($c !== '') {
+                    $clean[$c] = $c;
+                }
+            }
+            $codes = array_values($clean);
+            $index = array();
+            if (empty($codes)) {
+                return $index;
+            }
+            $ph = implode(',', array_fill(0, count($codes), '?'));
+            $rows = $this->db->query(
+                "SELECT code_progr_principal, code_progr_suite, code_progr_derive
+                 FROM programme_correspondance
+                 WHERE code_progr_principal IN ({$ph})
+                    OR code_progr_suite IN ({$ph})
+                    OR code_progr_derive IN ({$ph})",
+                array_merge($codes, $codes, $codes)
+            )->result();
+            foreach ($rows as $lien) {
+                foreach (array('code_progr_principal', 'code_progr_suite', 'code_progr_derive') as $field) {
+                    $c = !empty($lien->$field) ? trim((string) $lien->$field) : '';
+                    if ($c !== '') {
+                        $index[$c][] = $lien;
+                    }
+                }
+            }
+
+            return $index;
+        }
+
+        /**
+         * @param array<string,object[]> $liensParCode
+         * @return array<string,bool>
+         */
+        protected function _partages_depuis_liens($code, array $liensParCode)
+        {
+            $code = trim((string) $code);
+            $set = array();
+            if ($code === '') {
+                return $set;
+            }
+            $set[$code] = true;
+            if (empty($liensParCode[$code])) {
+                return $set;
+            }
+            foreach ($liensParCode[$code] as $lien) {
+                $principal = !empty($lien->code_progr_principal) ? trim((string) $lien->code_progr_principal) : '';
+                $suite = !empty($lien->code_progr_suite) ? trim((string) $lien->code_progr_suite) : '';
+                $derive = !empty($lien->code_progr_derive) ? trim((string) $lien->code_progr_derive) : '';
+                if ($principal === $code) {
+                    if ($suite !== '') {
+                        $set[$suite] = true;
+                    }
+                    if ($derive !== '') {
+                        $set[$derive] = true;
+                    }
+                } elseif ($suite === $code || $derive === $code) {
+                    if ($principal !== '') {
+                        $set[$principal] = true;
+                    }
+                }
+            }
+
+            return $set;
+        }
+
+        /**
+         * @param array<string,object[]> $liensParCode
+         */
+        protected function _occupation_compatible_liens($codeA, $codeB, array $liensParCode)
+        {
+            $a = trim((string) $codeA);
+            $b = trim((string) $codeB);
+            if ($a === '' || $b === '' || $a === $b) {
+                return true;
+            }
+            $liensA = isset($liensParCode[$a]) ? $liensParCode[$a] : array();
+            $liensB = isset($liensParCode[$b]) ? $liensParCode[$b] : array();
+            if (empty($liensA) && empty($liensB)) {
+                return true;
+            }
+
+            $principaux = function ($liens) {
+                $out = array();
+                foreach ($liens as $lien) {
+                    $p = !empty($lien->code_progr_principal) ? trim((string) $lien->code_progr_principal) : '';
+                    if ($p !== '') {
+                        $out[$p] = true;
+                    }
+                }
+                return $out;
+            };
+            $pa = $principaux($liensA);
+            $pb = $principaux($liensB);
+            $meme = isset($pa[$b]) || isset($pb[$a]);
+            if (!$meme) {
+                foreach ($pa as $p => $on) {
+                    if (isset($pb[$p])) {
+                        $meme = true;
+                        break;
+                    }
+                }
+            }
+            if (!$meme) {
+                return true;
+            }
+            $partages = $this->_partages_depuis_liens($a, $liensParCode);
+
+            return !empty($partages[$b]);
+        }
+
+        /**
          * Nombre de ventes (passagers) par sous-gare sur ce programme.
          * @return array<int,int> idsousgare => nb
          */
@@ -1655,7 +1927,7 @@
         }
         
         //all prgo
-        public function getall($cd, $cdg, $pr_id = FALSE, $idsousgare = null)
+        public function getall($cd, $cdg, $pr_id = FALSE, $idsousgare = null, $date_jour = null, $cle_compagnie = null)
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
             // Liste admin gare : sans SG explicite, montrer TOUS les départs de la gare
@@ -1665,11 +1937,8 @@
             if ($idsousgare !== null && $idsousgare !== '' && $idsousgare !== FALSE && (int) $idsousgare > 0) {
                 $sgFilter = $this->sql_filtre_sousgare($idsousgare);
             }
-            $CI =& get_instance();
-            if (!isset($CI->m_programme_reconduction)) {
-                $CI->load->model('Programme_reconduction_model', 'm_programme_reconduction');
-            }
             // Compagnie d'arrivée = compagnie de la gare de destination de la ligne.
+            // Pas de realigner / UPDATE ici : cet écran est une lecture, un jour à la fois.
             $selectArrivee = "pr.*, lh.*, h.*, lg.*, t.*, ct.*, ex.*, e.*,
                     ca.nom_compagnie AS nom_compagnie_arrivee,
                     ca.cle_compagnie AS cle_compagnie_arrivee,
@@ -1688,13 +1957,23 @@
             if ($pr_id === FALSE)
             {
                 $cdgEsc = $this->db->escape_str($cdg);
-                $CI->m_programme_reconduction->realigner_compagnie_cibles($cdg);
-                $this->assurer_visibilite_reconduits($cdg);
+                $dateSql = "AND pr.date_progr >= '$today'";
+                $jour = trim((string) $date_jour);
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $jour)) {
+                    $jour = $this->db->escape_str($jour);
+                    $dateSql = "AND pr.date_progr = '{$jour}'";
+                }
+                $cieSql = '';
+                $cle = trim((string) $cle_compagnie);
+                if ($cle !== '' && ctype_digit($cle)) {
+                    $cle = $this->db->escape_str($cle);
+                    $cieSql = "AND ca.cle_compagnie = '{$cle}'";
+                }
                 return $this->db->query(
                     "SELECT {$selectArrivee}
                     {$joinsArrivee}
                     WHERE e.id_entreprise = '$cd'
-                    AND pr.date_progr >= '$today'
+                    {$dateSql}
                     AND h.h_active = 1
                     AND pr.actif_prog = 0
                     AND (
@@ -1704,6 +1983,7 @@
                             WHERE r.gare_cible = '{$cdgEsc}'
                         )
                     )
+                    {$cieSql}
                     {$sgFilter}
                     ORDER BY ca.nom_compagnie ASC, pr.date_progr ASC, h.heure ASC")->result();
             } else
@@ -1717,6 +1997,36 @@
                     AND h.h_active = 1
                     AND pr.actif_prog = 0
                     {$sgFilter}")->row();
+        }
+
+        /**
+         * Compagnies d'arrivée qui ont encore des départs à cette gare (à partir d'aujourd'hui).
+         *
+         * @return object[]
+         */
+        public function compagnies_programmes_gare($cd, $cdg)
+        {
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            return $this->db->query(
+                "SELECT ca.cle_compagnie, ca.nom_compagnie
+                 FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                 JOIN gare_exp ex ON pr.gareidentif = ex.code_gaexp
+                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.id_entreprise = ?
+                   AND pr.gareidentif = ?
+                   AND pr.date_progr >= ?
+                   AND h.h_active = 1
+                   AND pr.actif_prog = 0
+                 GROUP BY ca.cle_compagnie, ca.nom_compagnie
+                 ORDER BY ca.nom_compagnie ASC",
+                array($cd, $cdg, $today)
+            )->result();
         }
 
         /**

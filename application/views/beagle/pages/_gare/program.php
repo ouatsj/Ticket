@@ -277,7 +277,20 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
 })();
 </script>
 
-<? if (!empty($progs)): ?>
+<?php
+    $prog_nav = (isset($prog_nav) && is_array($prog_nav)) ? $prog_nav : null;
+    $prog_lien = function ($jour, $cie) use ($prog_nav) {
+        if (!$prog_nav || $jour === null || $jour === '') {
+            return '#';
+        }
+        $q = array('jour' => $jour);
+        if ($cie !== null && $cie !== '') {
+            $q['cie'] = $cie;
+        }
+        return $prog_nav['base'] . '?' . http_build_query($q);
+    };
+?>
+<? if (!empty($progs) || !empty($prog_nav)): ?>
     <div class="row">
         <p class="mt-0 mb-2 ml-4">
             <a href="<?= site_url('gares/'.$this->session->company->ekey.'/gTc/'. $gare_stop->idengare.'/compte/'. $conex->roleattribut .'/'. $gare_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
@@ -378,6 +391,44 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
                                    placeholder="Rechercher code, ligne, date, heure…" autocomplete="off">
                         </div>
                     </div>
+                    <?php if (!empty($prog_nav)): ?>
+                    <div class="mb-3">
+                        <div class="d-flex flex-wrap align-items-center mb-2" style="gap:0.5rem;">
+                            <?php if (!empty($prog_nav['prev'])): ?>
+                                <a class="btn btn-outline-secondary btn-sm"
+                                   href="<?= htmlspecialchars($prog_lien($prog_nav['prev'], $prog_nav['cie']), ENT_QUOTES, 'UTF-8'); ?>">
+                                    Jour précédent
+                                </a>
+                            <?php endif; ?>
+                            <strong>Départs du <?= htmlspecialchars($prog_nav['jour_fr'], ENT_QUOTES, 'UTF-8'); ?></strong>
+                            <a class="btn btn-primary btn-sm"
+                               href="<?= htmlspecialchars($prog_lien($prog_nav['next'], $prog_nav['cie']), ENT_QUOTES, 'UTF-8'); ?>">
+                                Jour suivant
+                            </a>
+                        </div>
+                        <div class="d-flex flex-wrap" style="gap:0.35rem;">
+                            <a class="btn btn-sm <?= ($prog_nav['cie'] === '') ? 'btn-success' : 'btn-outline-success'; ?>"
+                               href="<?= htmlspecialchars($prog_lien($prog_nav['jour'], ''), ENT_QUOTES, 'UTF-8'); ?>">
+                                Toutes les compagnies
+                            </a>
+                            <?php foreach ((array) $prog_nav['compagnies'] as $cie_row):
+                                $cle = isset($cie_row->cle_compagnie) ? (string) $cie_row->cle_compagnie : '';
+                                $nom = isset($cie_row->nom_compagnie) ? (string) $cie_row->nom_compagnie : $cle;
+                                if ($cle === '') {
+                                    continue;
+                                }
+                            ?>
+                                <a class="btn btn-sm <?= ($prog_nav['cie'] === $cle) ? 'btn-success' : 'btn-outline-success'; ?>"
+                                   href="<?= htmlspecialchars($prog_lien($prog_nav['jour'], $cle), ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?= htmlspecialchars($nom, ENT_QUOTES, 'UTF-8'); ?>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (empty($progs)): ?>
+                        <p class="text-warning mb-0">Aucun départ ce jour pour cette compagnie.</p>
+                    <?php endif; ?>
                     <ul class="nav nav-tabs nav-tabs-primary nav-tabs-classic flex-wrap" role="tablist" id="tabs-prog-compagnie">
                         <? foreach ($progs_par_compagnie as $cle => $groupe):
                             $comp_label = !empty($groupe['nom_compagnie']) ? $groupe['nom_compagnie'] : 'Sans compagnie';
@@ -466,13 +517,9 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
                                             $__ventes = isset($__prog_stats['ventes_sg'][$__code_prog])
                                                 ? $__prog_stats['ventes_sg'][$__code_prog]
                                                 : array();
-                                            $__sieges_occ = array();
-                                            if (!isset($this->m_programme)) {
-                                                $this->load->model('Programme_model', 'm_programme');
-                                            }
-                                            if (isset($this->m_programme)) {
-                                                $__sieges_occ = $this->m_programme->sieges_occupes_programme($__code_prog);
-                                            }
+                                            $__sieges_occ = isset($__prog_stats['sieges_occupes'][$__code_prog])
+                                                ? $__prog_stats['sieges_occupes'][$__code_prog]
+                                                : array();
                                             $__ventes_attr = array();
                                             foreach ($__ventes as $__sg => $__nb) {
                                                 $__ventes_attr[] = ((int) $__sg) . ':' . ((int) $__nb);
