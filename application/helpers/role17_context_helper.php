@@ -1453,3 +1453,239 @@ if (!function_exists('role17_inject_property')) {
         return $property;
     }
 }
+
+if (!function_exists('role17_nom_lieu_escale')) {
+    /**
+     * « BOROMO (escale) » → « BOROMO ». Le nom entre parenthèses n'est pas le lieu.
+     *
+     * @param string $label
+     * @return string
+     */
+    function role17_nom_lieu_escale($label)
+    {
+        $label = trim((string) $label);
+        if ($label === '') {
+            return '';
+        }
+        $cut = preg_replace('/\s*\([^)]*\)\s*$/', '', $label);
+        $cut = trim((string) $cut);
+        return $cut !== '' ? $cut : $label;
+    }
+}
+
+if (!function_exists('role17_codes_gaexp_par_nom')) {
+    /**
+     * Codes gare_exp du lieu. La compagnie de l'itinéraire est préférée s'il y a un homonyme.
+     *
+     * @param string $nom
+     * @param int|null $id_compagnie
+     * @return string[]
+     */
+    function role17_codes_gaexp_par_nom($nom, $id_compagnie = null)
+    {
+        $nom = role17_nom_lieu_escale($nom);
+        if ($nom === '') {
+            return array();
+        }
+        $CI =& get_instance();
+        $rows = $CI->db->query(
+            "SELECT code_gaexp, id_compagd
+             FROM gare_exp
+             WHERE UPPER(TRIM(nom_gaep)) = UPPER(TRIM(?))",
+            array($nom)
+        )->result();
+        if (!$rows) {
+            return array();
+        }
+        $all = array();
+        $cie = array();
+        $id_compagnie = $id_compagnie !== null ? (int) $id_compagnie : 0;
+        foreach ($rows as $row) {
+            $code = trim((string) $row->code_gaexp);
+            if ($code === '') {
+                continue;
+            }
+            $all[$code] = $code;
+            if ($id_compagnie > 0 && (int) $row->id_compagd === $id_compagnie) {
+                $cie[$code] = $code;
+            }
+        }
+        if ($cie) {
+            return array_values($cie);
+        }
+        return array_values($all);
+    }
+}
+
+if (!function_exists('role17_code_gaexp_lieu')) {
+    /**
+     * Code gare du lieu d'escale, le même que les anciennes ventes.
+     * Vide si le départ n'est pas une escale ou si aucune gare ne porte ce nom.
+     *
+     * @param string $depart_value escale~id
+     * @return string
+     */
+    function role17_code_gaexp_lieu($depart_value)
+    {
+        $depart_value = str_replace('|', '~', trim((string) $depart_value));
+        if ($depart_value === '' || strpos($depart_value, '~') === false) {
+            return '';
+        }
+        list($kind, $ref) = explode('~', $depart_value, 2);
+        if (trim($kind) !== 'escale' || trim($ref) === '') {
+            return '';
+        }
+        $CI =& get_instance();
+        $row = $CI->db->query(
+            "SELECT ie.nom_escale, ge.id_compagd
+             FROM itineraire_escales ie
+             JOIN lignes parent ON parent.ident_ligne = ie.id_lignes
+             JOIN gare_exp ge ON ge.code_gaexp = parent.gaexp_lg
+             WHERE ie.id_escale = ?
+             LIMIT 1",
+            array((int) $ref)
+        )->row();
+        if (!$row) {
+            return '';
+        }
+        $codes = role17_codes_gaexp_par_nom(
+            $row->nom_escale,
+            isset($row->id_compagd) ? (int) $row->id_compagd : null
+        );
+        return $codes ? (string) $codes[0] : '';
+    }
+}
+
+if (!function_exists('role17_code_gaexp_for_roleattribut')) {
+    /**
+     * @param int|string $roleattribut
+     * @return string
+     */
+    function role17_code_gaexp_for_roleattribut($roleattribut)
+    {
+        $roleattribut = (int) $roleattribut;
+        if ($roleattribut <= 0) {
+            return '';
+        }
+        $CI =& get_instance();
+        if (!$CI->db->field_exists('vente_escale_value', 'attributions_role')) {
+            return '';
+        }
+        $row = $CI->db->query(
+            "SELECT vente_escale_value
+             FROM attributions_role
+             WHERE roleattribut = ?
+             LIMIT 1",
+            array($roleattribut)
+        )->row();
+        if (!$row || empty($row->vente_escale_value)) {
+            return '';
+        }
+        return role17_code_gaexp_lieu($row->vente_escale_value);
+    }
+}
+
+if (!function_exists('escale_codes_gaexp_contexte')) {
+    /**
+     * Codes gare du lieu demandé par la page escale (nom, valeur, opérateurs).
+     *
+     * @return string[]
+     */
+    function escale_codes_gaexp_contexte()
+    {
+        $CI =& get_instance();
+        $codes = array();
+        $nom = trim((string) $CI->input->get_post('escale_nom'));
+        if ($nom !== '') {
+            foreach (role17_codes_gaexp_par_nom($nom) as $code) {
+                $codes[$code] = $code;
+            }
+        }
+        $valeur = str_replace('|', '~', trim((string) $CI->input->get_post('escale')));
+        if (strpos($valeur, 'escale~') === 0) {
+            $one = role17_code_gaexp_lieu($valeur);
+            if ($one !== '') {
+                $codes[$one] = $one;
+            }
+        }
+        foreach (explode(',', (string) $CI->input->get_post('escale_ops')) as $id) {
+            $id = (int) $id;
+            if ($id <= 0) {
+                continue;
+            }
+            $one = role17_code_gaexp_for_roleattribut($id);
+            if ($one !== '') {
+                $codes[$one] = $one;
+            }
+        }
+        return array_values($codes);
+    }
+}
+
+if (!function_exists('escale_lieu_sql_requete')) {
+    /**
+     * Limite un état au lieu d'escale demandé : vendeurs actuels, même nom, ou mêmes attributions.
+     * Inactif si la requête ne porte pas escale_nom, escale ou escale_ops.
+     *
+     * @param string $arAlias
+     * @return string
+     */
+    function escale_lieu_sql_requete($arAlias = 'ar')
+    {
+        $CI =& get_instance();
+        $alias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $arAlias);
+        if ($alias === '') {
+            $alias = 'ar';
+        }
+        $nom = trim((string) $CI->input->get_post('escale_nom'));
+        $valeur = str_replace('|', '~', trim((string) $CI->input->get_post('escale')));
+        $ops = array();
+        foreach (explode(',', (string) $CI->input->get_post('escale_ops')) as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ops[$id] = $id;
+            }
+        }
+        if ($nom === '' && $valeur === '' && !$ops) {
+            return '';
+        }
+        if (!$CI->db->field_exists('vente_escale_label', 'attributions_role')
+            || !$CI->db->field_exists('vente_escale_value', 'attributions_role')
+        ) {
+            if (!$ops) {
+                return '';
+            }
+            return ' AND ' . $alias . '.roleattribut IN (' . implode(',', $ops) . ') ';
+        }
+        $parts = array();
+        if ($ops) {
+            $parts[] = $alias . '.roleattribut IN (' . implode(',', $ops) . ')';
+        }
+        if ($nom !== '') {
+            $parts[] = 'UPPER(TRIM(' . $alias . '.vente_escale_label)) = UPPER(TRIM(' . $CI->db->escape($nom) . '))';
+        }
+        if ($valeur !== '') {
+            $parts[] = "REPLACE(TRIM(" . $alias . ".vente_escale_value), '|', '~') = " . $CI->db->escape($valeur);
+        }
+        $codesLieu = function_exists('escale_codes_gaexp_contexte') ? escale_codes_gaexp_contexte() : array();
+        if ($codesLieu) {
+            $inLieu = array();
+            foreach ($codesLieu as $codeLieu) {
+                $inLieu[] = $CI->db->escape($codeLieu);
+            }
+            // Anciens vendeurs escale : le compte est sur la gare du lieu, sans libellé.
+            $parts[] = $alias . '.roleattribut IN (
+                SELECT ar_lieu.roleattribut
+                FROM attributions_role ar_lieu
+                JOIN user_login ul_lieu ON ar_lieu.idgestcompte = ul_lieu.uid_login
+                WHERE ar_lieu.userole = 17
+                  AND ul_lieu.guser IN (' . implode(',', $inLieu) . ')
+            )';
+        }
+        if (!$parts) {
+            return '';
+        }
+
+        return ' AND (' . implode(' OR ', $parts) . ') ';
+    }
+}

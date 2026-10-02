@@ -47,15 +47,25 @@
             if (strpos($ulPart, 'AND') === 0) {
                 $ulPart = trim(substr($ulPart, 3));
             }
+            // Le ticket escale suit departgescal (gare du lieu), pas la gare d'affiliation
+            // ni l'origine de la ligne parent.
+            $depart = 'esp.departgescal';
+            $horsLieu = "({$depart} IS NOT NULL AND {$depart} <> '' AND {$depart} NOT IN ({$inSql}))";
             return " AND (
-                ({$ulPart})
-                OR {$sgAlias}.gareprinceid IN ({$inSql})
-                OR EXISTS (
-                    SELECT 1 FROM gare_exp ge
-                    WHERE ge.code_gaexp = {$sgAlias}.gareprinceid
-                    AND (ge.garesid IN ({$inSql}) OR ge.code_gaexp IN ({$inSql}))
+                {$depart} IN ({$inSql})
+                OR (
+                    NOT {$horsLieu}
+                    AND (
+                        ({$ulPart})
+                        OR {$sgAlias}.gareprinceid IN ({$inSql})
+                        OR EXISTS (
+                            SELECT 1 FROM gare_exp ge
+                            WHERE ge.code_gaexp = {$sgAlias}.gareprinceid
+                            AND (ge.garesid IN ({$inSql}) OR ge.code_gaexp IN ({$inSql}))
+                        )
+                        OR {$gaexpExpr} IN ({$inSql})
+                    )
                 )
-                OR {$gaexpExpr} IN ({$inSql})
             ) ";
         }
 
@@ -66,13 +76,70 @@
             if ($slashPos !== false) {
                 $us = trim(substr($us, 0, $slashPos));
             }
+            $lieu = function_exists('escale_lieu_sql_requete') ? escale_lieu_sql_requete($arAlias) : '';
             if ($us === '' || $us === '0') {
-                return '';
+                return $lieu;
             }
             if (!isset($this->m_passager)) {
                 $this->load->model('Passager_model', 'm_passager');
             }
-            return $this->m_passager->sql_filtre_vendeur($us, $arAlias);
+            return $this->m_passager->sql_filtre_vendeur($us, $arAlias) . $lieu;
+        }
+
+        /**
+         * Gare de session et, pour une vente escale, la gare du lieu.
+         *
+         * @param string $gid
+         * @param int|string $roleattribut
+         * @return string[]
+         */
+        protected function _codes_depart_agent($gid, $roleattribut = 0)
+        {
+            $codes = array();
+            $gid = trim((string) $gid);
+            if ($gid !== '' && $gid !== '0') {
+                $codes[$gid] = $gid;
+            }
+            $this->load->helper('role17_context');
+            $lieu = '';
+            if ((int) $roleattribut > 0 && function_exists('role17_code_gaexp_for_roleattribut')) {
+                $lieu = role17_code_gaexp_for_roleattribut($roleattribut);
+            }
+            if ($lieu === '' && function_exists('role17_is_agent') && role17_is_agent()
+                && function_exists('role17_forced_escale') && function_exists('role17_code_gaexp_lieu')
+            ) {
+                $forced = role17_forced_escale((int) $roleattribut > 0 ? (int) $roleattribut : null, $gid);
+                if ($forced && !empty($forced['value'])) {
+                    $lieu = role17_code_gaexp_lieu($forced['value']);
+                }
+            }
+            if ($lieu !== '') {
+                $codes[$lieu] = $lieu;
+            }
+            return array_values($codes);
+        }
+
+        /**
+         * @param string $gid
+         * @param int|string $roleattribut
+         * @param string $column
+         * @return string
+         */
+        protected function _sql_depart_agent($gid, $roleattribut = 0, $column = 'es.departgescal')
+        {
+            $column = preg_replace('/[^a-zA-Z0-9_.]/', '', (string) $column);
+            if ($column === '') {
+                $column = 'es.departgescal';
+            }
+            $codes = $this->_codes_depart_agent($gid, $roleattribut);
+            if (!$codes) {
+                return '1=0';
+            }
+            $in = array();
+            foreach ($codes as $code) {
+                $in[] = $this->db->escape($code);
+            }
+            return $column . ' IN (' . implode(',', $in) . ')';
         }
 
         public function create(array $data)
@@ -336,7 +403,7 @@
                 WHERE e.ekey = '$cd'
                 AND es.dateescal >= '$dd' AND es.dateescal < DATE_ADD('$fd', INTERVAL 1 DAY)
                 AND ar.roleattribut = '$idcox'
-                AND es.departgescal = '$gid'
+                AND " . $this->_sql_depart_agent($gid, $idcox) . "
                 AND es.cptarrchgescal = 0
                 GROUP BY es.iduseescal, dest.id_compaga, c.id_compagnie, es.idclescal ASC")->result();
         }
@@ -767,6 +834,7 @@
          */
         public function getrep_escale($cid, $uid, $gid, $sgid)
         {
+            $depart = $this->_sql_depart_agent($gid, $uid, 'es.departgescal');
             return $this->db->query(
                 "SELECT es.*, cl.nom_client, cl.prenom_client, cl.contact_client,
                         cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
@@ -783,14 +851,14 @@
                  LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                  LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                  WHERE es.iduseescal = ?
-                 AND es.departgescal = ?
+                 AND {$depart}
                  AND es.departsgescal = ?
                  AND es.reimpr = 1
                  AND es.prixescal IS NOT NULL
                  AND es.prixescal > 0
                  ORDER BY es.idclescal DESC
                  LIMIT 80",
-                array($uid, $gid, $sgid)
+                array($uid, $sgid)
             )->result();
         }
 
@@ -808,6 +876,7 @@
             // Rôle 17 : ticket fait sur l'escale (gare + sous-gare + ligne attribuée).
             // Ne pas filtrer sur gaexp_lg de la ligne (origine Ouaga ≠ gare Boromo).
             if ($id_lignes !== '') {
+                $depart = $this->_sql_depart_agent($gd, 0, 'es.departgescal');
                 return $this->db->query(
                     "SELECT es.*, cl.nom_client, cl.prenom_client, cl.contact_client,
                             dest.nom_gadest, dest.code_gadest, dest.id_compaga, h.heure, lh.id_ligneheure,
@@ -826,10 +895,10 @@
                      WHERE e.ekey = ?
                      AND BINARY es.idclescal = ?
                      AND es.lignintescal = ?
-                     AND es.departgescal = ?
+                     AND {$depart}
                      AND es.departsgescal = ?
                      LIMIT 1",
-                    array($cid, $cod, $id_lignes, $gd, $sg)
+                    array($cid, $cod, $id_lignes, $sg)
                 )->row();
             }
 

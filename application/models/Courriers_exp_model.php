@@ -101,13 +101,14 @@
             if ($slashPos !== false) {
                 $us = trim(substr($us, 0, $slashPos));
             }
+            $lieu = function_exists('escale_lieu_sql_requete') ? escale_lieu_sql_requete($arAlias) : '';
             if ($us === '' || $us === '0') {
-                return '';
+                return $lieu;
             }
             if (!isset($this->m_passager)) {
                 $this->load->model('Passager_model', 'm_passager');
             }
-            return $this->m_passager->sql_filtre_vendeur($us, $arAlias);
+            return $this->m_passager->sql_filtre_vendeur($us, $arAlias) . $lieu;
         }
 
 

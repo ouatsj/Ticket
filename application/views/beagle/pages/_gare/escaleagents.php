@@ -31,11 +31,18 @@
         <div class="col-12 mb-3">
             <div class="sg-lieu-tabs escale-profils" role="tablist">
                 <?php foreach ($profils_admin as $i => $profil): ?>
+                    <?php $apercu = (!empty($escale_apercus) && !empty($escale_apercus[$profil['id']])) ? $escale_apercus[$profil['id']] : ''; ?>
+                    <?php if ($apercu !== ''): ?>
+                        <a class="sg-lieu-tab" href="<?= htmlspecialchars($apercu, ENT_QUOTES, 'UTF-8'); ?>">
+                            <?= htmlspecialchars($profil['label'], ENT_QUOTES, 'UTF-8'); ?>
+                        </a>
+                    <?php else: ?>
                     <button type="button" class="sg-lieu-tab<?= $i === 0 ? ' is-active' : ''; ?>"
                             data-esc-profil="<?= htmlspecialchars($profil['id'], ENT_QUOTES, 'UTF-8'); ?>"
                             role="tab" aria-selected="<?= $i === 0 ? 'true' : 'false'; ?>">
                         <?= htmlspecialchars($profil['label'], ENT_QUOTES, 'UTF-8'); ?>
                     </button>
+                    <?php endif; ?>
                 <?php endforeach; ?>
             </div>
         </div>
@@ -99,6 +106,9 @@
             color: #1f2937;
             font-weight: 700;
             font-size: .95rem;
+            text-align: center;
+            line-height: 48px;
+            text-decoration: none;
         }
         .escale-profils .sg-lieu-tab.is-active { background: #0d6efd; border-color: #0d6efd; color: #fff; }
         </style>

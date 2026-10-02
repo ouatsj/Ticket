@@ -225,6 +225,15 @@
             if (comp) {
                 url += `&comp=${encodeURIComponent(comp)}`;
             }
+            try {
+                var pageQs = new URLSearchParams(window.location.search);
+                ['escale', 'escale_nom', 'escale_ops'].forEach(function (cle) {
+                    var val = pageQs.get(cle);
+                    if (val) {
+                        url += '&' + cle + '=' + encodeURIComponent(val);
+                    }
+                });
+            } catch (e) { /* ignore */ }
             if (du && au) {
                 url += `&du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}`;
             }

@@ -350,7 +350,12 @@
                 "SELECT COUNT(idclescal) AS id FROM escalclients es WHERE es.dateescal = ?",
                 array($today)
             )->row();
-            $tampon = mdate("%y%d%m", now('UTC')) . ((int) $passecompt->id + 1) . $gid . $usen . $iduser;
+            $this->load->helper('role17_context');
+            $depart_code = role17_code_gaexp_lieu($depart_value);
+            if ($depart_code === '') {
+                $depart_code = $gid;
+            }
+            $tampon = mdate("%y%d%m", now('UTC')) . ((int) $passecompt->id + 1) . $depart_code . $usen . $iduser;
 
             $client_id = trim((string) $this->input->post('clientcompescal'));
             $nom_ref = trim((string) $this->input->post('cprclientescal'));
@@ -400,7 +405,7 @@
                 'iduseescal' => $iduser,
                 'clientescal' => $client_id,
                 'lignintescal' => $id_lignes,
-                'departgescal' => $gid,
+                'departgescal' => $depart_code,
                 'departsgescal' => $sgid,
                 'id_lgeheur' => $id_lgeheur,
                 // Préfixe pour router réimp / historique vers le ticket 57x40

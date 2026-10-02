@@ -149,6 +149,89 @@
          * @param string $gid idengare ou code gare
          * @return array
          */
+        /**
+         * Vendeurs escale (rôle 17) du même nom de lieu, y compris les attributions inactives.
+         *
+         * @param string $ekey
+         * @param string $nom
+         * @param string $valeur
+         * @param int[] $ops
+         * @return array
+         */
+        public function vendeurs_par_nom_escale($ekey, $nom, $valeur, array $ops)
+        {
+            if (!$this->db->field_exists('vente_escale_value', 'attributions_role')
+                || !$this->db->field_exists('vente_escale_label', 'attributions_role')
+            ) {
+                return array();
+            }
+            $nom = trim((string) $nom);
+            $valeur = str_replace('|', '~', trim((string) $valeur));
+            $ids = array();
+            foreach ($ops as $id) {
+                $id = (int) $id;
+                if ($id > 0) {
+                    $ids[$id] = $id;
+                }
+            }
+            $parts = array();
+            $binds = array($ekey);
+            if ($nom !== '') {
+                $parts[] = 'UPPER(TRIM(ar.vente_escale_label)) = UPPER(TRIM(?))';
+                $binds[] = $nom;
+            }
+            if ($valeur !== '') {
+                $parts[] = "REPLACE(TRIM(ar.vente_escale_value), '|', '~') = ?";
+                $binds[] = $valeur;
+            }
+            if ($ids) {
+                $parts[] = 'ar.roleattribut IN (' . implode(',', $ids) . ')';
+            }
+            $this->load->helper('role17_context');
+            $codesLieu = array();
+            if ($nom !== '' && function_exists('role17_codes_gaexp_par_nom')) {
+                foreach (role17_codes_gaexp_par_nom($nom) as $codeLieu) {
+                    $codesLieu[$codeLieu] = $codeLieu;
+                }
+            }
+            if ($valeur !== '' && function_exists('role17_code_gaexp_lieu') && strpos($valeur, 'escale~') === 0) {
+                $codeValeur = role17_code_gaexp_lieu($valeur);
+                if ($codeValeur !== '') {
+                    $codesLieu[$codeValeur] = $codeValeur;
+                }
+            }
+            if ($codesLieu) {
+                $inLieu = array();
+                foreach ($codesLieu as $codeLieu) {
+                    $inLieu[] = $this->db->escape($codeLieu);
+                }
+                $parts[] = 'ul.guser IN (' . implode(',', $inLieu) . ')';
+            }
+            if (!$parts) {
+                return array();
+            }
+            $rows = $this->db->query(
+                "SELECT ar.roleattribut,
+                        COALESCE(
+                            NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
+                            NULLIF(TRIM(cu.username), ''),
+                            CONCAT(ar.roleattribut, '')
+                        ) AS username
+                 FROM attributions_role ar
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                 JOIN utilisateurs u ON cu.userlog_id = u.uid
+                 JOIN entreprise e ON u.cle_comp = e.ekey
+                 WHERE e.ekey = ?
+                   AND ar.userole = 17
+                   AND (" . implode(' OR ', $parts) . ")
+                 ORDER BY username ASC",
+                $binds
+            )->result();
+
+            return is_array($rows) ? $rows : array();
+        }
+
         public function get_escales_vente_lieu($ekey, $gid)
         {
             if (!$this->db->field_exists('vente_escale_value', 'attributions_role')

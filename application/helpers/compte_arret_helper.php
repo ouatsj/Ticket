@@ -1126,14 +1126,24 @@ if (!function_exists('compte_arret_unclosed_ticket')) {
         // Ventes escale (rôle 17 / escalclients) non clôturées des jours précédents.
         if ($CI->db->table_exists('escalclients')) {
             if ($gare_id !== null && $gare_id !== '') {
+                $departCodes = array($gare_id);
+                $CI->load->helper('role17_context');
+                if (function_exists('role17_code_gaexp_for_roleattribut')) {
+                    $lieuEscale = role17_code_gaexp_for_roleattribut($roleattribut);
+                    if ($lieuEscale !== '' && $lieuEscale !== $gare_id) {
+                        $departCodes[] = $lieuEscale;
+                    }
+                }
+                $marque = implode(',', array_fill(0, count($departCodes), '?'));
                 $sql_esc = "SELECT 1 FROM escalclients es
                     WHERE es.iduseescal = ?
-                    AND es.departgescal = ?
+                    AND es.departgescal IN ({$marque})
                     AND es.dateescal < ?
                     AND COALESCE(es.arrcptescal, 0) = 0
                     AND es.prixescal IS NOT NULL
                     LIMIT 1";
-                if ($CI->db->query($sql_esc, [$roleattribut, $gare_id, $today])->row()) {
+                $paramsEsc = array_merge(array($roleattribut), $departCodes, array($today));
+                if ($CI->db->query($sql_esc, $paramsEsc)->row()) {
                     return true;
                 }
             } else {

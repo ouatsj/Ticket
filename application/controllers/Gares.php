@@ -1153,6 +1153,37 @@
          * @param string $gid
          * @return object|null
          */
+        /**
+         * Page guichet de la sous-gare, limitée à cette escale.
+         *
+         * @param string|int $gid
+         * @param int|string $viewer
+         * @param int $idsg
+         * @param string $date_seg
+         * @param string $valeur
+         * @param string $nom
+         * @param int[] $ops
+         * @param string $profil rôle à prévisualiser (admin)
+         * @return string
+         */
+        protected function _escale_guichet_url($gid, $viewer, $idsg, $date_seg, $valeur, $nom, array $ops, $profil = '')
+        {
+            $url = site_url(
+                'gares/' . $this->company->ekey . '/gTc/' . $gid
+                . '/compte/' . $viewer . '/' . (int) $idsg . '/' . $date_seg
+            );
+            $query = array(
+                'escale' => $valeur,
+                'escale_nom' => $nom,
+                'escale_ops' => implode(',', $ops),
+            );
+            if ($profil !== '') {
+                $query['escale_profil'] = $profil;
+            }
+
+            return $url . '?' . http_build_query($query);
+        }
+
         protected function _escale_caisse($gare_id, $gid)
         {
             return $this->db->query(
@@ -1472,6 +1503,10 @@
                     $ids[] = (int) $agent->roleattribut;
                 }
             }
+            if (in_array($userole, array('2', '7', '13', '14'), true)) {
+                redirect($this->_escale_guichet_url($gid, $viewer, $idsg, $date_seg, $wanted, $label, $ids));
+                return;
+            }
             $attente = array_flip($this->m_compte_user->arrets_en_attente(
                 $this->company->ekey,
                 $ids,
@@ -1518,7 +1553,26 @@
                 $gare_id
             );
             $this->property['escale_admin_packs'] = array();
+            $this->property['escale_apercus'] = array();
             if ($userole === '1') {
+                $vues = array(
+                    'comptable' => '7',
+                    'superviseur' => '2',
+                    'agence' => '13',
+                    'site' => '14',
+                );
+                foreach ($vues as $cle_vue => $role_vue) {
+                    $this->property['escale_apercus'][$cle_vue] = $this->_escale_guichet_url(
+                        $gid,
+                        $viewer,
+                        $idsg,
+                        $date_seg,
+                        $wanted,
+                        $label,
+                        $ids,
+                        $role_vue
+                    );
+                }
                 $cibles = array(
                     'chef' => '5',
                     'adjoint' => '18',
@@ -1981,13 +2035,29 @@
                         }
                     
                     $this->property['pagetitle'] .= "•{$bus_stop->garenom}•&nbsp;{$bus_stop->nomsousgare}&nbsp;•ACCUEIL<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
+                    $vue_role = (string) $this->session->agent->userole;
+                    $profil_escale = trim((string) $this->input->get('escale_profil'));
+                    $escale_demandee = trim((string) $this->input->get('escale')) !== ''
+                        || trim((string) $this->input->get('escale_nom')) !== '';
+                    if ($vue_role === '1'
+                        && $escale_demandee
+                        && in_array($profil_escale, array('2', '7', '13', '14'), true)
+                    ) {
+                        $vue_role = $profil_escale;
+                        $this->property['vue_escale_seule'] = true;
+                        $this->property['retour_escale_agents'] = site_url(
+                            'gares/' . $ekey . '/gTs/' . $gid
+                            . '/escaleagents/' . rawurlencode(trim((string) $this->input->get('escale')))
+                            . '/' . (int) $idsg
+                        );
+                    }
                     $this->property = array_merge(
                         $this->property,
-                        scripts_bundle_property('guichet', $this->session->agent->userole)
+                        scripts_bundle_property('guichet', $vue_role)
                     );
 
                     return $this->layout->view(
-                        guichet_page_for_role($this->session->agent->userole),
+                        guichet_page_for_role($vue_role),
                         $this->property
                     );
                     

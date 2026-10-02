@@ -300,6 +300,25 @@
             $out = array();
             $seen = array();
 
+            $escale_nom = trim((string) $this->input->get('escale_nom'));
+            $escale_valeur = str_replace('|', '~', trim((string) $this->input->get('escale')));
+            $escale_ops = array();
+            foreach (explode(',', (string) $this->input->get('escale_ops')) as $id_op) {
+                $id_op = (int) $id_op;
+                if ($id_op > 0) {
+                    $escale_ops[] = $id_op;
+                }
+            }
+            if ($escale_nom !== '' || $escale_valeur !== '' || $escale_ops) {
+                $vendeurs = $this->m_compte_user->vendeurs_par_nom_escale(
+                    $ekey,
+                    $escale_nom,
+                    $escale_valeur,
+                    $escale_ops
+                );
+                return $this->load->view('beagle/pages/_programme/json', array('json' => $vendeurs));
+            }
+
             if ($gare === '') {
                 return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
             }
