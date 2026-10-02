@@ -251,16 +251,13 @@
             // Repli si helper indisponible.
             $hasLigne = $this->passager_column_exists('lignetineraire_vendu');
             $hasNomDest = $this->passager_column_exists('nom_dest_vente');
-
-            if ($hasLigne && $hasNomDest) {
-                $expr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), lg.nom_ligne)";
-            } elseif ($hasLigne) {
-                $expr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), lg.nom_ligne)";
-            } elseif ($hasNomDest) {
-                $expr = "COALESCE(NULLIF(TRIM(p.lignetineraire_vendu), ''), lg.nom_ligne)";
-            } else {
-                $expr = 'lg.nom_ligne';
+            $hasEscale = $this->passager_column_exists('id_escale_vente');
+            $fige = $hasLigne ? "NULLIF(TRIM(p.lignetineraire_vendu), '')" : 'NULL';
+            $reconstruit = 'NULL';
+            if ($hasNomDest && $hasEscale) {
+                $reconstruit = "IF(IFNULL(p.id_escale_vente, 0) > 0 AND NULLIF(TRIM(p.nom_dest_vente), '') IS NOT NULL AND NULLIF(TRIM(ex.nom_gaep), '') IS NOT NULL, CONCAT(TRIM(ex.nom_gaep), '-', TRIM(p.nom_dest_vente)), NULL)";
             }
+            $expr = "COALESCE({$fige}, {$reconstruit}, lg.nom_ligne)";
 
             return array(
                 'select' => "{$expr} AS nom_ligne",

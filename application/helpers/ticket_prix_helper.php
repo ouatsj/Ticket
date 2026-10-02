@@ -439,11 +439,12 @@ if (!function_exists('ticket_rapport_nom_ligne_sql')) {
 
         $hasLigne = true;
         $hasNomDest = true;
+        $hasEscale = true;
         if (function_exists('get_instance')) {
             $CI =& get_instance();
             if (isset($CI->db) && is_object($CI->db)) {
                 static $colCache = array();
-                foreach (array('lignetineraire_vendu' => &$hasLigne, 'nom_dest_vente' => &$hasNomDest) as $col => &$flag) {
+                foreach (array('lignetineraire_vendu' => &$hasLigne, 'nom_dest_vente' => &$hasNomDest, 'id_escale_vente' => &$hasEscale) as $col => &$flag) {
                     if (!isset($colCache[$col])) {
                         $q = $CI->db->query("SHOW COLUMNS FROM passager LIKE " . $CI->db->escape($col));
                         $colCache[$col] = ($q && method_exists($q, 'num_rows') && $q->num_rows() > 0);
@@ -454,12 +455,14 @@ if (!function_exists('ticket_rapport_nom_ligne_sql')) {
             }
         }
 
-        // Nom figé à la vente. Le catalogue lignes (nom, gare) peut changer ensuite.
-        if ($hasLigne) {
-            $expr = "COALESCE(NULLIF(TRIM({$p}.lignetineraire_vendu), ''), {$lg}.nom_ligne)";
-        } else {
-            $expr = "{$lg}.nom_ligne";
+        // Nom figé à la vente. S'il manque, une destination d'escale déjà enregistrée
+        // (ex. TOUSSIANA sur le car BOBO-BANFORA) donne BOBO-TOUSSIANA.
+        $fige = $hasLigne ? "NULLIF(TRIM({$p}.lignetineraire_vendu), '')" : 'NULL';
+        $reconstruit = 'NULL';
+        if ($hasNomDest && $hasEscale) {
+            $reconstruit = "IF(IFNULL({$p}.id_escale_vente, 0) > 0 AND NULLIF(TRIM({$p}.nom_dest_vente), '') IS NOT NULL AND NULLIF(TRIM({$ex}.nom_gaep), '') IS NOT NULL, CONCAT(TRIM({$ex}.nom_gaep), '-', TRIM({$p}.nom_dest_vente)), NULL)";
         }
+        $expr = "COALESCE({$fige}, {$reconstruit}, {$lg}.nom_ligne)";
 
         return array(
             'select' => "{$expr} AS nom_ligne",
