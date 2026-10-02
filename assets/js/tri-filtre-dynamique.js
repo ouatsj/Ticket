@@ -192,9 +192,28 @@
                 return;
             }
             const seq = ++seqGares.seq;
-            const url = `${window.location.origin}${appRoot()}/utilisateurs/trigares?comp=${encodeURIComponent(comp)}`;
+            let url = `${window.location.origin}${appRoot()}/utilisateurs/trigares?comp=${encodeURIComponent(comp)}`;
+            try {
+                var pageQsGares = new URLSearchParams(window.location.search);
+                ['escale', 'escale_nom', 'escale_ops'].forEach(function (cle) {
+                    var val = pageQsGares.get(cle);
+                    if (val) {
+                        url += '&' + cle + '=' + encodeURIComponent(val);
+                    }
+                });
+            } catch (e) { /* ignore */ }
             jsonGet(url, (rows) => {
                 fillGares(gareEl, rows, garePlaceholder);
+                if (rows && rows.length === 1 && gareEl.options.length > 1) {
+                    for (var i = gareEl.options.length - 1; i >= 0; i--) {
+                        if (!gareEl.options[i].value) {
+                            gareEl.remove(i);
+                        }
+                    }
+                    if (gareEl.options.length) {
+                        gareEl.selectedIndex = 0;
+                    }
+                }
                 if (usersEl) {
                     resetSelect(usersEl, usersEl.options.length ? usersEl.options[0].text : '');
                 }

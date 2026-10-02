@@ -415,7 +415,61 @@
             if (!is_array($out)) {
                 $out = array();
             }
+            $this->load->helper('role17_context');
+            if (function_exists('escale_codes_gaexp_contexte')) {
+                $codes = escale_codes_gaexp_contexte();
+                if ($codes) {
+                    $out = $this->_trigares_escale_seule($out, $codes);
+                }
+            }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Sur une page d'escale, la gare de départ du tri est uniquement celle du lieu.
+         *
+         * @param array $rows
+         * @param string[] $codes
+         * @return array
+         */
+        private function _trigares_escale_seule(array $rows, array $codes)
+        {
+            $allow = array();
+            foreach ($codes as $code) {
+                $code = trim((string) $code);
+                if ($code !== '') {
+                    $allow[$code] = $code;
+                }
+            }
+            if (!$allow) {
+                return array();
+            }
+            $kept = array();
+            foreach ($rows as $row) {
+                $code = isset($row->code_gaexp) ? trim((string) $row->code_gaexp) : '';
+                if ($code !== '' && isset($allow[$code])) {
+                    $kept[] = $row;
+                    unset($allow[$code]);
+                }
+            }
+            if ($allow) {
+                $in = array();
+                foreach ($allow as $code) {
+                    $in[] = $this->db->escape($code);
+                }
+                $extra = $this->db->query(
+                    "SELECT DISTINCT ge.code_gaexp, ge.nom_gaep, ge.garesid, ge.id_compagd
+                     FROM gare_exp ge
+                     WHERE ge.code_gaexp IN (" . implode(',', $in) . ")
+                     ORDER BY ge.nom_gaep ASC, ge.code_gaexp ASC"
+                )->result();
+                if (is_array($extra)) {
+                    foreach ($extra as $row) {
+                        $kept[] = $row;
+                    }
+                }
+            }
+            return $kept;
         }
 
         public function comptegares($ckey, $ud, $cp, $j, $m, $a)
