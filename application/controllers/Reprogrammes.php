@@ -1011,8 +1011,10 @@
         /**
          * Ticket transit N codes : traite les jambes d’origine 2..N (POST).
          * - Mode transit (nouvelle multi) : désactive (actif_pas) comme avant.
-         * - Mode direct (collapse) : libère le siège + marque repor, mais
-         *   laisse actif_pas / tampon actifs pour l’historique.
+         *   La vente d’origine reste dans l’arrêt.
+         * - Mode direct (collapse) : la vente est déjà sur la jambe conservée.
+         *   Les autres jambes sortent du compte (statutvente=2, prix 0), siège libéré,
+         *   ligne et tampon gardés pour l’historique.
          */
         protected function _reprog_invalidate_transit_leg2_if_needed()
         {
@@ -1041,7 +1043,11 @@
                     'num_siege_categorie' => null,
                     'statut_reprog' => 'repor',
                 );
-                if (!$collapseDirect) {
+                if ($collapseDirect) {
+                    // Déjà encaissé sur la jambe conservée : ne plus recompter celles-ci.
+                    $upd['statutvente'] = self::REPROG_STATUTVENTE_HORS_CA;
+                    $upd['prixvente'] = 0;
+                } else {
                     $upd['actif_pas'] = 1;
                 }
                 $this->m_passager->update($cdpa, $cdpt, $upd);
@@ -2703,9 +2709,11 @@
                                     'num_cat' => $this->input->post('catreprogramtransit'),
                                     'statut_reprog' => 'repor',
                                 );
-                                // Transit → direct : prix total des jambes + codes vérifiés + OD.
+                                // Transit → direct : codes / OD pour l’historique.
+                                // Le prix et la ligne vendue restent ceux de la vente déjà comptée.
                                 $collapse = $this->_reprog_fields_transit_collapse_direct();
                                 if (!empty($collapse)) {
+                                    unset($collapse['prixvente'], $collapse['lignetineraire_vendu']);
                                     $passagerarray = array_merge($passagerarray, $collapse);
                                 }
 
