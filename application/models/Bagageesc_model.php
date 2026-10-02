@@ -633,7 +633,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND bg.genrebagageesc = 'suivi'
-                AND ex.code_gaexpesc = '$gd'
+                AND ex.code_gaexp = '$gd'
                 AND bg.idsgarebagesc = '$sg'
                 AND bg.envoibagesc = 0")->result();
             }
@@ -691,7 +691,7 @@
         
         public function reportbgadmin($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
-            
+            $gareSql = $this->_sql_gare_esc($gid);
             if ($algn === '') 
             {
                 return $this->db->query(
@@ -710,7 +710,7 @@
                     WHERE e.ekey = '$cid'
                     AND bg.date_createesc >= '$dt1' AND date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ul.guser= '$gid'
+                    {$gareSql}
                     AND bg.couleurcarnetesc IN('A', 'C')
                     AND bg.prix_bagageesc IS NOT NULL
                     GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc")->result();
@@ -731,7 +731,7 @@
                     WHERE e.ekey = '$cid'
                     AND bg.date_createesc >= '$dt1' AND date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND dest.id_compaga = '$cp'
-                    AND ex.code_gaexp = '$gid'
+                    {$gareSql}
                     AND bg.prix_bagageesc IS NOT NULL
                     AND lg.ident_ligne = '$algn'
                     AND bg.couleurcarnetesc IN('A', 'C')

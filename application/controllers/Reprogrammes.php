@@ -4666,6 +4666,14 @@
                 }
 
                 // Carnet : ne pas exiger gaexp_lg = gare escale (souvent ≠ origine ligne).
+                // Le code enregistré est celui du lieu d'escale, pas la gare d'affiliation.
+                $this->load->helper('role17_context');
+                $gare_lieu = function_exists('role17_code_gaexp_for_roleattribut')
+                    ? role17_code_gaexp_for_roleattribut($iduser)
+                    : '';
+                if ($gare_lieu === '') {
+                    $gare_lieu = $gid;
+                }
                 $derniercrnesc = $this->db->query(
                     "SELECT be.couleurcarnetesc FROM bagagesesc be
                     JOIN ligne_heure lh ON be.id_lgeheuresc = lh.id_ligneheure
@@ -4677,7 +4685,7 @@
                     AND dest.id_compaga = ?
                     AND be.idgarebagesc = ?
                     ORDER BY be.lastbag_updateesc DESC LIMIT 1",
-                    array($cid, $cd, $gid)
+                    array($cid, $cd, $gare_lieu)
                 )->row();
 
                 if ($bagepsonesc)
@@ -4686,7 +4694,7 @@
                         'idoperabagageesc' => $iduser,
                         'id_lgeheuresc' => $this->input->post('idlgeheurescalbag'),
                         'clientbagesc' => $this->input->post('cprclientescalbag'),
-                        'idgarebagesc' => $gid,
+                        'idgarebagesc' => $gare_lieu,
                         'idsgarebagesc' => $sgid,
                         'gidarrbagesc' => $argde,
                         'sgidarrbagesc' => $sargde,
@@ -5023,7 +5031,7 @@
                             : $sgid;
 
                             $argare_ar = (!empty($quartar) && !empty($quartar->codegares)) ? $quartar->codegares : '';
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                     $tr = 'pas_transit';
@@ -5184,7 +5192,7 @@
                         $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                     $tr = 'pas_transit';
@@ -5343,7 +5351,7 @@
                         $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                     $tr = 'pas_transit';
@@ -5501,7 +5509,7 @@
                         $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
                                 
                                     $tr = 'pas_transit';
@@ -5650,7 +5658,7 @@
                         $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                 
@@ -5797,7 +5805,7 @@
 
                             $argare_ar = $quartar->codegares;
 
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
 
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
@@ -5955,7 +5963,7 @@
                         $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                     $tr = 'pas_transit';
@@ -6097,7 +6105,7 @@
                         $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                             
@@ -6254,7 +6262,7 @@
                         $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                     $tr = 'pas_transit';
@@ -6411,7 +6419,7 @@
                         $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                $tr = 'pas_transit';
@@ -6565,7 +6573,7 @@
                         $sousgar_id = $this->_r17_arrivee_sousgare($aregid, $quart3, $arreg);
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                 
@@ -6786,7 +6794,7 @@
                         $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest' AND sg.nomsousgare = '$quart3'")->row();
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
 
@@ -6872,7 +6880,7 @@
                         $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest' AND sg.nomsousgare = '$quart3'")->row();
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                     $tr = 'pas_transit';
@@ -6966,7 +6974,7 @@
                         $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest' AND sg.nomsousgare = '$quart3'")->row();
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                     $tr = 'pas_transit';
@@ -7067,7 +7075,7 @@
 
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
 
@@ -7286,7 +7294,7 @@
 
 
                             $argare_ar = $quartar->codegares;
-                            $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                            $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                             $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                 
@@ -7430,7 +7438,7 @@
                         $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest' AND sg.nomsousgare = '$quart3'")->row();
 
                             $argare_ar = $quartar->codegares;
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                     $tr = 'pas_transit';
@@ -7572,7 +7580,7 @@
 
                             $argare_ar = $quartar->codegares;
 
-                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                        $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                         $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                                     $tr = 'pas_transit';
@@ -7699,7 +7707,7 @@
 
                                 $argare_ar = $quartar->codegares;
 
-                            $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.$gid.$usen.$iduser.$nat1;
+                            $codcour = $argdp3.$dpgdp1.mdate("%y%m%d", now('UTC')).($passecompter->id + 1).$argare_ar.$quart2.(($__lieu = role17_code_gaexp_for_roleattribut($iduser)) !== '' ? $__lieu : $gid).$usen.$iduser.$nat1;
                             $cdcour = $dpgdp1.mdate("%m%d", now('UTC')).($passecompt->id + 1).$argare_ar.$quart2.$nat1;
 
                             
