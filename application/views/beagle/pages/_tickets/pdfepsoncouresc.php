@@ -117,12 +117,32 @@ if (function_exists('mb_substr')) {
     $contenu = substr($contenu, 0, 28);
 }
 
-$emis_raw = mdate('%Y-%m-%d %H:%i:%s', now('UTC'));
-if (!empty($single->dateenvoiesc)) {
-    $emis_raw = (string) $single->dateenvoiesc
-        . (!empty($single->heure) ? (' ' . $single->heure) : '');
-}
+$emis_ts = !empty($single->dateenvoicour_atesc) ? (int) $single->dateenvoicour_atesc : now();
+$emis_raw = mdate('%Y-%m-%d %H:%i:%s', $emis_ts);
 $emis = ticket_emis_texte($single, $emis_raw, isset($conex) ? $conex : null);
+
+$dep_date = '';
+if ($exped && !empty($exped->dateexpedition)) {
+    $dep_ts = strtotime((string) $exped->dateexpedition);
+    $dep_date = $dep_ts ? date('d-m-Y', $dep_ts) : trim((string) $exped->dateexpedition);
+}
+$dep_heure = '';
+if (!empty($single->heure)) {
+    $hhmm = ticket_heure_hhmm($single->heure);
+    if ($hhmm !== '' && strpos($hhmm, ':') !== false) {
+        $dep_heure = str_replace(':', 'H', $hhmm);
+    }
+}
+$mouvement = '';
+if ($dep_date !== '' || $dep_heure !== '') {
+    $mouvement = 'Départ';
+    if ($dep_date !== '') {
+        $mouvement .= ' ' . $dep_date;
+    }
+    if ($dep_heure !== '') {
+        $mouvement .= ' à ' . $dep_heure;
+    }
+}
 $logo = !empty($single->logo) ? site_url($single->logo) : '';
 
 $copies = array(
@@ -222,7 +242,7 @@ html, body {
 .recu-copy .t-logo {
     display: block;
     max-width: 24mm;
-    max-height: 5.5mm;
+    max-height: 4.5mm;
     width: auto;
     height: auto;
     margin: 0 auto;
@@ -268,9 +288,17 @@ html, body {
     display: block !important;
     width: 48mm !important;
     max-width: 48mm !important;
-    height: 5.5mm !important;
+    height: 4.5mm !important;
     margin: 0 auto !important;
     object-fit: fill !important;
+}
+.recu-copy .t-dep {
+    font-size: 6.5pt;
+    font-weight: 700;
+    max-width: 53mm;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .recu-copy .t-emis {
     font-size: 5.5pt;
@@ -412,9 +440,12 @@ html, body {
         <?php if ($contenu !== ''): ?>
             <div class="t-line"><?= htmlspecialchars($contenu, ENT_QUOTES, 'UTF-8'); ?></div>
         <?php endif; ?>
+        <?php if ($mouvement !== ''): ?>
+            <div class="t-dep"><?= htmlspecialchars($mouvement, ENT_QUOTES, 'UTF-8'); ?></div>
+        <?php endif; ?>
         <div class="t-prix"><?= $prix; ?> FCFA</div>
         <div class="t-code"><?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8'); ?></div>
-        <?= ticket_barcode_img($code, 260, 36); ?>
+        <?= ticket_barcode_img($code, 260, 28); ?>
         <div class="t-emis"><?= htmlspecialchars($emis, ENT_QUOTES, 'UTF-8'); ?></div>
     </div>
 <?php endforeach; ?>

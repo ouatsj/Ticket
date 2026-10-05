@@ -1689,3 +1689,90 @@ if (!function_exists('escale_lieu_sql_requete')) {
         return ' AND (' . implode(' OR ', $parts) . ') ';
     }
 }
+
+if (!function_exists('role17_courrier_heures_grille')) {
+    /**
+     * Créneaux courrier escale : 06H00, 06H30 … 18H30.
+     * Un créneau n'est proposé que s'il est au moins une heure avant l'heure système
+     * (le jour choisi entre dans le calcul).
+     *
+     * @param string $ligneId ident_ligne
+     * @param string $date Y-m-d
+     * @return array<int,array{id_ligneheure:int,heure:string}>
+     */
+    function role17_courrier_heures_grille($ligneId, $date)
+    {
+        $CI =& get_instance();
+        $ligneId = trim((string) $ligneId);
+        $date = substr(trim((string) $date), 0, 10);
+        if ($ligneId === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return array();
+        }
+        $ligne = $CI->db->select('ident_ligne')
+            ->where('ident_ligne', $ligneId)
+            ->limit(1)
+            ->get('lignes')
+            ->row();
+        if (!$ligne) {
+            return array();
+        }
+
+        $cutoff = time() - 3600;
+        $out = array();
+        for ($mins = 6 * 60; $mins <= (18 * 60) + 30; $mins += 30) {
+            $hh = str_pad((string) floor($mins / 60), 2, '0', STR_PAD_LEFT);
+            $mm = str_pad((string) ($mins % 60), 2, '0', STR_PAD_LEFT);
+            $stamp = strtotime($date . ' ' . $hh . ':' . $mm . ':00');
+            if ($stamp === false || $stamp < $cutoff) {
+                continue;
+            }
+            $idLh = role17_ligne_heure_pour_creneau($ligneId, $hh . ':' . $mm . ':00');
+            if ($idLh <= 0) {
+                continue;
+            }
+            $out[] = array(
+                'id_ligneheure' => $idLh,
+                'heure' => $hh . 'H' . $mm,
+            );
+        }
+
+        return $out;
+    }
+}
+
+if (!function_exists('role17_ligne_heure_pour_creneau')) {
+    /**
+     * Retrouve le couple ligne/heure, ou le crée inactif pour ne pas l'ajouter
+     * aux départs guichet.
+     *
+     * @param string $ligneId
+     * @param string $heureSql HH:MM:SS
+     * @return int
+     */
+    function role17_ligne_heure_pour_creneau($ligneId, $heureSql)
+    {
+        $CI =& get_instance();
+        $heure = $CI->db->query(
+            'SELECT id_heure FROM heures WHERE h_active = 1 AND heure = ? ORDER BY id_heure ASC LIMIT 1',
+            array($heureSql)
+        )->row();
+        if (!$heure || empty($heure->id_heure)) {
+            return 0;
+        }
+        $existing = $CI->db->query(
+            'SELECT id_ligneheure FROM ligne_heure WHERE ligne_id = ? AND heure_identif = ? ORDER BY actif_lh DESC, id_ligneheure ASC LIMIT 1',
+            array($ligneId, (int) $heure->id_heure)
+        )->row();
+        if ($existing && !empty($existing->id_ligneheure)) {
+            return (int) $existing->id_ligneheure;
+        }
+        $CI->db->insert('ligne_heure', array(
+            'ligne_id' => $ligneId,
+            'heure_identif' => (int) $heure->id_heure,
+            'createlh_at' => time(),
+            'actif_lh' => 0,
+        ));
+
+        return (int) $CI->db->insert_id();
+    }
+}

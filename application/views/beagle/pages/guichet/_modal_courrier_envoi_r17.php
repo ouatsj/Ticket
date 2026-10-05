@@ -32,7 +32,7 @@ if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
             </button>
         </div>
         <div class="modal-body">
-            <p class="mb-2" style="font-size:0.85rem;color:#475569;">
+            <p class="mb-2" style="font-size:1.05rem;color:#475569;">
                 Choisissez le type, puis remplissez étape par étape (Suivant → Valider).
             </p>
             <div class="r17-exp-types" id="r17ExpTypes">
@@ -77,14 +77,16 @@ if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
 </div>
 <style>
 #courrier-envoi-r17.modal-container {
-    max-width: 520px;
+    max-width: 720px;
     width: 96%;
 }
 #courrier-envoi-r17 .r17-courrier-modal {
-    max-width: 520px;
+    max-width: 720px;
     max-height: 94vh;
     overflow: auto;
 }
+#courrier-envoi-r17 .modal-title { font-size: 1.25rem; }
+#courrier-envoi-r17 label { font-size: 1rem; font-weight: 700; }
 .r17-exp-types {
     display: flex;
     flex-direction: column;
@@ -95,19 +97,19 @@ if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    min-height: 48px;
-    padding: 0.55rem 0.75rem;
+    min-height: 64px;
+    padding: 0.75rem 0.9rem;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 10px;
     background: #fff;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 1.15rem;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
 }
 .r17-exp-check input {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1.6rem;
+    height: 1.6rem;
     flex: 0 0 auto;
 }
 .r17-exp-check:has(input:checked) {
@@ -140,8 +142,8 @@ if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
     margin: 0;
 }
 #courrier-envoi-r17 .form-control {
-    min-height: 44px;
-    font-size: 16px; /* évite zoom iOS */
+    min-height: 52px;
+    font-size: 1.125rem;
 }
 #courrier-envoi-r17 .r17-wiz-step[hidden] {
     display: none !important;
@@ -162,9 +164,9 @@ if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
 #courrier-envoi-r17 .r17-wiz-nav .btn,
 #courrier-envoi-r17 .r17-wiz-nav input.btn {
     flex: 1 1 45%;
-    min-height: 52px;
+    min-height: 64px;
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 1.15rem;
 }
 #courrier-envoi-r17 .r17-wiz-nav .r17-wiz-submit {
     flex: 1 1 100%;
@@ -376,28 +378,39 @@ if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
         bindFraisMin('fraisexesc', 500);
         bindFraisMin('fraisexpartoesc', 500);
 
-        // Heures = programmes de la ligne attribuée (écrase le handler OD générique).
+        // Heures courrier escale : 06H00, 06H30 … 18H30, filtrées sur le jour choisi.
         function loadHeuresLigne(dateEl, heureEl, ligneId) {
             if (!dateEl || !heureEl || !ligneId) return;
+            var prev = heureEl.value;
             heureEl.options.length = 1;
             var d = dateEl.value;
             if (!d) return;
             var url = window.location.origin + (typeof APP_ROOT !== 'undefined' ? APP_ROOT : '')
-                + '/programmes/verifheure1/' + encodeURIComponent(ligneId) + '/' + encodeURIComponent(d);
+                + '/programmes/heurescourrier17/' + encodeURIComponent(ligneId) + '/' + encodeURIComponent(d);
             var xhr = new XMLHttpRequest();
             xhr.open('GET', url, true);
             xhr.onload = function () {
+                if (dateEl.value !== d) return;
+                heureEl.options.length = 1;
                 try {
                     var rows = JSON.parse(xhr.responseText);
                     if (!rows) return;
                     var list = Array.isArray(rows) ? rows : Object.keys(rows).map(function (k) { return rows[k]; });
                     list.forEach(function (row) {
-                        if (!row || !row.id_ligneheure) return;
+                        if (!row || !row.id_ligneheure || !row.heure) return;
                         var opt = document.createElement('option');
                         opt.value = row.id_ligneheure;
-                        opt.textContent = row.heure || row.id_ligneheure;
+                        opt.textContent = row.heure;
                         heureEl.appendChild(opt);
                     });
+                    if (prev) heureEl.value = prev;
+                    if (list.length === 0) {
+                        var vide = document.createElement('option');
+                        vide.value = '';
+                        vide.disabled = true;
+                        vide.textContent = 'Aucune heure disponible';
+                        heureEl.appendChild(vide);
+                    }
                 } catch (err) {}
             };
             xhr.send();
@@ -427,7 +440,17 @@ if ($dep_lab === '' && !empty($bus_stop) && is_object($bus_stop)) {
                 dateEl.onchange = function () {
                     loadHeuresLigne(dateEl, heureEl, ligne);
                 };
+                if (dateEl.value) {
+                    loadHeuresLigne(dateEl, heureEl, ligne);
+                }
             }, 0);
+            heureEl.addEventListener('mousedown', function () {
+                var opt = heureEl.options.length > 1 ? heureEl.options[1] : null;
+                var label = opt ? String(opt.textContent || '') : '';
+                if (!/^\d{2}H\d{2}$/.test(label)) {
+                    loadHeuresLigne(dateEl, heureEl, ligne);
+                }
+            });
         }
 
         bindHeuresLigne('date_depheurecourexesc', 'hdepcouresc', 'arrscouresc');

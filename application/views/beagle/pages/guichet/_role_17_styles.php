@@ -8,7 +8,7 @@
     --r17-card: #ffffff;
     --r17-text: #1f2937;
     --r17-muted: #6b7280;
-    --r17-touch: 52px;
+    --r17-touch: 72px;
     max-width: 960px;
     margin: 0 auto;
     padding: 0.45rem;
@@ -26,9 +26,9 @@
     margin-bottom: 0.4rem;
 }
 .r17-shell .r17-header .btn {
-    min-height: 44px;
-    padding: 0.45rem 0.85rem;
-    font-size: 0.9rem;
+    min-height: 56px;
+    padding: 0.7rem 1.1rem;
+    font-size: 1.05rem;
     font-weight: 700;
 }
 .r17-shell .r17-gare {
@@ -99,27 +99,27 @@
 }
 .r17-shell .r17-grid {
     display: grid;
-    /* 2 colonnes dès le téléphone : moins de scroll */
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* Une colonne : la largeur suit l'écran du téléphone. */
+    grid-template-columns: 1fr;
     gap: var(--r17-gap);
 }
 .r17-shell .r17-btn {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.7rem;
     width: 100%;
     min-height: var(--r17-touch);
-    padding: 0.6rem 0.65rem;
+    padding: 0.85rem 0.9rem;
     margin: 0;
     border: 1px solid #e5e7eb;
-    border-radius: var(--r17-radius);
+    border-radius: 12px;
     background: var(--r17-card);
     color: var(--r17-text);
     text-align: left;
     text-decoration: none !important;
     font-weight: 700;
-    font-size: 0.95rem;
-    line-height: 1.2;
+    font-size: 1.15rem;
+    line-height: 1.25;
     box-shadow: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
@@ -134,24 +134,24 @@
     transform: scale(0.99);
 }
 .r17-shell .r17-btn .r17-ico {
-    flex: 0 0 2rem;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 7px;
+    flex: 0 0 2.75rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 10px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     background: #eff6ff;
     color: var(--r17-primary);
-    font-size: 0.95rem;
+    font-size: 1.25rem;
 }
 .r17-shell .r17-btn.is-primary {
     background: #0d6efd;
     border-color: #0d6efd;
     color: #fff;
     grid-column: 1 / -1;
-    min-height: 56px;
-    font-size: 1.05rem;
+    min-height: 80px;
+    font-size: 1.3rem;
     box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2);
 }
 .r17-shell .r17-btn.is-primary .r17-ico {
@@ -167,9 +167,12 @@
     flex: 1 1 auto;
     min-width: 0;
 }
-/* Sous-titres masqués sur TPE pour gagner de la place */
 .r17-shell .r17-btn .r17-sub {
-    display: none;
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    opacity: 0.85;
+    margin-top: 0.15rem;
 }
 
 .be-minimal-chrome .be-content {
@@ -207,7 +210,7 @@
 #ticketescal-0 .modal-content.r17-vente-modal,
 #ticketescal-0 .modal-content {
     width: 100%;
-    max-width: 420px;
+    max-width: 640px;
     min-width: 0 !important;
     margin: 0.35rem auto;
     border-radius: 10px;
@@ -219,7 +222,7 @@
     min-height: 0 !important;
 }
 #ticketescal-0 .modal-title {
-    font-size: 0.9rem !important;
+    font-size: 1.25rem !important;
     font-weight: 700;
     margin: 0 !important;
 }
@@ -234,19 +237,19 @@
 }
 #ticketescal-0 .r17-vente-form label,
 #ticketescal-0 label {
-    font-weight: 600;
-    font-size: 0.72rem;
-    margin-bottom: 0.12rem;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.3rem;
     display: block;
 }
 #ticketescal-0 .form-control,
 #ticketescal-0 select.form-control,
 #ticketescal-0 input.form-control {
-    min-height: 36px !important;
-    height: 36px !important;
-    font-size: 16px;
-    padding: 0.25rem 0.5rem !important;
-    border-radius: 6px;
+    min-height: 56px !important;
+    height: 56px !important;
+    font-size: 1.125rem;
+    padding: 0.55rem 0.75rem !important;
+    border-radius: 8px;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
@@ -285,50 +288,34 @@
 #ticketescal-0 .modal-footer .btn,
 #ticketescal-0 .modal-footer input.btn {
     flex: 1 1 50%;
-    min-height: 52px !important;
-    height: 52px !important;
+    min-height: 64px !important;
+    height: 64px !important;
     margin: 0;
-    padding: 0.55rem 0.65rem !important;
-    font-size: 1rem;
+    padding: 0.7rem 0.85rem !important;
+    font-size: 1.15rem;
     font-weight: 700;
-    border-radius: 8px;
+    border-radius: 10px;
     letter-spacing: 0.02em;
 }
 #ticketescal-0 #prix_escale_hint {
     display: block;
-    margin-top: 0.15rem;
-    font-size: 0.75rem;
-    font-weight: 600;
+    margin-top: 0.25rem;
+    font-size: 1rem;
+    font-weight: 700;
     color: #0369a1;
-    min-height: 0.9rem;
+    min-height: 1.2rem;
 }
 
-@media (min-width: 576px) {
+@media (min-width: 768px) {
     .r17-shell {
-        --r17-gap: 0.65rem;
+        --r17-gap: 0.75rem;
         padding: 0.85rem 1.1rem;
     }
-    .r17-shell .r17-btn {
-        min-height: 48px;
-        font-size: 0.9rem;
-        padding: 0.65rem 0.75rem;
-        gap: 0.55rem;
-    }
-    .r17-shell .r17-btn .r17-ico {
-        flex-basis: 1.9rem;
-        width: 1.9rem;
-        height: 1.9rem;
-        font-size: 0.9rem;
-    }
-    .r17-shell .r17-btn .r17-sub {
-        display: block;
-        font-size: 0.72rem;
-        font-weight: 500;
-        opacity: 0.8;
-        margin-top: 0.1rem;
+    .r17-shell .r17-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .r17-shell .r17-solde .amount {
-        font-size: 1.55rem;
+        font-size: 1.7rem;
     }
 }
 
@@ -338,7 +325,7 @@
     }
     .r17-shell .r17-btn.is-primary {
         grid-column: auto;
-        min-height: 56px;
+        min-height: 80px;
     }
 }
 
@@ -413,9 +400,9 @@
     #ticketescal-0 .form-control,
     #ticketescal-0 select.form-control,
     #ticketescal-0 input.form-control {
-        min-height: 44px !important;
-        height: 44px !important;
-        font-size: 16px;
+        min-height: 56px !important;
+        height: 56px !important;
+        font-size: 1.125rem;
     }
     #ticketescal-0 .modal-footer .btn,
     #ticketescal-0 .modal-footer input.btn {
@@ -423,6 +410,163 @@
         min-height: 64px !important;
         height: 64px !important;
         font-size: 1.15rem;
+    }
+}
+
+/* Téléphone : chaque page rôle 17 suit la largeur réelle de l'écran. */
+.r17-shell,
+.r17-ops {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+}
+.r17-shell *,
+.r17-ops * {
+    box-sizing: border-box;
+}
+.r17-ops .row {
+    margin-left: 0;
+    margin-right: 0;
+    max-width: 100%;
+}
+.r17-ops .card,
+.r17-ops .card-table,
+.r17-ops .card-body,
+.r17-ops .dataTables_wrapper {
+    max-width: 100%;
+}
+.r17-ops .card-body,
+.r17-ops .dataTables_wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.r17-ops img,
+.r17-ops video,
+.r17-ops canvas,
+.r17-ops svg {
+    max-width: 100%;
+    height: auto;
+}
+.r17-shell .r17-solde .amount,
+.r17-ops .r17-solde .amount {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 767.98px) {
+    .r17-shell .r17-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .r17-shell .r17-context,
+    .r17-shell .r17-escale,
+    .r17-shell .r17-gare {
+        text-align: left;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+    .r17-shell .r17-grid,
+    .r17-ops .r17-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .r17-shell .r17-btn,
+    .r17-ops .r17-btn {
+        width: 100%;
+        max-width: 100%;
+    }
+    .r17-ops-banner {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }
+    .r17-ops-banner > a,
+    .r17-ops-banner .btn {
+        width: 100%;
+        text-align: center;
+    }
+    .r17-tabs {
+        flex-direction: column;
+    }
+    .r17-tabs a {
+        width: 100%;
+        flex: 1 1 auto;
+    }
+    .r17-ops .row > [class*="col-"],
+    .r17-ops .form-group[class*="col-"],
+    #bagage-facturation-r17 .row > [class*="col-"],
+    #courrier-envoi-r17 .row > [class*="col-"],
+    #ticketescal-0 .row > [class*="col-"] {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    #ticketescal-0 .r17-name-row {
+        grid-template-columns: 1fr;
+    }
+    .r17-ops p > .btn,
+    .r17-ops p > a.btn,
+    .r17-ops .modal-footer .btn,
+    .r17-ops .modal-footer input.btn,
+    .r17-ops .r17-wiz-nav .btn,
+    .r17-ops .r17-wiz-nav input.btn,
+    #courrier-envoi-r17 .r17-wiz-nav .btn,
+    #courrier-envoi-r17 .r17-wiz-nav input.btn,
+    #bagage-facturation-r17 .btn,
+    #bagage-facturation-r17 input.btn,
+    #ticketescal-0 .modal-footer .btn,
+    #ticketescal-0 .modal-footer input.btn {
+        width: 100%;
+        max-width: 100%;
+        white-space: normal;
+        height: auto !important;
+    }
+    .r17-ops .r17-wiz-nav,
+    #courrier-envoi-r17 .r17-wiz-nav,
+    #ticketescal-0 .modal-footer,
+    #bagage-facturation-r17 .modal-footer {
+        flex-wrap: wrap;
+    }
+    .modal-content,
+    .custom-width .modal-content,
+    .custom-width .modal-dialog,
+    #ticketescal-0 .modal-content,
+    #bagage-facturation-r17 .modal-content,
+    #bagage-facturation-r17.modal-container,
+    #courrier-envoi-r17 .modal-content,
+    #courrier-envoi-r17.modal-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        box-sizing: border-box;
+    }
+    .modal-container.modal-show,
+    #ticketescal-0.modal-container,
+    #bagage-facturation-r17.modal-container,
+    #courrier-envoi-r17.modal-container {
+        padding: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .modal-content,
+    #ticketescal-0 .modal-content,
+    #bagage-facturation-r17 .r17-vente-modal,
+    #courrier-envoi-r17 .r17-courrier-modal {
+        max-height: 100dvh;
+        overflow-y: auto;
+        border-radius: 0;
+    }
+    .r17-ops table {
+        font-size: 0.95rem;
+    }
+    .r17-ops td,
+    .r17-ops th {
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 }
 </style>

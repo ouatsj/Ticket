@@ -70,6 +70,7 @@
                 'gareprincipale' => array('m_gare_arrivee'),
                 'verifheure' => array('m_programme'),
                 'verifheure1' => array('m_programme'),
+                'heurescourrier17' => array('m_programme'),
                 'verifpriesc' => array('m_tarifications'),
                 'verifheureitine' => array('m_programme'),
                 'verifiligne' => array('m_programme'),
@@ -2487,6 +2488,19 @@
             $lgh = $this->m_programme->heureligne1($this->session->company->ekey, $axe, $da);
             return $this->load->view('beagle/pages/_programme/json', array('json' => $lgh));
             
+        }
+
+        /**
+         * Heures d'envoi courrier vendeur escale : 06H00 à 18H30, pas de 30 min.
+         * Le jour choisi ne propose que les créneaux à partir d'une heure avant l'heure système.
+         */
+        public function heurescourrier17($ligne, $da)
+        {
+            $rows = array();
+            if (function_exists('role17_is_agent') && role17_is_agent() && function_exists('role17_courrier_heures_grille')) {
+                $rows = role17_courrier_heures_grille($ligne, $da);
+            }
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $rows));
         }
 
         public function verifpriesc($h, $tfb, $gid)

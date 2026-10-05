@@ -14,10 +14,14 @@
     </div>
 </div>
 <style>
-#bagage-facturation-r17.modal-container { max-width: 520px; width: 96%; }
-#bagage-facturation-r17 .r17-vente-modal { max-width: 520px; max-height: 94vh; overflow: auto; }
-#bagage-facturation-r17 .form-group { margin-bottom: 0.55rem; }
-#bagage-facturation-r17 .form-control { min-height: 42px; font-size: 0.95rem; }
+#bagage-facturation-r17.modal-container { max-width: 680px; width: 96%; }
+#bagage-facturation-r17 .r17-vente-modal { max-width: 680px; max-height: 94vh; overflow: auto; }
+#bagage-facturation-r17 .form-group { margin-bottom: 0.75rem; }
+#bagage-facturation-r17 label { font-size: 1rem; font-weight: 700; }
+#bagage-facturation-r17 .form-control { min-height: 52px; font-size: 1.125rem; }
+#bagage-facturation-r17 .modal-title { font-size: 1.25rem; }
+#bagage-facturation-r17 .btn,
+#bagage-facturation-r17 input.btn { min-height: 64px; font-size: 1.15rem; font-weight: 700; }
 
 .r17-bag-ticket-card {
     margin: 0.35rem 0 0.85rem;
@@ -55,7 +59,7 @@
     gap: 0.35rem 0.65rem;
     padding: 0.28rem 0;
     border-bottom: 1px dashed #cce7e2;
-    font-size: 0.92rem;
+    font-size: 1.05rem;
 }
 .r17-bag-ticket-card__row:last-child { border-bottom: 0; }
 .r17-bag-ticket-card__row .lbl {

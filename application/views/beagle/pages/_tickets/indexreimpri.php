@@ -70,7 +70,7 @@ $base_reimpri = site_url(
     -webkit-box-flex: 1;
     -ms-flex: 1 1 30%;
     flex: 1 1 30%;
-    min-height: 44px;
+    min-height: 56px;
     display: -webkit-box;
     display: -ms-flexbox;
     display: flex;
@@ -84,7 +84,7 @@ $base_reimpri = site_url(
     padding: 0.45rem 0.6rem;
     border-radius: 8px;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 1.05rem;
     text-decoration: none;
     color: #1e3a8a;
     background: #eff6ff;
@@ -153,7 +153,7 @@ $base_reimpri = site_url(
     width: 100%;
     box-sizing: border-box;
 }
-@media (min-width: 480px) {
+@media (min-width: 768px) {
     .r17-shell .r17-grid {
         display: -webkit-box !important;
         display: -ms-flexbox !important;

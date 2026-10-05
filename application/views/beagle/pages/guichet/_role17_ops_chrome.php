@@ -20,23 +20,35 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
 .r17-ops button.btn,
 .r17-ops input.btn,
 .r17-ops .btn-space {
-    min-height: 48px !important;
-    padding: 0.55rem 0.9rem !important;
-    font-size: 0.95rem !important;
+    min-height: 56px !important;
+    padding: 0.7rem 1rem !important;
+    font-size: 1.1rem !important;
     font-weight: 700 !important;
-    border-radius: 8px !important;
-    line-height: 1.2 !important;
+    border-radius: 10px !important;
+    line-height: 1.25 !important;
 }
 .r17-ops .modal-footer .btn,
-.r17-ops .modal-footer input.btn {
-    min-height: 52px !important;
+.r17-ops .modal-footer input.btn,
+.r17-ops .r17-wiz-nav .btn,
+.r17-ops .r17-wiz-nav input.btn {
+    min-height: 64px !important;
+    font-size: 1.15rem !important;
+}
+.r17-ops label {
     font-size: 1rem !important;
+    font-weight: 700 !important;
 }
 .r17-ops .form-control,
 .r17-ops select.form-control,
-.r17-ops input.form-control {
-    min-height: 42px !important;
-    font-size: 16px !important;
+.r17-ops input.form-control,
+.r17-ops textarea.form-control {
+    min-height: 52px !important;
+    height: auto !important;
+    font-size: 1.125rem !important;
+    padding: 0.5rem 0.75rem !important;
+}
+.r17-ops textarea.form-control {
+    min-height: 7rem !important;
 }
 .r17-ops-banner {
     display: -webkit-box;
@@ -102,7 +114,7 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
         ? role17_accueil_url($bus_stop, $conex)
         : '#';
     ?>
-    <a href="<?= htmlspecialchars($accueil_r17, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary btn-sm" style="min-height:36px!important;padding:0.35rem 0.7rem!important;font-size:0.8rem!important;">
+    <a href="<?= htmlspecialchars($accueil_r17, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary" style="min-height:52px!important;padding:0.65rem 1rem!important;font-size:1.05rem!important;">
         <i class="fas fa-home"></i>&nbsp;Accueil
     </a>
 </div>
