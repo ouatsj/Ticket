@@ -101,6 +101,198 @@
         }
 
         /**
+         * Codes dont le blocage local interdit la vente sur ce programme.
+         *
+         * @param string $code_progr
+         * @return string[]
+         */
+        public function codes_qui_bloquent_vente($code_progr)
+        {
+            $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            $codes = $this->m_programme_correspondance->codes_blocage_vente($code_progr);
+            return is_array($codes) ? $codes : array();
+        }
+
+        /**
+         * Blocage effectif à la vente, y compris celui d'un correspondant.
+         * Null si le siège reste vendable.
+         *
+         * @param string $code_progr
+         * @param int $siege_num
+         * @return array{code:string,local:bool,libelle:string,reason:string}|null
+         */
+        public function motif_blocage_vente($code_progr, $siege_num)
+        {
+            $n = (int) $siege_num;
+            $code = trim((string) $code_progr);
+            if ($n <= 0 || $code === '') {
+                return null;
+            }
+            $codes = $this->codes_qui_bloquent_vente($code);
+            if (!$codes) {
+                return null;
+            }
+            $this->ensure_siege_bloque_table();
+            if (!$this->db->table_exists($this->table_siege_bloque)) {
+                return null;
+            }
+            $ph = implode(',', array_fill(0, count($codes), '?'));
+            $row = $this->db->query(
+                "SELECT code_progr FROM {$this->table_siege_bloque}
+                 WHERE siege_num = ? AND code_progr IN ({$ph})
+                 ORDER BY (code_progr = ?) DESC
+                 LIMIT 1",
+                array_merge(array($n), $codes, array($code))
+            )->row();
+            if (!$row || empty($row->code_progr)) {
+                return null;
+            }
+            $source = (string) $row->code_progr;
+            $local = ($source === $code);
+            $libelle = $local ? 'ce départ' : $this->_libelle_programme_correspondance($source);
+            $reason = $local
+                ? ('Le siège ' . $n . ' est bloqué à la vente pour ce départ.')
+                : ('Le siège ' . $n . ' est bloqué sur ' . $libelle
+                    . '. Il reste bloqué à la vente ici tant qu\'il n\'est pas débloqué sur ce départ.');
+
+            return array(
+                'code' => $source,
+                'local' => $local,
+                'libelle' => $libelle,
+                'reason' => $reason,
+            );
+        }
+
+        /**
+         * Sièges bloqués par un correspondant (pas sur ce programme) et mentions
+         * d'information quand la suite et le dérivé ne se ferment pas l'un l'autre.
+         *
+         * @param string $code_progr
+         * @return array{bloques:array,infos:array}
+         */
+        public function correspondance_sieges_affichage($code_progr)
+        {
+            $code = trim((string) $code_progr);
+            $vide = array('bloques' => array(), 'infos' => array());
+            if ($code === '') {
+                return $vide;
+            }
+            $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            $bloquants = $this->codes_qui_bloquent_vente($code);
+            $autres = array();
+            foreach ($bloquants as $c) {
+                if ($c !== $code) {
+                    $autres[$c] = $c;
+                }
+            }
+            $infosCodes = $this->m_programme_correspondance->codes_info_vente($code);
+            $tous = $autres;
+            foreach ($infosCodes as $c) {
+                if ($c !== $code && !isset($autres[$c])) {
+                    $tous[$c] = $c;
+                }
+            }
+            if (!$tous) {
+                return $vide;
+            }
+            $this->ensure_siege_bloque_table();
+            if (!$this->db->table_exists($this->table_siege_bloque)) {
+                return $vide;
+            }
+            $liste = array_values($tous);
+            $ph = implode(',', array_fill(0, count($liste), '?'));
+            $rows = $this->db->query(
+                "SELECT code_progr, siege_num FROM {$this->table_siege_bloque}
+                 WHERE code_progr IN ({$ph})
+                 ORDER BY siege_num ASC",
+                $liste
+            )->result();
+            $parSiegeBloque = array();
+            $parSiegeInfo = array();
+            foreach ($rows as $row) {
+                $n = (int) $row->siege_num;
+                $src = (string) $row->code_progr;
+                if ($n <= 0) {
+                    continue;
+                }
+                if (isset($autres[$src]) && !isset($parSiegeBloque[$n])) {
+                    $parSiegeBloque[$n] = $src;
+                } elseif (in_array($src, $infosCodes, true) && !isset($parSiegeInfo[$n])) {
+                    $parSiegeInfo[$n] = $src;
+                }
+            }
+            $bloques = array();
+            foreach ($parSiegeBloque as $n => $src) {
+                $lib = $this->_libelle_programme_correspondance($src);
+                $bloques[] = array(
+                    'siege' => (int) $n,
+                    'code' => $src,
+                    'libelle' => 'Bloqué sur ' . $lib . '. Déblocage sur ce départ.',
+                );
+            }
+            $infos = array();
+            foreach ($parSiegeInfo as $n => $src) {
+                if (isset($parSiegeBloque[$n])) {
+                    continue;
+                }
+                $lib = $this->_libelle_programme_correspondance($src);
+                $infos[] = array(
+                    'siege' => (int) $n,
+                    'code' => $src,
+                    'libelle' => 'Bloqué sur ' . $lib . '. Vendable ici : l\'autre tronçon ne reprend pas ce passager.',
+                );
+            }
+
+            return array('bloques' => $bloques, 'infos' => $infos);
+        }
+
+        /**
+         * @param string $code_progr
+         * @return string
+         */
+        protected function _libelle_programme_correspondance($code_progr)
+        {
+            $code = trim((string) $code_progr);
+            if ($code === '') {
+                return 'un départ en correspondance';
+            }
+            $row = $this->db->query(
+                "SELECT l.nom_ligne, g.garenom, h.heure
+                 FROM programme pr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN lignes l ON lh.ligne_id = l.ident_ligne
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 LEFT JOIN gares g ON g.idengare = pr.gareidentif
+                 WHERE pr.code_progr = ?
+                 LIMIT 1",
+                array($code)
+            )->row();
+            $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            $role = $this->m_programme_correspondance->role_dans_lien($code);
+            $roleLbl = array(
+                'principal' => 'principal',
+                'suite' => 'suite',
+                'derive' => 'dérivé',
+            );
+            $suffixe = isset($roleLbl[$role]) ? (' (' . $roleLbl[$role] . ')') : '';
+            if (!$row) {
+                return $code . $suffixe;
+            }
+            $ligne = trim((string) $row->nom_ligne);
+            $gare = trim((string) $row->garenom);
+            $heure = substr(trim((string) $row->heure), 0, 5);
+            $texte = $ligne !== '' ? $ligne : $code;
+            if ($gare !== '') {
+                $texte .= ' · ' . $gare;
+            }
+            if ($heure !== '') {
+                $texte .= ' ' . $heure;
+            }
+
+            return $texte . $suffixe;
+        }
+
+        /**
          * Remplace la liste des trous hors vente.
          * Ne stocke que les numéros dans [intervalle1, intervalle2] si fournis.
          *
@@ -140,21 +332,49 @@
         /**
          * @return string SQL AND … ou chaîne vide
          */
-        protected function _cdprog_bloque_and($code_progr)
+        /**
+         * Siège bloqué sur ce programme ou sur un correspondant qui ferme la vente.
+         */
+        protected function _sql_blocage_effectif($codeExpr)
         {
             if (!$this->db->table_exists($this->table_siege_bloque)) {
                 return '';
             }
+            $t = $this->table_siege_bloque;
+            $corr = '';
+            if ($this->db->table_exists('programme_correspondance')) {
+                $corr = "
+                OR EXISTS (
+                    SELECT 1 FROM programme_correspondance l
+                    WHERE l.code_progr_principal = b.code_progr
+                      AND (l.code_progr_suite = {$codeExpr} OR l.code_progr_derive = {$codeExpr})
+                )
+                OR EXISTS (
+                    SELECT 1 FROM programme_correspondance l
+                    WHERE l.code_progr_principal = {$codeExpr}
+                      AND (l.code_progr_suite = b.code_progr OR l.code_progr_derive = b.code_progr)
+                )";
+            }
+
+            return " AND NOT EXISTS (
+                SELECT 1 FROM {$t} b
+                WHERE b.siege_num = sc.siege_num
+                AND (
+                    b.code_progr = {$codeExpr}
+                    {$corr}
+                )
+            )";
+        }
+
+        protected function _cdprog_bloque_and($code_progr)
+        {
             $code = trim((string) $code_progr);
             if ($code === '') {
                 return '';
             }
             $codeEsc = $this->db->escape_str($code);
-            $t = $this->table_siege_bloque;
-            return " AND NOT EXISTS (
-                SELECT 1 FROM {$t} b
-                WHERE b.code_progr = '{$codeEsc}' AND b.siege_num = sc.siege_num
-            )";
+
+            return $this->_sql_blocage_effectif("'{$codeEsc}'");
         }
 
         /**
@@ -163,14 +383,7 @@
          */
         protected function _cdprog_bloque_and_pr()
         {
-            if (!$this->db->table_exists($this->table_siege_bloque)) {
-                return '';
-            }
-            $t = $this->table_siege_bloque;
-            return " AND NOT EXISTS (
-                SELECT 1 FROM {$t} b
-                WHERE b.code_progr = pr.code_progr AND b.siege_num = sc.siege_num
-            )";
+            return $this->_sql_blocage_effectif('pr.code_progr');
         }
 
         /**

@@ -1,15 +1,19 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$escale_nom = trim((string) $this->input->get('escale'));
+$depuis_escale = ($escale_nom !== '');
+$qesc = function_exists('caissier_escale_query_suffix') ? caissier_escale_query_suffix() : '';
+$gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+$retour_sous = $depuis_escale
+    ? site_url('caisses/' . $this->session->company->ekey . '/gTv/' . $gexp_btn . '/' . (!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0) . '/depot/' . $conex->roleattribut . '/' . $bus_stop->idsousgare . '/' . mdate('%d/%m/%Y', now('UTC'))) . $qesc
+    : retour_caisse_url($this->session->company->ekey, $gexp_btn, $conex->roleattribut, $bus_stop->idsousgare);
+?>
 
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
         <?php $this->load->view('_partials/btn_retour', array(
-            'fallback' => retour_caisse_url(
-                $this->session->company->ekey,
-                !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0),
-                $conex->roleattribut,
-                $bus_stop->idsousgare
-            ),
-            'label' => 'RETOUR A LA CAISSE',
+            'fallback' => $retour_sous,
+            'label' => $depuis_escale ? 'RETOUR AUX DEPOTS' : 'RETOUR A LA CAISSE',
         )); ?>
         <button class="btn btn-space btn-secondary addautredepot md-trigger"
                 data-modal="form-sousdepot" data-cle_compagnie="<?= $this->session->company->ekey; ?>">
@@ -18,12 +22,12 @@
         
         <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                "/autredepot/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' .mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/autredepot/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' .mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-success"></i>&nbsp;DEPOT CLIENT&nbsp;
         </a>
         <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                "/autredepotfournisseur/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/autredepotfournisseur/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' . mdate("%d/%m/%Y", now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-success"></i>&nbsp;DEPOT FOURNISSEUR&nbsp;
         </a>
     </p>

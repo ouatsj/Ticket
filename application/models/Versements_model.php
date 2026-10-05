@@ -1156,7 +1156,7 @@
 
             if ($gr === '' AND $nm === '') {
                 return $this->db->query(
-                    "SELECT v.montant_verser, gr.genre_depot, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.commentaire FROM versements v
+                    "SELECT v.montant_verser, gr.genre_depot, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.idop_versement, v.commentaire FROM versements v
                     JOIN genre_depot gr ON v.id_genre_versement = gr.id_genredepot
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1173,7 +1173,7 @@
 
             }elseif($gr === '' AND $nm === '')
             {
-                return $this->db->query("SELECT v.montant_verser, gr.genre_depot, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.commentaire FROM versements v
+                return $this->db->query("SELECT v.montant_verser, gr.genre_depot, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.idop_versement, v.commentaire FROM versements v
                     JOIN genre_depot gr ON v.id_genre_versement = gr.id_genredepot
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1190,7 +1190,7 @@
             }
             elseif($nm === '')
             {
-                return $this->db->query("SELECT v.montant_verser, gr.genre_depot, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.commentaire FROM versements v
+                return $this->db->query("SELECT v.montant_verser, gr.genre_depot, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.idop_versement, v.commentaire FROM versements v
                     JOIN genre_depot gr ON v.id_genre_versement = gr.id_genredepot
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1206,7 +1206,7 @@
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
                     ORDER BY v.date_versement ASC")->result();
             }
-                return $this->db->query("SELECT v.montant_verser, gr.genre_depot, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.commentaire FROM versements v
+                return $this->db->query("SELECT v.montant_verser, gr.genre_depot, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.idop_versement, v.commentaire FROM versements v
                     JOIN genre_depot gr ON v.id_genre_versement = gr.id_genredepot
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1229,7 +1229,7 @@
 
             if ($gr === '' AND $nm === '') {
                 return $this->db->query(
-                    "SELECT v.montant_verser, gr.genre_depens, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.commentaire FROM versements v
+                    "SELECT v.montant_verser, gr.genre_depens, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.idop_versement, v.commentaire FROM versements v
                     JOIN genre_depense gr ON v.id_genre_versement = gr.depenseid
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1246,7 +1246,7 @@
 
             }elseif($gr === '' AND $nm === '')
             {
-                return $this->db->query("SELECT v.montant_verser, gr.genre_depens, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.commentaire FROM versements v
+                return $this->db->query("SELECT v.montant_verser, gr.genre_depens, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.idop_versement, v.commentaire FROM versements v
                     JOIN genre_depense gr ON v.id_genre_versement = gr.depenseid
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1263,7 +1263,7 @@
             }
             elseif($nm === '')
             {
-                return $this->db->query("SELECT v.montant_verser, gr.genre_depens, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.commentaire FROM versements v
+                return $this->db->query("SELECT v.montant_verser, gr.genre_depens, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.idop_versement, v.commentaire FROM versements v
                     JOIN genre_depense gr ON v.id_genre_versement = gr.depenseid
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1279,7 +1279,7 @@
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
                     ORDER BY v.date_versement ASC")->result();
             }
-                return $this->db->query("SELECT v.montant_verser, gr.genre_depens, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.commentaire FROM versements v
+                return $this->db->query("SELECT v.montant_verser, gr.genre_depens, v.type_versement, v.bordereau_verser, v.date_versement, v.nom_beneficiaire, v.idop_versement, v.commentaire FROM versements v
                     JOIN genre_depense gr ON v.id_genre_versement = gr.depenseid
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp

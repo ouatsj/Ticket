@@ -1,13 +1,24 @@
 <?php
     
     defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+    <?php
+    $escale_nom = trim((string) $this->input->get('escale'));
+    $depuis_escale = ($escale_nom !== '');
+    $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+    ?>
     <div class="row">
         <p class="mt-0 mb-2 ml-4">
+            <?php if ($depuis_escale): ?>
+            <a href="<?= site_url('gares/' . $this->session->company->ekey . '/gTs/' . $gexp_btn . '/escaleagents/' . rawurlencode($escale_nom) . '/0'); ?>" class="btn btn-space btn-secondary">
+                <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR À L'ESCALE&nbsp;
+            </a>
+            <?php else: ?>
             <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
-                    (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0)).
+                    $gexp_btn.
                 "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
+            <?php endif; ?>
             <a href="#" class="btn btn-space btn-secondary addversementcaisse md-trigger" 
                     data-modal="form-addverse_caisse" data-cle_compagnie="<?= $this->session->company->ekey; ?>">
                 <i class="fas fa-edit text-success"></i>&nbsp;VERSEMENT CAISSE&nbsp;
@@ -15,14 +26,14 @@
             
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/cais/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).'/' . $conex->roleattribut.
-                "/autreversement_adjoint/".$bus_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/autreversement_adjoint/".$bus_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))) . caissier_escale_query_suffix(); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;VERSEMENT CLIENT&nbsp;
             </a>
 
             
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/cais/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).'/' . $conex->roleattribut.
-                "/versementfourni_adjoint/".$bus_stop->idsousgare.'/' .mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/versementfourni_adjoint/".$bus_stop->idsousgare.'/' .mdate("%d/%m/%Y", now('UTC'))) . caissier_escale_query_suffix(); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;VERSEMENT FOURNISSEUR&nbsp;
             </a>
             

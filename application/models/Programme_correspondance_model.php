@@ -462,6 +462,74 @@ class Programme_correspondance_model extends CI_Model
     }
 
     /**
+     * Programmes dont un siège bloqué interdit aussi la vente sur $code_progr.
+     * Principal → suite et dérivé. Suite ou dérivé → principal.
+     * La suite et le dérivé ne se bloquent pas entre eux.
+     *
+     * @param string $code_progr
+     * @return string[]
+     */
+    public function codes_blocage_vente($code_progr)
+    {
+        $code = trim((string) $code_progr);
+        if ($code === '') {
+            return array();
+        }
+        $out = array($code => $code);
+        $lien = $this->get_by_any_code($code);
+        if (!$lien) {
+            return array_values($out);
+        }
+        $role = $this->role_dans_lien($code, $lien);
+        $principal = trim((string) $lien->code_progr_principal);
+        $suite = trim((string) $lien->code_progr_suite);
+        $derive = trim((string) $lien->code_progr_derive);
+        if ($role === 'principal') {
+            if ($suite !== '') {
+                $out[$suite] = $suite;
+            }
+            if ($derive !== '') {
+                $out[$derive] = $derive;
+            }
+        } elseif ($role === 'suite' || $role === 'derive') {
+            if ($principal !== '') {
+                $out[$principal] = $principal;
+            }
+        }
+
+        return array_values($out);
+    }
+
+    /**
+     * Autre tronçon (suite ∥ dérivé) : le blocage y est visible, la vente reste possible.
+     *
+     * @param string $code_progr
+     * @return string[]
+     */
+    public function codes_info_vente($code_progr)
+    {
+        $code = trim((string) $code_progr);
+        if ($code === '') {
+            return array();
+        }
+        $lien = $this->get_by_any_code($code);
+        if (!$lien) {
+            return array();
+        }
+        $role = $this->role_dans_lien($code, $lien);
+        if ($role === 'suite') {
+            $derive = trim((string) $lien->code_progr_derive);
+            return $derive !== '' ? array($derive) : array();
+        }
+        if ($role === 'derive') {
+            $suite = trim((string) $lien->code_progr_suite);
+            return $suite !== '' ? array($suite) : array();
+        }
+
+        return array();
+    }
+
+    /**
      * True si une vente sur $codeA doit bloquer le siège aussi pour $codeB
      * (utilisé pour filtrer les « frères » même depart_code / date).
      *

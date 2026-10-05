@@ -890,6 +890,8 @@
             $nm = $this->_depense_critere_saisi($this->input->get_post('nom'));
             $comp = trim((string) $this->input->get_post('_compag'));
             $gid = trim((string) $this->input->get_post('gareconnect'));
+            $sousgare = (int) $this->input->get_post('sousgareconnect');
+            $escale_ops = trim((string) $this->input->get_post('escale_ops'));
             $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
@@ -899,13 +901,13 @@
             $role = (string) $this->session->agent->userole;
 
             if (recette_role_is_validateur_principal($role)) {
-                $rows = $this->m_depense->tridepense($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm, FALSE, $typ);
+                $rows = $this->m_depense->tridepense($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm, FALSE, $typ, $sousgare, $escale_ops);
             } elseif (recette_role_is_validateur_adjoint($role)) {
-                $rows = $this->m_depense->adtridepense($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm, FALSE, $typ);
+                $rows = $this->m_depense->adtridepense($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm, FALSE, $typ, $sousgare, $escale_ops);
             } elseif ($role === '1' || $role === '2') {
-                $rows = $this->m_depense->tridepenseadmin($this->entreprise->ekey, $gid, $comp, $date1, $date2, $typ, $gen, $nm);
+                $rows = $this->m_depense->tridepenseadmin($this->entreprise->ekey, $gid, $comp, $date1, $date2, $typ, $gen, $nm, FALSE, $sousgare, $escale_ops);
             } elseif (recette_role_is_saisie($role)) {
-                $rows = $this->m_depense->tridepense_adjoint($this->entreprise->ekey, $gid, $atr, $date1, $date2, $comp, $typ, $gen, $nm);
+                $rows = $this->m_depense->tridepense_adjoint($this->entreprise->ekey, $gid, $atr, $date1, $date2, $comp, $typ, $gen, $nm, FALSE, $sousgare, $escale_ops);
             } else {
                 $rows = array();
             }
@@ -931,7 +933,8 @@
                 'datedebut' => $date1, 'datefin' => $date2, 'type' => $typ, 'genre' => $gen,
                 'nom' => $nm, '_compag' => $comp, 'gareconnect' => $gid,
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
-                'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+                'sousgareconnect' => $sousgare > 0 ? (string) $sousgare : '',
+                'escale_ops' => $escale_ops,
             )));
             return array(
                 'titre' => 'ETATS DES DEPENSES DE ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1,
@@ -998,6 +1001,7 @@
             if (!is_array($rows)) {
                 $rows = array();
             }
+            $rows = caissier_escale_filtrer_lignes($rows);
             $lignes = array();
             $total = 0.0;
             foreach ($rows as $depot) {
@@ -1077,6 +1081,7 @@
             if (!is_array($rows)) {
                 $rows = array();
             }
+            $rows = caissier_escale_filtrer_lignes($rows);
             $lignes = array();
             $total = 0.0;
             foreach ($rows as $depot) {
@@ -8602,6 +8607,7 @@
             if (!is_array($rows)) {
                 $rows = array();
             }
+            $rows = caissier_escale_filtrer_lignes($rows);
             $lignes = array();
             $total = 0.0;
             foreach ($rows as $dep) {
@@ -8670,6 +8676,7 @@
             if (!is_array($rows)) {
                 $rows = array();
             }
+            $rows = caissier_escale_filtrer_lignes($rows);
             $lignes = array();
             $total = 0.0;
             foreach ($rows as $depot) {
@@ -8745,6 +8752,7 @@
             if (!is_array($rows)) {
                 $rows = array();
             }
+            $rows = caissier_escale_filtrer_lignes($rows);
             $lignes = array();
             $total = 0.0;
             foreach ($rows as $row) {
@@ -8820,6 +8828,7 @@
             if (!is_array($rows)) {
                 $rows = array();
             }
+            $rows = caissier_escale_filtrer_lignes($rows);
             $lignes = array();
             $total = 0.0;
             foreach ($rows as $row) {

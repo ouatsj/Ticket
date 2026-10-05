@@ -91,12 +91,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? new XMLHttpRequest()
                     : new ActiveXObject('Microsoft.XMLHTTP');
 
+                var form = document.querySelector('#dpForm');
+                var sgEl = form ? form.querySelector('[name="sousgareconnect"]') : null;
+                var opsEl = form ? form.querySelector('[name="escale_ops"]') : null;
+                var lieu = '';
+                if (opsEl && opsEl.value) {
+                    lieu = '?escale_ops=' + encodeURIComponent(opsEl.value);
+                } else if (sgEl && sgEl.value) {
+                    lieu = '?sousgare=' + encodeURIComponent(sgEl.value);
+                }
+
                 Infostypinfo.open(
                     'GET',
                     window.location.origin + root + '/depenses/listenom/'
                         + encodeURIComponent(idcaid) + '/'
                         + encodeURIComponent(typedepchoisi) + '/'
-                        + encodeURIComponent(ficationtypinfo),
+                        + encodeURIComponent(ficationtypinfo)
+                        + lieu,
                     true
                 );
                 Infostypinfo.onload = () => {

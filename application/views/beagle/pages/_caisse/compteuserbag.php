@@ -87,7 +87,7 @@
                                             <div class="form-group col-sm-4">
                                                 <label>NOM</label>
                                                 <input class="form-control form-control-sm" type="text" name="nom" id="idnomprenom"
-                                                value="<?= $item->first_name;?> <?= $item->last_name; ?>">
+                                                value="<?= trim($item->first_name); ?> <?= trim($item->last_name); ?>">
                                                 
                                             </div>
                                             <div class="form-group col-sm-4">

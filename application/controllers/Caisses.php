@@ -675,6 +675,13 @@
                         $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['depotcaisse'] = $this->m_depot->ad_deptinterne($this->company->ekey, $cdg, $cid, $cpr);
                     }
+                    $escale_ops = $this->_escale_ops_ids();
+                    if ($escale_ops) {
+                        $liste_four = (isset($this->property['versements']) && is_array($this->property['versements']))
+                            ? $this->property['versements']
+                            : array();
+                        $this->property['versements'] = caissier_escale_filtrer_lignes($liste_four);
+                    }
                     $this->property['caisses'] = $this->m_caisse->getcaisse($this->company->ekey);
                     
                     $this->property['genres'] = $ref['genres']; 
@@ -815,6 +822,13 @@
                         $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg);
                                 
                         $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
+                    }
+                    $escale_ops = $this->_escale_ops_ids();
+                    if ($escale_ops && isset($this->property['sousdepots'])) {
+                        $this->property['sousdepots'] = caissier_escale_filtrer_lignes($this->property['sousdepots']);
+                        $total_escale = $this->_total_lignes($this->property['sousdepots'], 'montant_depot');
+                        $this->property['sommesdepots'] = (object) array('total' => $total_escale);
+                        $this->property['sommedepots'] = (object) array('total' => $total_escale);
                     }
                     
                     $this->property['typedocuments'] = $ref['typedocuments'];

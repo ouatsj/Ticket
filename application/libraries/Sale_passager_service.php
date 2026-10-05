@@ -773,12 +773,15 @@ class Sale_passager_service
             $this->ci->load->model('Programme_model', 'm_programme');
         }
 
-        if (!$skipBlocked && $this->ci->m_programme->siege_est_bloque_programme($code, $num)) {
-            return array(
-                'ok' => false,
-                'code' => 'blocked',
-                'reason' => 'Le siège ' . $num . ' est bloqué à la vente pour ce départ.',
-            );
+        if (!$skipBlocked) {
+            $motif = $this->ci->m_programme->motif_blocage_vente($code, $num);
+            if ($motif) {
+                return array(
+                    'ok' => false,
+                    'code' => 'blocked',
+                    'reason' => $motif['reason'],
+                );
+            }
         }
 
         $quota = $this->ci->db->query(

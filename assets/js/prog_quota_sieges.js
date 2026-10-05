@@ -121,13 +121,21 @@
             rangeFin: 0,
             editMode: isEditBlock,
             isAdmin: block.getAttribute('data-is-admin') === '1',
-            reverting: false
+            reverting: false,
+            corrBloque: {},
+            corrInfo: {}
         };
         if (!state.tampon) {
             state.tampon = {};
         }
         if (!state.verrou) {
             state.verrou = {};
+        }
+        if (!state.corrBloque) {
+            state.corrBloque = {};
+        }
+        if (!state.corrInfo) {
+            state.corrInfo = {};
         }
         if (typeof state.isAdmin === 'undefined') {
             state.isAdmin = block.getAttribute('data-is-admin') === '1';
@@ -206,8 +214,10 @@
                 return;
             }
             grid.querySelectorAll('.js-quota-siege').forEach(function (cb) {
-                if (cb.checked || cb.disabled || cb.getAttribute('data-sold') === '1'
-                    || cb.getAttribute('data-tampon') === '1') {
+                var garderLocal = cb.getAttribute('data-corr-bloque') === '1'
+                    && state.blocked && state.blocked[cb.value];
+                if (!garderLocal && (cb.checked || cb.disabled || cb.getAttribute('data-sold') === '1'
+                    || cb.getAttribute('data-tampon') === '1')) {
                     return;
                 }
                 var n = parseInt(cb.value, 10);
@@ -393,7 +403,15 @@
                     checked = false;
                     state.blocked[String(n)] = true;
                 }
+                var corrTxt = (!isSold && state.corrBloque && state.corrBloque[String(n)])
+                    ? state.corrBloque[String(n)] : '';
+                if (corrTxt) {
+                    checked = false;
+                }
+                var infoTxt = (!isSold && !corrTxt && state.corrInfo && state.corrInfo[String(n)])
+                    ? state.corrInfo[String(n)] : '';
                 var disabled = (state.recoMode && !isReco)
+                    || !!corrTxt
                     || (!!state.verrou[String(n)] && !state.isAdmin && !isSold && !isTampon);
                 var isVerrou = !checked && !isSold && !isTampon && !!state.verrou[String(n)];
                 var isBlocked = !checked && !isSold && !isTampon && !disabled
@@ -409,6 +427,10 @@
                 } else if (isVerrou) {
                     wrapStyle = 'background:#f8d7da;border:1px solid #dc3545;border-radius:4px;padding:4px 6px;display:block;';
                     labelExtra = ' <span style="color:#721c24;font-size:11px;font-weight:700;">VERROUILLÉ</span>';
+                } else if (corrTxt) {
+                    wrapStyle = 'background:#d6e4f0;border:1px solid #2b6cb0;border-radius:4px;padding:4px 6px;display:block;';
+                    labelExtra = ' <span style="color:#1e4e8c;font-size:11px;font-weight:600;" title="'
+                        + corrTxt.replace(/"/g, '&quot;') + '">BLOQUÉ CORRESPONDANCE</span>';
                 } else if (isBlocked) {
                     wrapStyle = 'background:#e2e3e5;border:1px solid #6c757d;border-radius:4px;padding:4px 6px;display:block;opacity:0.75;';
                     labelExtra = ' <span style="color:#495057;font-size:11px;font-weight:600;">BLOQUÉ</span>';
@@ -434,8 +456,13 @@
                     + (isSold ? ' data-sold="1"' : '')
                     + (isTampon ? ' data-tampon="1"' : '')
                     + (state.recoMode && isReco ? ' data-reco="1"' : '')
+                    + (corrTxt ? ' data-corr-bloque="1"' : '')
                     + '> <strong>' + n + '</strong>'
                     + labelExtra
+                    + (infoTxt
+                        ? (' <span style="color:#9a3412;font-size:11px;font-weight:600;" title="'
+                            + infoTxt.replace(/"/g, '&quot;') + '">VENDABLE ICI</span>')
+                        : '')
                     + '</label></div>';
             }
             grid.innerHTML = html;
@@ -644,6 +671,24 @@
                     var verrouList = Array.isArray(data.sieges_verrouilles) ? data.sieges_verrouilles : [];
                     if (typeof data.is_admin !== 'undefined') {
                         state.isAdmin = !!data.is_admin;
+                    }
+                    state.corrBloque = {};
+                    state.corrInfo = {};
+                    if (Array.isArray(data.sieges_bloques_correspondance)) {
+                        data.sieges_bloques_correspondance.forEach(function (item) {
+                            var num = parseInt(item && item.siege, 10);
+                            if (!isNaN(num) && num > 0) {
+                                state.corrBloque[String(num)] = (item.libelle || 'Bloqué par un départ en correspondance.');
+                            }
+                        });
+                    }
+                    if (Array.isArray(data.sieges_info_correspondance)) {
+                        data.sieges_info_correspondance.forEach(function (item) {
+                            var numInfo = parseInt(item && item.siege, 10);
+                            if (!isNaN(numInfo) && numInfo > 0 && !state.corrBloque[String(numInfo)]) {
+                                state.corrInfo[String(numInfo)] = (item.libelle || 'Bloqué sur l\'autre tronçon, vendable ici.');
+                            }
+                        });
                     }
                     var tamponList = null;
                     if (data.is_reconduction_cible && Array.isArray(data.sieges_reconduits) && data.sieges_reconduits.length) {

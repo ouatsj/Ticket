@@ -12,6 +12,7 @@
         public function create(array $data)
         {
             $data = roleattribut_guard_apply_to_data($data, array('idopera', 'operavalid', 'operavalidad'));
+            $data = $this->_nom_espaces_simples($data);
 
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
@@ -20,8 +21,21 @@
                 
         public function update($id_recette, array $data)
         {
+            $data = $this->_nom_espaces_simples($data);
             return $this->db->where('id_recette', $id_recette)
             ->update($this->table, $data);
+        }
+
+        /**
+         * Un prénom saisi avec un espace final (« TOU ») produit « TOU  FATOUMATA ».
+         */
+        protected function _nom_espaces_simples(array $data)
+        {
+            if (isset($data['nom']) && is_string($data['nom'])) {
+                $data['nom'] = preg_replace('/\s+/', ' ', trim($data['nom']));
+            }
+
+            return $data;
         }
 
         public function del($id)
@@ -2500,10 +2514,35 @@
             if (!empty($noms)) {
                 $escaped = array();
                 foreach ($noms as $n) {
-                    $escaped[] = $this->db->escape($n);
+                    $collapsed = preg_replace('/\s+/', ' ', trim($n));
+                    if ($collapsed === '') {
+                        continue;
+                    }
+                    $escaped[$collapsed] = $this->db->escape($collapsed);
                 }
-                $nomSql = ' AND r.nom IN (' . implode(',', $escaped) . ') ';
+                if ($escaped) {
+                    // r.nom garde parfois un espace en trop (prénom saisi « TOU »).
+                    $nomCol = "REPLACE(REPLACE(REPLACE(TRIM(r.nom), '  ', ' '), '  ', ' '), '  ', ' ')";
+                    $nomSql = ' AND ' . $nomCol . ' IN (' . implode(',', $escaped) . ') ';
+                }
             }
+
+            $compSql = '';
+            $gareSql = '';
+            $binds = array($cid);
+            $cmp = trim((string) $cmp);
+            if ($cmp !== '') {
+                $compSql = ' AND r.compkey_recet = ?';
+                $binds[] = $cmp;
+            }
+            $gidTrim = trim((string) $gid);
+            if ($gidTrim !== '' && $gidTrim !== '0') {
+                $gareSql = " AND (ex.code_gaexp = ? OR ex.garesid = {$physEsc})";
+                $binds[] = $gidTrim;
+            }
+            $binds[] = $dt1;
+            $binds[] = $dt2;
+            $binds[] = $type;
 
             return $this->db->query(
                 "SELECT r.* FROM recette r
@@ -2512,14 +2551,14 @@
                     JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = ?
-                    AND r.compkey_recet = ?
-                    AND (ex.code_gaexp = ? OR ex.garesid = {$physEsc})
+                    {$compSql}
+                    {$gareSql}
                     AND r.actif_rect = 0
                     AND r.date_recet BETWEEN ? AND ?
                     AND r.type_recet = ?
                     {$nomSql}
                     ORDER BY r.date_recet ASC",
-                array($cid, $cmp, $gid, $dt1, $dt2, $type)
+                $binds
             )->result();
         }
 

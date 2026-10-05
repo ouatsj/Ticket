@@ -26,18 +26,18 @@
             
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                "/autreversement/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' .mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/autreversement/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' .mdate("%d/%m/%Y", now('UTC'))) . caissier_escale_query_suffix(); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;VERSEMENT CLIENT&nbsp;
             </a>
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                "/versementfournisseur/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' .mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/versementfournisseur/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' .mdate("%d/%m/%Y", now('UTC'))) . caissier_escale_query_suffix(); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;VERSEMENT FOURNISSEUR&nbsp;
             </a>
 
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                "/versement/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/versement/". $conex->roleattribut.'/'.$bus_stop->idsousgare .'/' . mdate("%d/%m/%Y", now('UTC'))) . caissier_escale_query_suffix(); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;VERSEMENT BANQUE&nbsp;
             </a>
             

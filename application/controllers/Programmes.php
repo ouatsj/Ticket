@@ -1970,6 +1970,7 @@
             $i2 = (int) $pr->intervalle2;
             $sieges_bloques = $this->m_programme->sieges_bloques_programme($code, $i1, $i2);
             $sieges_occupes = $this->m_programme->sieges_occupes_programme($code);
+            $corrAff = $this->m_programme->correspondance_sieges_affichage($code);
 
             if (!isset($this->m_siege_verrou)) {
                 $this->load->model('Ligne_heure_siege_verrou_model', 'm_siege_verrou');
@@ -2008,6 +2009,8 @@
                     'nbr_place' => $nbr,
                     'sieges_occupes' => $sieges_occupes,
                     'sieges_bloques' => $sieges_bloques,
+                    'sieges_bloques_correspondance' => $corrAff['bloques'],
+                    'sieges_info_correspondance' => $corrAff['infos'],
                     'sieges_verrouilles' => $sieges_verrouilles,
                     'sieges_tampon' => $sieges_tampon,
                     'nb_sieges_bloques' => count($sieges_bloques),

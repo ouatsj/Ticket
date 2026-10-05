@@ -25,13 +25,13 @@
             </a>
             
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
-                (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0)."/versement/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'.mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0)."/versement/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'.mdate("%d/%m/%Y", now('UTC'))) . caissier_escale_query_suffix(); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;VERSEMENT BANQUE&nbsp;
             </a>
 
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                 (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
-                "/versementcaisse/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/versementcaisse/" . $conex->roleattribut.'/'.$bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))) . caissier_escale_query_suffix(); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;VERSEMENT CAISSE&nbsp;
             </a>
             

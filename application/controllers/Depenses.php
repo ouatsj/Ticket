@@ -57,9 +57,9 @@
             $this->property['bus_stop'] = $bus_stop;
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $pageUser ? $pageUser : $iduser);
             $this->property['conex'] = $conex;
-            $this->property['depenses'] = $this->m_depense->getsdepen(
+            $this->property['depenses'] = caissier_escale_filtrer_lignes($this->m_depense->getsdepen(
                 $this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop, saisie_tri_est_admin()
-            );
+            ));
 			$caisseident = $this->m_caisse->get($this->company->id_entreprise, $idgd, $idcais);
               $this->property['caisseident'] = $caisseident;
 			  $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $idcais, $idgd, $iduser);
@@ -101,9 +101,9 @@
             $this->property['bus_stop'] = $bus_stop;
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $pageUser ? $pageUser : $iduser);
             $this->property['conex'] = $conex;
-            $this->property['depenses'] = $this->m_depense->getadjointdepen(
+            $this->property['depenses'] = caissier_escale_filtrer_lignes($this->m_depense->getadjointdepen(
                 $this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop, saisie_tri_est_admin()
-            );
+            ));
 			$caisseident = $this->m_caisse->get($this->company->id_entreprise, $idgd, $idcais);
               $this->property['caisseident'] = $caisseident;
 			  $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $idcais, $idgd);
@@ -685,7 +685,14 @@
 
         public function listenom($ica, $grd, $nom)
         {
-            $pnom = $this->m_depense->typinternenom($this->session->company->ekey, $ica, $grd, $nom);
+            $pnom = $this->m_depense->typinternenom(
+                $this->session->company->ekey,
+                $ica,
+                $grd,
+                $nom,
+                $this->input->get('sousgare'),
+                $this->input->get('escale_ops')
+            );
             return $this->load->view('beagle/pages/_programme/json', array('json' => $pnom));
         }
 

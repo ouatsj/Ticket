@@ -2332,7 +2332,49 @@ if (!function_exists('caissier_escale_query_suffix')) {
             return '';
         }
 
-        return '?escale=' . rawurlencode($escale) . '&escale_ops=' . rawurlencode($ops);
+        $suffix = '?escale=' . rawurlencode($escale) . '&escale_ops=' . rawurlencode($ops);
+        $vue = trim((string) $CI->input->get('escale_vue'));
+        if ($vue !== '4' && $vue !== '18') {
+            $vue = trim((string) $CI->input->post('escale_vue'));
+        }
+        if ($vue === '4' || $vue === '18') {
+            $suffix .= '&escale_vue=' . rawurlencode($vue);
+        }
+
+        return $suffix;
+    }
+}
+
+if (!function_exists('caissier_escale_hidden_inputs')) {
+    /**
+     * Champs à poster pour que recherche et historique restent sur l'escale affichée.
+     *
+     * @return string
+     */
+    function caissier_escale_hidden_inputs()
+    {
+        $CI =& get_instance();
+        $escale = trim((string) $CI->input->get('escale'));
+        $ops = trim((string) $CI->input->get('escale_ops'));
+        $vue = trim((string) $CI->input->get('escale_vue'));
+        if ($escale === '' && $ops === '') {
+            $escale = trim((string) $CI->input->post('escale'));
+            $ops = trim((string) $CI->input->post('escale_ops'));
+        }
+        if ($vue !== '4' && $vue !== '18') {
+            $vue = trim((string) $CI->input->post('escale_vue'));
+        }
+        if ($escale === '' && $ops === '') {
+            return '';
+        }
+
+        $html = '<input type="hidden" name="escale" value="' . htmlspecialchars($escale, ENT_QUOTES, 'UTF-8') . '">'
+            . '<input type="hidden" name="escale_ops" value="' . htmlspecialchars($ops, ENT_QUOTES, 'UTF-8') . '">';
+        if ($vue === '4' || $vue === '18') {
+            $html .= '<input type="hidden" name="escale_vue" value="' . htmlspecialchars($vue, ENT_QUOTES, 'UTF-8') . '">';
+        }
+
+        return $html;
     }
 }
 
@@ -2575,16 +2617,39 @@ if (!function_exists('caissier_escale_filtrer_lignes')) {
             }
         }
         $marqueur = caissier_escale_marqueur($CI->input->get_post('escale'));
+        $champs_id = array('idopera', 'idop_dep', 'idop_depot', 'idop_versement');
+        $champs_nom = array('nom', 'nom_perso', 'nom_pre', 'nom_beneficiaire');
+        $champs_comment = array('commentaire_recet', 'commentaire', 'commentaire_depot');
         $out = array();
         foreach ($rows as $row) {
             if (!is_object($row)) {
                 continue;
             }
-            $id = isset($row->idopera) ? (int) $row->idopera : 0;
-            $nom = isset($row->nom) ? strtoupper(trim((string) $row->nom)) : '';
-            $comment = isset($row->commentaire_recet) ? (string) $row->commentaire_recet : '';
-            $par_marqueur = ($marqueur !== '' && strpos($comment, $marqueur) !== false);
-            if (($id > 0 && isset($ids[$id])) || ($nom !== '' && isset($noms[$nom])) || $par_marqueur) {
+            $par_id = false;
+            foreach ($champs_id as $champ) {
+                $id = isset($row->$champ) ? (int) $row->$champ : 0;
+                if ($id > 0 && isset($ids[$id])) {
+                    $par_id = true;
+                    break;
+                }
+            }
+            $par_nom = false;
+            foreach ($champs_nom as $champ) {
+                $nom = isset($row->$champ) ? strtoupper(trim((string) $row->$champ)) : '';
+                if ($nom !== '' && isset($noms[$nom])) {
+                    $par_nom = true;
+                    break;
+                }
+            }
+            $par_marqueur = false;
+            foreach ($champs_comment as $champ) {
+                $comment = isset($row->$champ) ? (string) $row->$champ : '';
+                if ($marqueur !== '' && $comment !== '' && strpos($comment, $marqueur) !== false) {
+                    $par_marqueur = true;
+                    break;
+                }
+            }
+            if ($par_id || $par_nom || $par_marqueur) {
                 if (isset($row->commentaire_recet)) {
                     $row->commentaire_recet = caissier_escale_commentaire_visible($row->commentaire_recet);
                 }

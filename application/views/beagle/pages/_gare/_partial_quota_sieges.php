@@ -4,7 +4,7 @@ $categ_select_id = isset($categ_select_id) ? (string) $categ_select_id : '';
 $col_class = isset($col_class) ? (string) $col_class : 'col-sm-12';
 $quota_mode = isset($quota_mode) ? (string) $quota_mode : 'create';
 $quota_hint = ($quota_mode === 'edit')
-    ? 'Jaune = VENDU, orange = TAMPON, rouge = VERROUILLÉ (admin), gris = BLOQUÉ. Seul l’admin déverrouille.'
+    ? 'Jaune = VENDU, orange = TAMPON, rouge = VERROUILLÉ (admin), gris = BLOQUÉ sur ce départ. Bleu = bloqué par la correspondance, à débloquer sur ce départ. Mention orange = bloqué sur l’autre tronçon, vendable ici.'
     : 'Plage contiguë ; rouge = VERROUILLÉ admin (hors vente).';
 $is_admin_siege = isset($this->session->agent->userole) && (string) $this->session->agent->userole === '1';
 ?>

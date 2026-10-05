@@ -389,8 +389,9 @@
 
         }
         
-        public function typinternenom($cid, $idca, $grd, $pk)
+        public function typinternenom($cid, $idca, $grd, $pk, $sousgare = null, $escale_ops = null)
         {
+                $filtre_lieu = $this->_filtre_lieu_depense($sousgare, $escale_ops);
                 return $this->db->query(
                 "SELECT d.nom_perso, d.type_depense FROM depense d
                 JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
@@ -398,10 +399,11 @@
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'
-                AND cs.id_caiss = '$idca'
-                AND d.type_depense = '$grd'
-                AND gr.genre_depens = '$pk'
+                WHERE e.ekey = '".$this->db->escape_str($cid)."'
+                AND cs.id_caiss = '".$this->db->escape_str($idca)."'
+                AND d.type_depense = '".$this->db->escape_str($grd)."'
+                AND gr.genre_depens = '".$this->db->escape_str($pk)."'
+                {$filtre_lieu}
                 GROUP BY d.nom_perso
                 ORDER BY d.nom_perso ASC")->result();
 
@@ -439,8 +441,9 @@
         }
 
         //tri depense
-        public function tridepenseadmin($cid, $gid, $comp, $dt1, $dt2, $typ = FALSE, $gr = FALSE, $nm = FALSE, $iddep = FALSE)
+        public function tridepenseadmin($cid, $gid, $comp, $dt1, $dt2, $typ = FALSE, $gr = FALSE, $nm = FALSE, $iddep = FALSE, $sousgare = null, $escale_ops = null)
         {
+            $filtre_lieu = $this->_filtre_lieu_depense($sousgare, $escale_ops);
             if ($typ === '' AND $gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
                     "SELECT gr.genre_depens, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.date_depens FROM depense d
@@ -454,6 +457,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
                     AND cs.gexp_caiss = '$gid'
+                    {$filtre_lieu}
                     AND d.type_depense <> 'Courrier'
                     ORDER BY d.date_depens ASC")->result();
             }
@@ -473,6 +477,7 @@
                     AND d.is_actifdep = 1
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND cs.gexp_caiss = '$gid'
+                    {$filtre_lieu}
                     AND d.type_depense <> 'Courrier'
                     ORDER BY d.date_depens ASC")->result();
             }
@@ -493,6 +498,7 @@
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.type_depense <> 'Courrier'
                     AND cs.gexp_caiss = '$gid'
+                    {$filtre_lieu}
                     ORDER BY d.date_depens ASC")->result();
             }
             elseif($iddep === FALSE)
@@ -512,6 +518,7 @@
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND cs.gexp_caiss = '$gid'
+                    {$filtre_lieu}
                     AND d.type_depense <> 'Courrier'
                     ORDER BY d.date_depens ASC")->result();
             }
@@ -532,6 +539,7 @@
                     AND d.type_depense <> 'Courrier'
                     AND d.id_depense = '$iddep'
                     AND cs.gexp_caiss = '$gid'
+                    {$filtre_lieu}
                     ORDER BY d.date_depens ASC")->row();
         }
         protected function _filtre_type_depense($typ)
@@ -552,10 +560,42 @@
             return " AND TRIM(gr.genre_depens) = '".$this->db->escape_str($gr)."'";
         }
 
-        public function tridepense($cid, $gid, $usc, $comp, $dt1, $dt2, $gr = FALSE, $nm = FALSE, $iddep = FALSE, $typ = FALSE)
+        /**
+         * Historique ouvert depuis une page : l'escale, sinon la sous-gare affichée.
+         *
+         * @param int|string|null $sousgare
+         * @param int[]|string|null $escale_ops
+         * @return string
+         */
+        protected function _filtre_lieu_depense($sousgare = null, $escale_ops = null)
+        {
+            $ops = array();
+            if (is_array($escale_ops)) {
+                $raw = $escale_ops;
+            } else {
+                $raw = explode(',', (string) $escale_ops);
+            }
+            foreach ($raw as $id) {
+                $id = (int) $id;
+                if ($id > 0) {
+                    $ops[$id] = $id;
+                }
+            }
+            if ($ops && function_exists('recette_role_ops_ou_nom_sql')) {
+                return recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', array_values($ops));
+            }
+            $sg = (int) $sousgare;
+            if ($sg > 0) {
+                return ' AND d.sousgidepens = ' . $sg;
+            }
+            return '';
+        }
+
+        public function tridepense($cid, $gid, $usc, $comp, $dt1, $dt2, $gr = FALSE, $nm = FALSE, $iddep = FALSE, $typ = FALSE, $sousgare = null, $escale_ops = null)
         {
             $filtre_type = $this->_filtre_type_depense($typ);
             $filtre_genre = $this->_filtre_genre_depense($gr);
+            $filtre_lieu = $this->_filtre_lieu_depense($sousgare, $escale_ops);
             $nm = trim((string) $nm);
             $filtre_nom = ($nm === '') ? '' : " AND d.nom_perso = '".$this->db->escape_str($nm)."'";
             $filtre_id = ($iddep === FALSE || $iddep === '' || $iddep === null)
@@ -575,6 +615,7 @@
                 AND d.type_depense <> 'Courrier'
                 AND cs.gexp_caiss = '".$this->db->escape_str($gid)."'
                 AND (d.opevalid = '".$this->db->escape_str($usc)."' OR d.idop_dep = '".$this->db->escape_str($usc)."')
+                $filtre_lieu
                 $filtre_type
                 $filtre_genre
                 $filtre_nom
@@ -587,10 +628,11 @@
             return ($filtre_id !== '') ? $q->row() : $q->result();
         }
 
-        public function adtridepense($cid, $gid, $usc, $comp, $dt1, $dt2, $gr = FALSE, $nm = FALSE, $iddep = FALSE, $typ = FALSE)
+        public function adtridepense($cid, $gid, $usc, $comp, $dt1, $dt2, $gr = FALSE, $nm = FALSE, $iddep = FALSE, $typ = FALSE, $sousgare = null, $escale_ops = null)
         {
             $filtre_type = $this->_filtre_type_depense($typ);
             $filtre_genre = $this->_filtre_genre_depense($gr);
+            $filtre_lieu = $this->_filtre_lieu_depense($sousgare, $escale_ops);
             $nm = trim((string) $nm);
             $filtre_nom = ($nm === '') ? '' : " AND d.nom_perso = '".$this->db->escape_str($nm)."'";
             $filtre_id = ($iddep === FALSE || $iddep === '' || $iddep === null)
@@ -609,6 +651,7 @@
                 AND (d.is_actifdep = 1 OR d.opevalidad = '".$this->db->escape_str($usc)."')
                 AND d.type_depense <> 'Courrier'
                 AND cs.gexp_caiss = '".$this->db->escape_str($gid)."'
+                $filtre_lieu
                 $filtre_type
                 $filtre_genre
                 $filtre_nom
@@ -1098,10 +1141,11 @@
                 GROUP BY cs.id_caiss, d.idop_dep")->result();
         }
         //tri depense chef guichet
-        public function tridepense_adjoint($cid, $gid, $conect, $dt1, $dt2, $comp = FALSE, $typ = FALSE, $gr = FALSE, $nm = FALSE, $iddep = FALSE)
+        public function tridepense_adjoint($cid, $gid, $conect, $dt1, $dt2, $comp = FALSE, $typ = FALSE, $gr = FALSE, $nm = FALSE, $iddep = FALSE, $sousgare = null, $escale_ops = null)
         {
             $filtre_type = $this->_filtre_type_depense($typ);
             $filtre_genre = $this->_filtre_genre_depense($gr);
+            $filtre_lieu = $this->_filtre_lieu_depense($sousgare, $escale_ops);
             $comp = trim((string) $comp);
             $filtre_comp = ($comp === '') ? '' : " AND d.compkey_dep = '".$this->db->escape_str($comp)."'";
             $nm = trim((string) $nm);
@@ -1120,6 +1164,7 @@
                 AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
                 AND d.idop_dep = '".$this->db->escape_str($conect)."'
                 AND cs.gexp_caiss = '".$this->db->escape_str($gid)."'
+                $filtre_lieu
                 AND d.type_depense <> 'Courrier'
                 $filtre_comp
                 $filtre_type

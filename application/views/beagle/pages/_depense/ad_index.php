@@ -579,6 +579,9 @@
         <div class="form-group row">
             <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
+            <?php if ($depuis_escale): ?>
+            <input type="hidden" name="escale_ops" value="<?= htmlspecialchars(trim((string) $this->input->get('escale_ops')), ENT_QUOTES, 'UTF-8'); ?>">
+            <?php endif; ?>
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
             <input type="hidden" name="idcaisse" value="<?= $caisseident->id_caiss; ?>" id="idcaiss">

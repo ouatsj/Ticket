@@ -193,7 +193,8 @@
         }
 
         /**
-         * Arrêt de compte global adjoint (toutes gares d’accès) → file validation du principal.
+         * Ancienne validation globale des arrêts chefs. Retirée du profil adjoint :
+         * chaque arrêt se valide sur la caisse du chef.
          */
         public function unstop_global_adjoint($ckey)
         {
@@ -203,170 +204,12 @@
                 return;
             }
 
-            if (!recette_role_is_validateur_adjoint($this->session->agent->userole)) {
-                show_error('Arrêt global réservé au caissier adjoint.', 403);
-                return;
-            }
-
-            if (strtoupper((string) $this->input->method(TRUE)) !== 'POST') {
-                show_error('Méthode non autorisée.', 405);
-                return;
-            }
-
-            $ekey = (string) $this->company->ekey;
-            $cpuser_id = (int) $this->session->agent->cpuser_id;
-            $gares = $this->m_compte_user->attrib($cpuser_id, '18');
-            $nb_recettes = 0;
-            $nb_depenses = 0;
-            $nb_depots = 0;
-
-            $this->db->trans_start();
-
-            foreach ($gares as $gare) {
-                $adjoint_ra = (int) $gare->roleattribut;
-                $gid = isset($gare->idengare) ? $gare->idengare : null;
-                if ($adjoint_ra <= 0 || $gid === null || $gid === '') {
-                    continue;
-                }
-
-                $flags_r = caisse_validation_flags_chef_by_validator('18', $adjoint_ra, true);
-                $flags_r['valid_recet'] = 'valid';
-                $flags_d = caisse_validation_flags_depense_chef_by_validator('18', $adjoint_ra, true);
-                $flags_d['valid_depens'] = 'valid';
-                $flags_dp = caisse_validation_flags_depot_chef_by_validator('18', $adjoint_ra, true);
-                $flags_dp['valid_depo'] = 'valid';
-
-                // Arrêts chefs (5/16) déjà envoyés, en attente de validation adjoint → pose *validad.
-                // Pas de branche idopera = adjoint (saisie sur son compte) : scope = validations uniquement.
-                $cfrecet = $this->db->query(
-                    "SELECT r.id_recette
-                    FROM recette r
-                    JOIN attributions_role ar ON r.idopera = ar.roleattribut
-                    JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                    JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = ?
-                    AND cs.gexp_caiss = ?
-                    AND r.is_actifrecet = 0
-                    AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
-                    AND r.actif_rect = 0
-                    AND r.type_recet <> 'Courrier'
-                    AND ar.userole IN (5, 16)
-                    AND r.active_recet = 1
-                    AND r.is_validerecet = 0
-                    AND COALESCE(r.valid_recet, '') = 'valid'",
-                    array($ekey, $gid)
-                )->result();
-
-                foreach ($cfrecet as $row) {
-                    $this->m_recette->update($row->id_recette, $flags_r);
-                    $nb_recettes++;
-                }
-
-                $cfdepe = $this->db->query(
-                    "SELECT d.id_depense
-                    FROM depense d
-                    JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = ?
-                    AND cs.gexp_caiss = ?
-                    AND d.is_actifdep = 0
-                    AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
-                    AND d.actif_deps = 0
-                    AND d.type_depense <> 'Courrier'
-                    AND ar.userole IN (5, 16)
-                    AND d.active_dep = 1
-                    AND d.is_validedep = 0
-                    AND d.ferme_caisdep = 0
-                    AND COALESCE(d.valid_depens, '') = 'valid'",
-                    array($ekey, $gid)
-                )->result();
-
-                foreach ($cfdepe as $row) {
-                    $this->m_depense->update($row->id_depense, $flags_d);
-                    $nb_depenses++;
-                }
-
-                $cfdepo = $this->db->query(
-                    "SELECT d.id_depot
-                    FROM depot d
-                    JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
-                    JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
-                    JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = ?
-                    AND cs.gexp_caiss = ?
-                    AND d.arret_caisdepo = 0
-                    AND d.is_actifdepo = 0
-                    AND (d.is_actifdepoad = 0 OR d.is_actifdepoad IS NULL)
-                    AND d.is_validdepo = 0
-                    AND d.actif_depo = 0
-                    AND d.type_depot <> 'Courrier'
-                    AND ar.userole IN (5, 16)
-                    AND COALESCE(d.valid_depo, '') = 'valid'",
-                    array($ekey, $gid)
-                )->result();
-
-                foreach ($cfdepo as $row) {
-                    $this->m_depot->update($row->id_depot, $flags_dp);
-                    $nb_depots++;
-                }
-            }
-
-            $this->db->trans_complete();
-            if ($this->db->trans_status() === false) {
-                $this->session->set_flashdata(
-                    'arret_global_error',
-                    'La validation globale des arrêts chefs n’a pas pu être enregistrée. Veuillez réessayer.'
-                );
-                redirect('home/main');
-                return;
-            }
-
-            $total = $nb_recettes + $nb_depenses + $nb_depots;
-            $adjoint_ras = array();
-            foreach ($gares as $gare) {
-                $ra = (int) $gare->roleattribut;
-                if ($ra > 0) {
-                    $adjoint_ras[] = $ra;
-                }
-            }
-            $pending_princ = function_exists('adjoint_pending_principal_totals')
-                ? adjoint_pending_principal_totals($ekey, $adjoint_ras)
-                : (object) array('nb' => 0);
-
-            if ($total === 0) {
-                if (!empty($pending_princ->nb)) {
-                    $this->session->set_flashdata(
-                        'arret_global_success',
-                        'Aucun nouvel arrêt chef à valider. Déjà validé, en attente caissière ('
-                        . (int) $pending_princ->nb . ' mouvement'
-                        . ((int) $pending_princ->nb > 1 ? 's' : '') . ').'
-                    );
-                } else {
-                    $this->session->set_flashdata(
-                        'arret_global_success',
-                        'Aucun arrêt chef en attente de validation sur vos gares.'
-                    );
-                }
-            } else {
-                $msg = 'Arrêts chefs validés : '
-                    . $nb_recettes . ' recette(s), '
-                    . $nb_depenses . ' dépense(s), '
-                    . $nb_depots . ' dépôt(s). '
-                    . 'Ils sont maintenant en attente de confirmation par la caissière';
-                if (!empty($pending_princ->nb)) {
-                    $msg .= ' (' . (int) $pending_princ->nb . ' mouvement'
-                        . ((int) $pending_princ->nb > 1 ? 's' : '') . ' au total)';
-                }
-                $msg .= '.';
-                $this->session->set_flashdata('arret_global_success', $msg);
-            }
-
-            redirect('home/main');
+            show_error(
+                'La validation globale des arrêts chefs n’est plus disponible. Validez chaque chef depuis sa caisse.',
+                403
+            );
         }
+
         
         //validation globale des recettes, depenses, depots des caisse secondaire par la caissière principale
         

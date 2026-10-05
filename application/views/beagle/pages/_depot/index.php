@@ -374,6 +374,7 @@ $retour_depot = $depuis_escale
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+            <?= caissier_escale_hidden_inputs(); ?>
             <div class="form-group col-sm-4">
                 <label>COMPAGNIE</label>
                 <select class="form-control form-control-sm" name="_compag">
@@ -451,6 +452,7 @@ $retour_depot = $depuis_escale
                 <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                 <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                 <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+                <?= caissier_escale_hidden_inputs(); ?>
              <div class="form-group col-sm-4">
                 <label>COMPAGNIE</label>
                 <select class="form-control form-control-sm" name="_compag">
@@ -528,6 +530,7 @@ $retour_depot = $depuis_escale
                 <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                 <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                 <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+                <?= caissier_escale_hidden_inputs(); ?>
              <div class="form-group col-sm-4">
                 <label>COMPAGNIE</label>
                 <select class="form-control form-control-sm" name="_compag">

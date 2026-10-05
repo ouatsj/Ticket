@@ -93,7 +93,7 @@ $consult_escale_seul = isset($this->session->agent->userole)
                                             <div class="form-group col-sm-4">
                                                 <label>NOM</label>
                                                 <input class="form-control form-control-sm" type="text" name="nom" id="idnomprenom"
-                                                    value="<?= $item->first_name;?> <?= $item->last_name; ?>">
+                                                    value="<?= trim($item->first_name); ?> <?= trim($item->last_name); ?>">
                                                 
                                             </div>
                                             <div class="form-group col-sm-4">
@@ -239,7 +239,7 @@ $consult_escale_seul = isset($this->session->agent->userole)
                                             <div class="form-group col-sm-4">
                                                 <label>NOM</label>
                                                 <input class="form-control form-control-sm" type="text" name="nom" id="idnomprenom"
-                                                value="<?= $itemesc->first_name;?> <?= $itemesc->last_name;?>">
+                                                value="<?= trim($itemesc->first_name); ?> <?= trim($itemesc->last_name); ?>">
                                             </div>
                                             <div class="form-group col-sm-4">
                                                 <label>MONTANT</label>
@@ -375,7 +375,7 @@ $consult_escale_seul = isset($this->session->agent->userole)
                                             <div class="form-group col-sm-4">
                                                 <label>NOM</label>
                                                 <input class="form-control form-control-sm" type="text" name="nom" id="idnomprenom"
-                                                    value="<?= $itemesc1->first_name;?> <?= $itemesc1->last_name; ?>">
+                                                    value="<?= trim($itemesc1->first_name); ?> <?= trim($itemesc1->last_name); ?>">
                                                 
                                             </div>
                                             <div class="form-group col-sm-4">

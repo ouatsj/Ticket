@@ -830,7 +830,7 @@
            
             if ($typ === '' AND $gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -846,7 +846,7 @@
             elseif($gr === '' AND $nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -862,7 +862,7 @@
             elseif($nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -879,7 +879,7 @@
             elseif($iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -895,7 +895,7 @@
                     ORDER BY d.datedepot ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -917,7 +917,7 @@
             
             if ($gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -938,7 +938,7 @@
             elseif($nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -958,7 +958,7 @@
             elseif($iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -977,7 +977,7 @@
                     ORDER BY d.datedepot ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1002,7 +1002,7 @@
             
             if ($gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1023,7 +1023,7 @@
             elseif($nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1044,7 +1044,7 @@
             elseif($iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1063,7 +1063,7 @@
                     ORDER BY d.datedepot ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1088,7 +1088,7 @@
             
             if ($gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1109,7 +1109,7 @@
             elseif($nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1129,7 +1129,7 @@
             elseif($iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1148,7 +1148,7 @@
                     ORDER BY d.datedepot ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1173,7 +1173,7 @@
            
             if ($gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1194,7 +1194,7 @@
             elseif($nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1215,7 +1215,7 @@
             elseif($iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1234,7 +1234,7 @@
                     ORDER BY d.datedepot ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1328,7 +1328,7 @@
             //$adjoint = $this->session->agent->roleattribut;
             if ($typ === '' AND $gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.idop_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.idop_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1352,7 +1352,7 @@
             elseif($gr === '' AND $nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.idop_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.idop_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1376,7 +1376,7 @@
             elseif($nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1401,7 +1401,7 @@
             elseif($iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1425,7 +1425,7 @@
                     ORDER BY d.datedepot ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1454,7 +1454,7 @@
         {
             if ($typ === '' AND $gr === ''  AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1478,7 +1478,7 @@
             elseif($gr === ''  AND $nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1502,7 +1502,7 @@
             elseif($nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1527,7 +1527,7 @@
             elseif($iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1551,7 +1551,7 @@
                     ORDER BY d.datedepot ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.idop_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1893,7 +1893,7 @@
             
             if ($typ === '' AND $gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1913,7 +1913,7 @@
             elseif($gr === '' AND $nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1933,7 +1933,7 @@
             elseif($nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1954,7 +1954,7 @@
             elseif($iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1974,7 +1974,7 @@
                     ORDER BY d.datedepot ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT tp.type_personnel, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN type_personnel tp ON d.idgenre_depot = tp.idtyperso
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -1999,7 +1999,7 @@
         {
             if ($typ === '' AND $gr === '' AND $nm === '' AND $iddep === FALSE) {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -2019,7 +2019,7 @@
             elseif($gr === '' AND $nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -2039,7 +2039,7 @@
             elseif($nm === '' AND $iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -2060,7 +2060,7 @@
             elseif($iddep === FALSE)
             {
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -2080,7 +2080,7 @@
                     ORDER BY d.datedepot ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT gr.genre_depot, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN genre_depot gr ON d.idgenre_depot = gr.id_genredepot
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -2206,7 +2206,7 @@
         {
             $typ_filter = ($typ === '') ? '' : "AND d.type_depot = '$typ'";
             return $this->db->query(
-                "SELECT cu.username, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                "SELECT cu.username, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                 JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2245,7 +2245,7 @@
         {
             $typ_filter = ($typ === '') ? '' : "AND d.type_depot = '$typ'";
             return $this->db->query(
-                "SELECT cu.username, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                "SELECT cu.username, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                 JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2270,7 +2270,7 @@
         {
             $typ_filter = ($typ === '') ? '' : "AND d.type_depot = '$typ'";
             return $this->db->query(
-                "SELECT cu.username, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                "SELECT cu.username, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                 JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2297,7 +2297,7 @@
 
             if ($typ === '') {
                 return $this->db->query(
-                    "SELECT cu.username, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT cu.username, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2320,7 +2320,7 @@
             else
             {
                 return $this->db->query(
-                    "SELECT cu.username, d.type_depot, d.nom_pre, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
+                    "SELECT cu.username, d.type_depot, d.nom_pre, d.idop_depot, d.commentaire_depot, d.montant_depot, d.datedepot FROM depot d
                     JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
