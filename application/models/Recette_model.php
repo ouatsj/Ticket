@@ -11,7 +11,8 @@
         
         public function create(array $data)
         {
-            $data = roleattribut_guard_apply_to_data($data, array('idopera', 'operavalid', 'operavalidad'));
+            // idopera reste celui qui a saisi ou arrêté. Seuls les valideurs suivent le compte connecté.
+            $data = roleattribut_guard_apply_to_data($data, array('operavalid', 'operavalidad'));
             $data = $this->_nom_espaces_simples($data);
 
             $this->db->insert($this->table, $data);

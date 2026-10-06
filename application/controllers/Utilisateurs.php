@@ -16,7 +16,7 @@
         }
 
         /**
-         * Opérateurs validation recette arrêt compte : idopera = chef, pas le vendeur (compt_id).
+         * idopera = le compte arrêté. iduser_nav = le valideur connecté, pour les redirections.
          *
          * @return array{idopera:int,iduser_nav:string,operavalid:int|null}
          */
@@ -27,10 +27,12 @@
                 $gare_id,
                 $vendor_roleattribut
             );
+            $op = roleattribut_guard_operateur($this->company->ekey, $gare_id, null);
+            $nav = (int) $op['roleattribut'];
 
             return array(
                 'idopera' => $idopera,
-                'iduser_nav' => (string) $idopera,
+                'iduser_nav' => (string) ($nav > 0 ? $nav : $idopera),
                 'operavalid' => validerecette_operavalid_caissier($this->company->ekey, $gare_id),
             );
         }
@@ -1168,6 +1170,10 @@
                     'createdrecet_at' => now('UTC'),
                 );
                 $recette = $this->m_recette->create($arrayrecette);
+                $flagsValidateur = validerecette_flags_validateur();
+                if ($flagsValidateur) {
+                    $this->m_recette->update($recette, $flagsValidateur);
+                }
                            
                 $arraycomp = array(
                     'is_validcompte'=> 1,
@@ -1181,7 +1187,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
+                        'operavalid' => $validOps['operavalid'],
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -1262,6 +1268,10 @@
                     'createdrecet_at' => now('UTC'),
                 );
                 $recette = $this->m_recette->create($arrayrecette);
+                $flagsValidateur = validerecette_flags_validateur();
+                if ($flagsValidateur) {
+                    $this->m_recette->update($recette, $flagsValidateur);
+                }
                            
                 $arraycomp = array(
                     'is_validcompte'=> 1,
@@ -1275,7 +1285,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
+                        'operavalid' => $validOps['operavalid'],
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -1355,6 +1365,10 @@
                     'createdrecet_at' => now('UTC'),
                 );
                 $recette = $this->m_recette->create($arrayrecette);
+                $flagsValidateur = validerecette_flags_validateur();
+                if ($flagsValidateur) {
+                    $this->m_recette->update($recette, $flagsValidateur);
+                }
                            
                 $arraycompb = array(
                     'is_validcomptebg'=> 1,
@@ -1368,7 +1382,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
+                        'operavalid' => $validOps['operavalid'],
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -1446,6 +1460,10 @@
                     'createdrecet_at' => now('UTC'),
                 );
                 $recette = $this->m_recette->create($arrayrecette);
+                $flagsValidateur = validerecette_flags_validateur();
+                if ($flagsValidateur) {
+                    $this->m_recette->update($recette, $flagsValidateur);
+                }
                            
                 $arraycompb = array(
                     'is_validcomptebg'=> 1,
@@ -1459,7 +1477,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
+                        'operavalid' => $validOps['operavalid'],
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -1747,6 +1765,10 @@
                         'createdrecet_at' => now('UTC'),
                     );
                     $recette = $this->m_recette->create($arrayrecettecr);
+                    $flagsValidateur = validerecette_flags_validateur();
+                    if ($flagsValidateur) {
+                        $this->m_recette->update($recette, $flagsValidateur);
+                    }
                                
                     $arraycompcr = array(
                         'validcompteis' => 1,
@@ -1778,7 +1800,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
+                        'operavalid' => $validOps['operavalid'],
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -1841,7 +1863,7 @@
                     $arraydep = array(
                         'idcaisse_depens' => $caisi,
                         'id_genre_depense' => $this->input->post('genredep'),
-                        'idop_dep' => $iduser,
+                        'idop_dep' => (int) $compt_id,
                         'sousgidepens' => $idsoug,
                         'type_depense' => $this->input->post('internedep'),
                         'compkey_dep' => $this->input->post('_compagdep'),
@@ -1853,6 +1875,10 @@
                         'date_depens' => $this->input->post('daterecepdep'),
                     );
                     $depens = $this->m_depense->create($arraydep);
+                    $flagsDepense = validedepense_flags_validateur();
+                    if ($flagsDepense) {
+                        $this->m_depense->update($depens, $flagsDepense);
+                    }
                     
                            
                 $arraycompcrd = array(
@@ -2873,6 +2899,10 @@
                         'createdrecet_at' => now('UTC'),
                     );
                     $recette = $this->m_recette->create($arrayrecettecr);
+                    $flagsValidateur = validerecette_flags_validateur();
+                    if ($flagsValidateur) {
+                        $this->m_recette->update($recette, $flagsValidateur);
+                    }
                     $arraycompcr = array(
                         'validcompteis' => 1,
                     );
@@ -2883,7 +2913,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
+                        'operavalid' => $validOps['operavalid'],
                     );
                         $this->m_recette->update($recette, $array);
 
@@ -2960,6 +2990,10 @@
                     'createdrecet_at' => now('UTC'),
                 );
                 $recette = $this->m_recette->create($arrayrecette);
+                $flagsValidateur = validerecette_flags_validateur();
+                if ($flagsValidateur) {
+                    $this->m_recette->update($recette, $flagsValidateur);
+                }
                            
                 $arraycompb = array(
                     'is_validcomptebg'=> 1,
@@ -2973,7 +3007,7 @@
                         'active_recet' => 1, 
                         'is_validerecet' => 1, 
                         'is_actifrecet' => 1,
-                        'operavalid' => $validOps['operavalid'] ?: $idopera_recette,
+                        'operavalid' => $validOps['operavalid'],
                     );
                         $this->m_recette->update($recette, $array);
 

@@ -1803,27 +1803,62 @@ if (!function_exists('compte_arret_compte_card_status')) {
     }
 }
 
+if (!function_exists('compte_arret_cible_conservee')) {
+    /**
+     * Compte arrêté : on garde son roleattribut.
+     * Un vendeur ou un chef ne peut pas prendre le compte d'un autre.
+     * L'adjoint, le caissier et l'admin gardent la cible de l'URL, sans la remplacer par leur propre id.
+     *
+     * @return array{roleattribut:int,conex:object|null,userole:string|null}
+     */
+    function compte_arret_cible_conservee($ekey, $gare_id, $url_hint)
+    {
+        $CI =& get_instance();
+        $session = roleattribut_guard_operateur($ekey, $gare_id, null);
+        $session_ra = (int) $session['roleattribut'];
+        $session_role = isset($session['userole']) ? (string) $session['userole'] : '';
+        $requested = (int) $url_hint;
+
+        if ($requested <= 0 || $requested === $session_ra) {
+            return $session;
+        }
+
+        $peut_garder = in_array($session_role, array('1', '2', '4', '18'), true)
+            || (function_exists('roleattribut_guard_is_supervisor') && roleattribut_guard_is_supervisor());
+        if (!$peut_garder) {
+            return $session;
+        }
+
+        $CI->load->model('Compte_user_model', 'm_compte_user_arret_cible');
+        if (!$CI->m_compte_user_arret_cible->roleattribut_exists_on_gare($requested, $gare_id, $ekey, false)) {
+            return $session;
+        }
+
+        $conex = $CI->m_compte_user_arret_cible->getusergare($ekey, $gare_id, $requested);
+        $userole = ($conex && !empty($conex->userole))
+            ? (string) $conex->userole
+            : (string) recette_role_userole_for_attribut($requested);
+
+        return array(
+            'roleattribut' => $requested,
+            'conex' => $conex ? $conex : $session['conex'],
+            'userole' => $userole,
+        );
+    }
+}
+
 if (!function_exists('compte_arret_resolve_roleattribut')) {
     /**
-     * roleattribut effectif pour arrêt / validation compte (URL + POST + session).
+     * roleattribut du compte arrêté. Le valideur connecté ne le remplace pas.
      */
     function compte_arret_resolve_roleattribut($ekey, $gare_id, $url_hint)
     {
-        $CI =& get_instance();
-
         if (function_exists('auth_session_vendor_ignores_post_hints')
             && auth_session_vendor_ignores_post_hints()) {
             return auth_sale_roleattribut($ekey, $gare_id);
         }
 
-        $post_hint = trim((string) $CI->input->post('userconnected'));
-        $hint = ($post_hint !== '' && $post_hint !== '0') ? $post_hint : $url_hint;
-
-        if ($hint === '' || $hint === '0') {
-            $hint = roleattribut_guard_post_hint($ekey, 'gareconnect', 'userconnected');
-        }
-
-        $op = roleattribut_guard_operateur($ekey, $gare_id, $hint);
+        $op = compte_arret_cible_conservee($ekey, $gare_id, $url_hint);
 
         return (int) $op['roleattribut'];
     }
@@ -1832,6 +1867,7 @@ if (!function_exists('compte_arret_resolve_roleattribut')) {
 if (!function_exists('compte_arret_bind_operateur')) {
     /**
      * Résout l'opérateur cible pour un arrêt de compte (affichage ou action).
+     * Le champ POST userconnected (personne connectée) n'écrase plus le compte arrêté.
      *
      * @return array{roleattribut:int,conex:object|null,userole:string|null}
      */
@@ -1849,14 +1885,7 @@ if (!function_exists('compte_arret_bind_operateur')) {
             );
         }
 
-        $post_hint = trim((string) get_instance()->input->post('userconnected'));
-        $hint = ($post_hint !== '' && $post_hint !== '0') ? $post_hint : $url_hint;
-
-        if ($hint === '' || $hint === '0') {
-            $hint = roleattribut_guard_post_hint($ekey, 'gareconnect', 'userconnected');
-        }
-
-        return roleattribut_guard_operateur($ekey, $gare_id, $hint);
+        return compte_arret_cible_conservee($ekey, $gare_id, $url_hint);
     }
 }
 
@@ -1945,57 +1974,107 @@ if (!function_exists('validerecette_chef_roleattribut_on_gare')) {
 
 if (!function_exists('validerecette_resolve_idopera')) {
     /**
-     * idopera pour recette créée lors de la validation d'arrêt vendeur par le chef.
-     * Ne doit jamais être le roleattribut du vendeur arrêté (compt_id URL).
+     * idopera = le compte qui a arrêté. La validation ne le remplace pas
+     * par le chef, l'adjoint ou le caissier.
      *
      * @param string $ekey
      * @param string $gare_id
-     * @param int|string $vendor_roleattribut compt_id (vendeur validé)
+     * @param int|string $vendor_roleattribut compte arrêté
      * @return int
      */
     function validerecette_resolve_idopera($ekey, $gare_id, $vendor_roleattribut)
     {
-        $vendor_roleattribut = (int) $vendor_roleattribut;
+        unset($ekey, $gare_id);
+
+        return (int) $vendor_roleattribut;
+    }
+}
+
+if (!function_exists('validerecette_flags_validateur')) {
+    /**
+     * Colonnes du valideur seulement. N'écrit jamais idopera, idop_dep ni idop_depot.
+     *
+     * @return array
+     */
+    function validerecette_flags_validateur()
+    {
         $CI =& get_instance();
-        $form_hint = trim((string) $CI->input->post('userconnected'));
-        $candidates = array();
-
-        if ($form_hint !== '' && $form_hint !== '0') {
-            $candidates[] = roleattribut_guard_operateur($ekey, $gare_id, $form_hint);
+        if (!$CI->session->userdata('agent') || empty($CI->session->agent->userole)) {
+            return array();
         }
-        $candidates[] = roleattribut_guard_operateur($ekey, $gare_id, null);
-
-        foreach ($candidates as $op) {
-            $ra = (int) $op['roleattribut'];
-            if ($ra <= 0) {
-                continue;
-            }
-            $role = recette_role_userole_for_attribut($ra, $op['conex']);
-            if (recette_role_is_saisie($role) && $ra !== $vendor_roleattribut) {
-                return $ra;
-            }
-            if (recette_role_is_validateur_principal($role) || recette_role_is_validateur_adjoint($role)) {
-                return $ra;
-            }
-            if (roleattribut_guard_is_supervisor() && $ra !== $vendor_roleattribut) {
-                return $ra;
-            }
+        $role = (string) $CI->session->agent->userole;
+        $ra = !empty($CI->session->agent->roleattribut) ? (int) $CI->session->agent->roleattribut : 0;
+        if ($ra <= 0) {
+            return array();
         }
-
-        $chef = validerecette_chef_roleattribut_on_gare($gare_id);
-        if ($chef !== null && $chef !== $vendor_roleattribut) {
-            return $chef;
+        if (recette_role_is_validateur_principal($role)) {
+            return array(
+                'active_recet' => 1,
+                'is_validerecet' => 1,
+                'is_actifrecet' => 1,
+                'operavalid' => $ra,
+            );
         }
-
-        $fallback = (int) roleattribut_guard_post_hint($ekey);
-        if ($fallback > 0 && $fallback !== $vendor_roleattribut) {
-            $role = recette_role_userole_for_attribut($fallback);
-            if (!validerecette_is_vendeur_userole($role)) {
-                return $fallback;
-            }
+        if (recette_role_is_validateur_adjoint($role)) {
+            return array(
+                'active_recet' => 1,
+                'is_validerecet' => 1,
+                'is_actifrecetad' => 1,
+                'operavalidad' => $ra,
+            );
+        }
+        if (recette_role_is_saisie($role)) {
+            return array(
+                'active_recet' => 1,
+                'valid_recet' => 'valid',
+            );
         }
 
-        return $chef !== null ? $chef : $fallback;
+        return array();
+    }
+}
+
+if (!function_exists('validedepense_flags_validateur')) {
+    /**
+     * Colonnes du valideur sur une dépense. N'écrit jamais idop_dep.
+     *
+     * @return array
+     */
+    function validedepense_flags_validateur()
+    {
+        $CI =& get_instance();
+        if (!$CI->session->userdata('agent') || empty($CI->session->agent->userole)) {
+            return array();
+        }
+        $role = (string) $CI->session->agent->userole;
+        $ra = !empty($CI->session->agent->roleattribut) ? (int) $CI->session->agent->roleattribut : 0;
+        if ($ra <= 0) {
+            return array();
+        }
+        if (recette_role_is_validateur_principal($role)) {
+            return array(
+                'active_dep' => 1,
+                'is_validedep' => 1,
+                'is_actifdep' => 1,
+                'opevalid' => $ra,
+            );
+        }
+        if (recette_role_is_validateur_adjoint($role)) {
+            return array(
+                'active_dep' => 1,
+                'is_validedep' => 1,
+                'is_actifdepad' => 1,
+                'opevalidad' => $ra,
+            );
+        }
+        if (recette_role_is_saisie($role)) {
+            return array(
+                'active_dep' => 1,
+                'valid_depens' => 'valid',
+            );
+        }
+
+        return array();
     }
 }
 

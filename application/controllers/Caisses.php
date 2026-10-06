@@ -6015,7 +6015,7 @@
                 $validator_ra = (int) $this->session->agent->roleattribut;
             }
             if ($validator_ra <= 0) {
-                $validator_ra = (int) $iduser;
+                return;
             }
             if ($role === '4') {
                 $this->m_recette->update($recette_id, array(
@@ -7133,7 +7133,16 @@
                     }
                     $idcaisse = $this->input->post('idcaisse');
                     $genre = $this->input->post('genre');
-                    $nomcais = $this->session->agent->username;
+                    $nomCompte = $this->db->query(
+                        "SELECT cu.username FROM attributions_role ar
+                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                         JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                         WHERE ar.roleattribut = ? LIMIT 1",
+                        array((int) $idcpt)
+                    )->row();
+                    $nomcais = ($nomCompte && trim((string) $nomCompte->username) !== '')
+                        ? $nomCompte->username
+                        : $this->session->agent->username;
                     $date_arret = mdate('%Y-%m-%d', now('UTC'));
 
                     foreach ($lignes_ecriture as $ligne) {

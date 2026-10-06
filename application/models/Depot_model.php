@@ -12,7 +12,8 @@
         
         public function create(array $data)
         {
-            $data = roleattribut_guard_apply_to_data($data, array('idop_depot', 'opvalid', 'opvalidad'));
+            // idop_depot reste celui qui a saisi ou arrêté. Seuls les valideurs suivent le compte connecté.
+            $data = roleattribut_guard_apply_to_data($data, array('opvalid', 'opvalidad'));
             if (empty($data['createddepot_at'])) {
                 $data['createddepot_at'] = mdate('%Y-%m-%d %H:%i:%s', now('UTC'));
             }
