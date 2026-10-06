@@ -2467,15 +2467,27 @@ if (!function_exists('caissier_escale_nom_filtre_sql')) {
     function caissier_escale_nom_filtre_sql($column)
     {
         $ops = caissier_escale_ops_from_request();
-        if (!$ops || !function_exists('recette_role_nom_agents_sql')) {
-            return '';
-        }
-        $frag = recette_role_nom_agents_sql($column, $ops);
-        if ($frag === '' || $frag === '1=0') {
-            return '';
-        }
+        if ($ops && function_exists('recette_role_nom_agents_sql')) {
+            $frag = recette_role_nom_agents_sql($column, $ops);
+            if ($frag === '' || $frag === '1=0') {
+                return '';
+            }
 
-        return ' AND ' . $frag;
+            return ' AND ' . $frag;
+        }
+        if (!function_exists('recette_role_hors_escale_sql')) {
+            return '';
+        }
+        $ids = array(
+            'r.nom' => 'r.idopera',
+            'd.nom_perso' => 'd.idop_dep',
+            'd.nom_pre' => 'd.idop_depot',
+            'pt.nom_pre' => 'pt.idop_depot',
+            'v.nom_beneficiaire' => 'v.idop_versement',
+        );
+        $idCol = isset($ids[$column]) ? $ids[$column] : '';
+
+        return recette_role_hors_escale_sql($column, $idCol);
     }
 }
 
@@ -2928,9 +2940,11 @@ if (!function_exists('caissier_arret_pending_map')) {
                     'total_recettes' => 0.0,
                     'total_depenses' => 0.0,
                     'total_depots' => 0.0,
+                    'total_versements' => 0.0,
                     'nb_recettes' => 0,
                     'nb_depenses' => 0,
                     'nb_depots' => 0,
+                    'nb_versements' => 0,
                 );
             }
         };
@@ -2947,6 +2961,12 @@ if (!function_exists('caissier_arret_pending_map')) {
         list($scope_rec_sql, $scope_rec_bind) = caissier_arret_scope_sql('r.idopera', 'r.nom', $scope_ops);
         list($scope_dep_sql, $scope_dep_bind) = caissier_arret_scope_sql('d.idop_dep', 'd.nom_perso', $scope_ops);
         list($scope_depo_sql, $scope_depo_bind) = caissier_arret_scope_sql('d.idop_depot', 'd.nom_pre', $scope_ops);
+        list($scope_ver_sql, $scope_ver_bind) = caissier_arret_scope_sql('v.idop_versement', 'v.nom_beneficiaire', $scope_ops);
+        $gare_seule = !(is_array($scope_ops) && $scope_ops);
+        $hors_rec = $gare_seule ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
+        $hors_dep = $gare_seule ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
+        $hors_depo = $gare_seule ? recette_role_hors_escale_sql('d.nom_pre', 'd.idop_depot') : '';
+        $hors_ver = $gare_seule ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
         $rec_rows = $CI->db->query(
             "SELECT r.idopera AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total
             FROM recette r
@@ -2968,6 +2988,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND COALESCE(r.valid_recet, '') = 'valid'
             {$caisse_sql}
             {$scope_rec_sql}
+            {$hors_rec}
             GROUP BY r.idopera",
             array_merge(array($ekey, $gid), $scope_rec_bind)
         )->result();
@@ -3000,6 +3021,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND COALESCE(d.valid_depens, '') = 'valid'
             {$caisse_sql}
             {$scope_dep_sql}
+            {$hors_dep}
             GROUP BY d.idop_dep",
             array_merge(array($ekey, $gid), $scope_dep_bind)
         )->result();
@@ -3031,6 +3053,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND COALESCE(d.valid_depo, '') = 'valid'
             {$caisse_sql}
             {$scope_depo_sql}
+            {$hors_depo}
             GROUP BY d.idop_depot",
             array_merge(array($ekey, $gid), $scope_depo_bind)
         )->result();
@@ -3039,6 +3062,39 @@ if (!function_exists('caissier_arret_pending_map')) {
             $init($row->roleattribut);
             $map[(int) $row->roleattribut]->total_depots = (float) $row->total;
             $map[(int) $row->roleattribut]->nb_depots = (int) $row->nb;
+        }
+
+        $ver_rows = $CI->db->query(
+            "SELECT v.idop_versement AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(v.montant_verser), 0) AS total
+            FROM versements v
+            JOIN attributions_role ar ON v.idop_versement = ar.roleattribut
+            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+            JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
+            JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+            JOIN compagnies c ON v.compkey_vers = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = ?
+            AND ul.guser = ?
+            {$role_chef_sql}
+            AND IFNULL(v.active_verse, 0) = 1
+            AND IFNULL(v.is_actifverserad, 0) = 0
+            AND IFNULL(v.is_actifverser, 0) = 0
+            AND IFNULL(v.valider_vers, 0) = 0
+            AND IFNULL(v.arret_caisvers, 0) = 0
+            AND IFNULL(v.ferme_caisvers, 0) = 0
+            AND IFNULL(v.type_versement, '') <> 'Courrier'
+            AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
+            {$caisse_sql}
+            {$scope_ver_sql}
+            {$hors_ver}
+            GROUP BY v.idop_versement",
+            array_merge(array($ekey, $gid), $scope_ver_bind)
+        )->result();
+
+        foreach ($ver_rows as $row) {
+            $init($row->roleattribut);
+            $map[(int) $row->roleattribut]->total_versements = (float) $row->total;
+            $map[(int) $row->roleattribut]->nb_versements = (int) $row->nb;
         }
 
         return $map;
@@ -3062,9 +3118,11 @@ if (!function_exists('caissier_validation_chef_pending_totals')) {
             'total_recettes' => (float) $pending->total_recettes,
             'total_depenses' => (float) $pending->total_depenses,
             'total_depots' => (float) $pending->total_depots,
+            'total_versements' => (float) $pending->total_versements,
             'solde' => (float) $pending->total_recettes
                 + (float) $pending->total_depots
-                - (float) $pending->total_depenses,
+                - (float) $pending->total_depenses
+                - (float) $pending->total_versements,
         );
     }
 }
@@ -3078,6 +3136,7 @@ if (!function_exists('caissier_arret_pending_for_chef')) {
                 'total_recettes' => 0.0,
                 'total_depenses' => 0.0,
                 'total_depots' => 0.0,
+                'total_versements' => 0.0,
                 'date_min' => null,
                 'date_max' => null,
                 'has_pending' => false,
@@ -3091,7 +3150,10 @@ if (!function_exists('caissier_arret_pending_for_chef')) {
         if (!isset($p->date_max)) {
             $p->date_max = null;
         }
-        $p->has_pending = ($p->total_recettes > 0 || $p->total_depenses > 0 || $p->total_depots > 0);
+        if (!isset($p->total_versements)) {
+            $p->total_versements = 0.0;
+        }
+        $p->has_pending = ($p->total_recettes > 0 || $p->total_depenses > 0 || $p->total_depots > 0 || $p->total_versements > 0);
 
         return $p;
     }
@@ -3121,9 +3183,11 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
                     'total_recettes' => 0.0,
                     'total_depenses' => 0.0,
                     'total_depots' => 0.0,
+                    'total_versements' => 0.0,
                     'nb_recettes' => 0,
                     'nb_depenses' => 0,
                     'nb_depots' => 0,
+                    'nb_versements' => 0,
                     'date_min' => null,
                     'date_max' => null,
                 );
@@ -3145,6 +3209,12 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
         list($scope_rec_sql, $scope_rec_bind) = caissier_arret_scope_sql('r.idopera', 'r.nom', $scope_ops);
         list($scope_dep_sql, $scope_dep_bind) = caissier_arret_scope_sql('d.idop_dep', 'd.nom_perso', $scope_ops);
         list($scope_depo_sql, $scope_depo_bind) = caissier_arret_scope_sql('d.idop_depot', 'd.nom_pre', $scope_ops);
+        list($scope_ver_sql, $scope_ver_bind) = caissier_arret_scope_sql('v.idop_versement', 'v.nom_beneficiaire', $scope_ops);
+        $gare_seule = !(is_array($scope_ops) && $scope_ops);
+        $hors_rec = $gare_seule ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
+        $hors_dep = $gare_seule ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
+        $hors_depo = $gare_seule ? recette_role_hors_escale_sql('d.nom_pre', 'd.idop_depot') : '';
+        $hors_ver = $gare_seule ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
         $rec_rows = $CI->db->query(
             "SELECT r.operavalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total,
                 MIN(r.date_recet) AS date_min, MAX(r.date_recet) AS date_max
@@ -3161,11 +3231,13 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             AND r.is_actifrecetad = 1
             AND r.is_actifrecet = 0
             AND r.is_validerecet = 1
+            AND IFNULL(r.arret_caisrecet, 0) = 1
             AND r.actif_rect = 0
             AND r.type_recet <> 'Courrier'
             AND r.date_recet <= ?
             {$caisse_sql}
             {$scope_rec_sql}
+            {$hors_rec}
             GROUP BY r.operavalidad",
             array_merge(array($ekey, $gid, $today), $scope_rec_bind)
         )->result();
@@ -3193,11 +3265,13 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             AND d.is_actifdepad = 1
             AND d.is_actifdep = 0
             AND d.is_validedep = 1
+            AND IFNULL(d.arret_caisdep, 0) = 1
             AND d.actif_deps = 0
             AND d.type_depense <> 'Courrier'
             AND d.date_depens <= ?
             {$caisse_sql}
             {$scope_dep_sql}
+            {$hors_dep}
             GROUP BY d.opevalidad",
             array_merge(array($ekey, $gid, $today), $scope_dep_bind)
         )->result();
@@ -3225,11 +3299,13 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             AND d.is_actifdepoad = 1
             AND d.is_actifdepo = 0
             AND d.is_validdepo = 1
+            AND IFNULL(d.arret_caisdepo, 0) = 1
             AND d.actif_depo = 0
             AND d.type_depot <> 'Courrier'
             AND d.datedepot <= ?
             {$caisse_sql}
             {$scope_depo_sql}
+            {$hors_depo}
             GROUP BY d.opvalidad",
             array_merge(array($ekey, $gid, $today), $scope_depo_bind)
         )->result();
@@ -3238,6 +3314,41 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             $init($row->roleattribut);
             $map[(int) $row->roleattribut]->total_depots = (float) $row->total;
             $map[(int) $row->roleattribut]->nb_depots = (int) $row->nb;
+            $mergeDates($row->roleattribut, $row->date_min, $row->date_max);
+        }
+
+        $ver_rows = $CI->db->query(
+            "SELECT v.validopad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(v.montant_verser), 0) AS total,
+                MIN(v.date_versement) AS date_min, MAX(v.date_versement) AS date_max
+            FROM versements v
+            JOIN attributions_role ar ON v.validopad = ar.roleattribut
+            JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+            JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
+            JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+            JOIN compagnies c ON v.compkey_vers = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = ?
+            AND ul.guser = ?
+            AND ar.userole = 18
+            AND IFNULL(v.is_actifverserad, 0) = 1
+            AND IFNULL(v.is_actifverser, 0) = 0
+            AND IFNULL(v.arret_caisvers, 0) = 1
+            AND IFNULL(v.valider_vers, 0) = 0
+            AND IFNULL(v.ferme_caisvers, 0) = 0
+            AND IFNULL(v.type_versement, '') <> 'Courrier'
+            AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
+            AND v.date_versement <= ?
+            {$caisse_sql}
+            {$scope_ver_sql}
+            {$hors_ver}
+            GROUP BY v.validopad",
+            array_merge(array($ekey, $gid, $today), $scope_ver_bind)
+        )->result();
+
+        foreach ($ver_rows as $row) {
+            $init($row->roleattribut);
+            $map[(int) $row->roleattribut]->total_versements = (float) $row->total;
+            $map[(int) $row->roleattribut]->nb_versements = (int) $row->nb;
             $mergeDates($row->roleattribut, $row->date_min, $row->date_max);
         }
 
@@ -3257,9 +3368,11 @@ if (!function_exists('caissier_validation_adjoint_pending_totals')) {
             'total_recettes' => (float) $pending->total_recettes,
             'total_depenses' => (float) $pending->total_depenses,
             'total_depots' => (float) $pending->total_depots,
+            'total_versements' => (float) $pending->total_versements,
             'solde' => (float) $pending->total_recettes
                 + (float) $pending->total_depots
-                - (float) $pending->total_depenses,
+                - (float) $pending->total_depenses
+                - (float) $pending->total_versements,
         );
     }
 }
@@ -3306,6 +3419,7 @@ if (!function_exists('adjoint_pending_principal_totals')) {
             AND r.is_actifrecetad = 1
             AND r.is_actifrecet = 0
             AND r.is_validerecet = 1
+            AND IFNULL(r.arret_caisrecet, 0) = 1
             AND r.actif_rect = 0
             AND r.type_recet <> 'Courrier'
             AND r.date_recet <= " . $CI->db->escape($today)
@@ -3321,6 +3435,7 @@ if (!function_exists('adjoint_pending_principal_totals')) {
             AND d.is_actifdepad = 1
             AND d.is_actifdep = 0
             AND d.is_validedep = 1
+            AND IFNULL(d.arret_caisdep, 0) = 1
             AND d.actif_deps = 0
             AND d.type_depense <> 'Courrier'
             AND d.date_depens <= " . $CI->db->escape($today)
@@ -3336,6 +3451,7 @@ if (!function_exists('adjoint_pending_principal_totals')) {
             AND d.is_actifdepoad = 1
             AND d.is_actifdepo = 0
             AND d.is_validdepo = 1
+            AND IFNULL(d.arret_caisdepo, 0) = 1
             AND d.actif_depo = 0
             AND d.type_depot <> 'Courrier'
             AND d.datedepot <= " . $CI->db->escape($today)

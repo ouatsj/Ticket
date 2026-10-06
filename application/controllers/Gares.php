@@ -1277,6 +1277,7 @@
                     array('label' => 'DEPENSES', 'url' => $gtv18('depense')),
                 );
                 if ($userole === '1' || $userole === '18') {
+                    $links[] = array('label' => 'ARRÊT COMPTE', 'url' => $cais('arretcaisse_adjoint'));
                     $links[] = array('label' => 'VALIDATION', 'url' => $gtv18('validation'));
                 }
                 $sections[] = array(

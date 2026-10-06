@@ -1362,6 +1362,17 @@
                 $df = $this->input->post('datefin');
                 $is_adjoint = recette_role_is_validateur_adjoint($this->session->agent->userole);
                 $idcpt = (int) $idcpt;
+                $role_cible = function_exists('recette_role_userole_for_attribut')
+                    ? (string) recette_role_userole_for_attribut($idcpt)
+                    : '';
+                if (in_array($role_cible, array('5', '16', '18'), true)) {
+                    show_error(
+                        'L’arrêt de caisse est réservé au caissier principal. '
+                        . 'Le chef et l’adjoint utilisent l’arrêt de compte.',
+                        403
+                    );
+                    return;
+                }
 
                 if ($is_adjoint) {
                     $cfrecet = $this->db->query(
@@ -12509,6 +12520,53 @@
                 $this->property['recettecaisses'] = $this->m_recette->ad_recetcais($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['depenses'] = $this->m_depense->ad_depens($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['depensecaisses'] = $this->m_depense->ad_depenscais($this->company->ekey, $cdg, $cid, $icx, $idsg);
+                $role_arret = function_exists('recette_role_userole_for_attribut')
+                    ? recette_role_userole_for_attribut($icx) : '';
+                $ad_arret = function_exists('recette_role_is_validateur_adjoint')
+                    && recette_role_is_validateur_adjoint($role_arret);
+                $fp_arret = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_pre') : '';
+                $fv_arret = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('v.nom_beneficiaire') : '';
+                $today_compte = mdate('%Y-%m-%d', now());
+                if ($ad_arret) {
+                    $op_depot = 'AND d.opvalidad = ' . (int) $icx
+                        . ' AND d.is_actifdepoad = 1 AND d.is_actifdepo = 0 AND IFNULL(d.arret_caisdepo, 0) = 0';
+                    $op_vers = 'AND v.validopad = ' . (int) $icx
+                        . ' AND IFNULL(v.is_actifverserad, 0) = 1 AND IFNULL(v.is_actifverser, 0) = 0'
+                        . ' AND IFNULL(v.arret_caisvers, 0) = 0';
+                } else {
+                    $op_depot = 'AND d.idop_depot = ' . (int) $icx
+                        . " AND IFNULL(d.is_validdepo, 0) = 0 AND COALESCE(d.valid_depo, '') <> 'valid'"
+                        . ' AND IFNULL(d.arret_caisdepo, 0) = 0';
+                    $op_vers = 'AND v.idop_versement = ' . (int) $icx
+                        . ' AND IFNULL(v.active_verse, 0) = 0 AND IFNULL(v.valider_vers, 0) = 0'
+                        . ' AND IFNULL(v.is_actifverser, 0) = 0 AND IFNULL(v.is_actifverserad, 0) = 0'
+                        . ' AND IFNULL(v.arret_caisvers, 0) = 0';
+                }
+                $this->property['depots_compte'] = $this->db->query(
+                    "SELECT SUM(d.montant_depot) AS total FROM depot d
+                    JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
+                    WHERE cs.id_caiss = " . (int) $cid . "
+                    AND cs.gexp_caiss = " . $this->db->escape($cdg) . "
+                    AND d.actif_depo = 0 AND d.type_depot <> 'Courrier'
+                    AND d.datedepot <= " . $this->db->escape($today_compte) . "
+                    {$op_depot} {$fp_arret}"
+                )->row();
+                $this->property['versements_compte'] = $this->db->query(
+                    "SELECT SUM(v.montant_verser) AS total FROM versements v
+                    JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
+                    WHERE cs.id_caiss = " . (int) $cid . "
+                    AND cs.gexp_caiss = " . $this->db->escape($cdg) . "
+                    AND IFNULL(v.type_versement, '') <> 'Courrier'
+                    AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
+                    AND v.date_versement <= " . $this->db->escape($today_compte) . "
+                    {$op_vers} {$fv_arret}"
+                )->row();
+                if (empty($this->property['depots_compte']) || $this->property['depots_compte']->total === null) {
+                    $this->property['depots_compte'] = null;
+                }
+                if (empty($this->property['versements_compte']) || $this->property['versements_compte']->total === null) {
+                    $this->property['versements_compte'] = null;
+                }
                 $this->property['depotcaisses'] = $this->m_depot->ad_depocais($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['montanttotalcaisses'] = $this->m_versements->versecaiss($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['typedocuments'] = $this->m_typedocument->get();

@@ -1473,8 +1473,9 @@
             $conect = (int) $conect;
             $userole = recette_role_userole_for_attribut($conect);
             $op_sql = recette_role_is_validateur_adjoint($userole)
-                ? "AND d.opevalidad = {$conect} AND d.is_actifdepad = 1 AND d.is_actifdep = 0"
-                : "AND d.idop_dep = {$conect} AND d.active_dep = 0";
+                ? "AND d.opevalidad = {$conect} AND d.is_actifdepad = 1 AND d.is_actifdep = 0 AND IFNULL(d.arret_caisdep, 0) = 0"
+                : "AND (d.idop_dep = {$conect} OR d.opevalidchef = {$conect}) AND d.active_dep = 0";
+            $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_perso') : '';
 
             return $this->db->query(
                 "SELECT SUM(montant_depens) AS total FROM depense d
@@ -1492,6 +1493,7 @@
                 AND cs.gexp_caiss = '$g'
                 AND d.type_depense <> 'Courrier'
                 AND cs.id_caiss = '$idcais'
+                {$peri}
                 GROUP BY cs.id_caiss")->row();
         }
 

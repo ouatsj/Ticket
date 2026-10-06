@@ -12,6 +12,7 @@ if (!isset($pending_totals) || !is_object($pending_totals)) {
         'total_recettes' => $total_arret_recette,
         'total_depenses' => $total_arret_depense,
         'total_depots' => 0.0,
+        'total_versements' => 0.0,
         'solde' => $total_arret_recette - $total_arret_depense,
     );
 }
@@ -141,12 +142,34 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                 <span>Total dépôts en attente :
                     <strong class="text-primary"><?= number_format((float) $pending_totals->total_depots, 0, ',', ' '); ?> F</strong>
                 </span>
+                <span>Total versements en attente :
+                    <strong><?= number_format((float) (isset($pending_totals->total_versements) ? $pending_totals->total_versements : 0), 0, ',', ' '); ?> F</strong>
+                </span>
                 <span>Solde :
                     <strong><?= number_format((float) $pending_totals->solde, 0, ',', ' '); ?> F</strong>
                 </span>
             </div>
+            <?php
+            $versement_stop = isset($versement_stop) ? $versement_stop : array();
+            $total_vers_stop = 0;
+            foreach ($versement_stop as $_vs) {
+                $total_vers_stop += (float) $_vs->total;
+            }
+            if ($total_vers_stop > 0 && !empty($conex) && !empty($user_connect)):
+                $vers_action = !empty($is_profil_adjoint) ? 'advalideversement' : 'valideversement';
+                $vers_rejet = !empty($is_profil_adjoint) ? 'adrejetversement' : 'rejetversement';
+                $vers_cible = !empty($is_profil_adjoint) && !empty($versement_stop[0]->validopad)
+                    ? $versement_stop[0]->validopad
+                    : $user_connect->roleattribut;
+            ?>
+            <p class="mb-2 mt-3">
+                Versements à valider : <strong><?= number_format($total_vers_stop, 0, ',', ' '); ?> F</strong>
+                <a class="btn btn-success btn-sm ml-2" href="<?= site_url('Arretcaisses/' . $vers_action . '/' . $this->session->company->ekey . '/' . $gare_code . '/' . $id_caiss . '/' . $vers_cible . '/' . $conex->roleattribut . '/' . $bus_stop->idsousgare) . $escale_q; ?>">VALIDER</a>
+                <a class="btn btn-warning btn-sm ml-1" href="<?= site_url('Arretcaisses/' . $vers_rejet . '/' . $this->session->company->ekey . '/' . $gare_code . '/' . $id_caiss . '/' . $vers_cible . '/' . $conex->roleattribut . '/' . $bus_stop->idsousgare) . $escale_q; ?>">REJETER</a>
+            </p>
+            <?php endif; ?>
             <p class="mb-0 mt-2 small text-muted">
-                Ces montants diminuent au fur et à mesure des validations caissier (masse ou détail RECETTE / DEPENSE / DEPOT).
+                Ces montants diminuent au fur et à mesure des validations caissier (masse ou détail RECETTE / DEPENSE / DEPOT / VERSEMENT).
             </p>
         </div>
     </div>

@@ -28,7 +28,8 @@ if (!function_exists('caisse_validation_flags_strip_author')) {
         unset(
             $flags['idopera'],
             $flags['idop_dep'],
-            $flags['idop_depot']
+            $flags['idop_depot'],
+            $flags['idop_versement']
         );
 
         return $flags;
@@ -373,7 +374,8 @@ if (!function_exists('caisse_validation_pending_adjoint_recette_sql')) {
         return "{$alias}.operavalidad = {$adjoint_ra}
             AND {$alias}.is_actifrecetad = 1
             AND {$alias}.is_actifrecet = 0
-            AND {$alias}.is_validerecet = 1";
+            AND {$alias}.is_validerecet = 1
+            AND IFNULL({$alias}.arret_caisrecet, 0) = 1";
     }
 }
 
@@ -385,7 +387,8 @@ if (!function_exists('caisse_validation_pending_adjoint_depense_sql')) {
         return "{$alias}.opevalidad = {$adjoint_ra}
             AND {$alias}.is_actifdepad = 1
             AND {$alias}.is_actifdep = 0
-            AND {$alias}.is_validedep = 1";
+            AND {$alias}.is_validedep = 1
+            AND IFNULL({$alias}.arret_caisdep, 0) = 1";
     }
 }
 
@@ -397,7 +400,92 @@ if (!function_exists('caisse_validation_pending_adjoint_depot_sql')) {
         return "{$alias}.opvalidad = {$adjoint_ra}
             AND {$alias}.is_actifdepoad = 1
             AND {$alias}.is_actifdepo = 0
-            AND {$alias}.is_validdepo = 1";
+            AND {$alias}.is_validdepo = 1
+            AND IFNULL({$alias}.arret_caisdepo, 0) = 1";
+    }
+}
+
+if (!function_exists('caisse_validation_flags_versement_by_validator')) {
+    /**
+     * Arrêt de compte du chef : active_verse=1, sans valider_vers et sans toucher idop_versement.
+     * Adjoint : reste chez lui (is_actifverserad) tant qu'il n'a pas arrêté son compte (arret_caisvers).
+     * Principal : peut valider directement la file du chef.
+     */
+    function caisse_validation_flags_versement_by_validator($validator_userole, $validator_ra)
+    {
+        $validator_ra = (int) $validator_ra;
+        if ($validator_ra > 0 && function_exists('recette_role_userole_for_attribut')) {
+            $db_userole = recette_role_userole_for_attribut($validator_ra);
+            if ($db_userole !== null && $db_userole !== '') {
+                $validator_userole = $db_userole;
+            }
+        }
+        $flags = array();
+        if (recette_role_is_validateur_adjoint($validator_userole)) {
+            $flags = array(
+                'active_verse' => 1,
+                'is_actifverserad' => 1,
+                'validopad' => $validator_ra,
+            );
+        } elseif (recette_role_is_validateur_principal($validator_userole)) {
+            $principal_ra = caisse_validation_require_principal_ra($validator_ra);
+            if ($principal_ra <= 0) {
+                return array();
+            }
+            $flags = array(
+                'active_verse' => 1,
+                'is_actifverser' => 1,
+                'valider_vers' => 1,
+                'validop' => $principal_ra,
+            );
+        }
+
+        return caisse_validation_flags_strip_author($flags);
+    }
+}
+
+if (!function_exists('caisse_validation_flags_promote_adjoint_versement')) {
+    function caisse_validation_flags_promote_adjoint_versement($principal_ra)
+    {
+        $principal_ra = caisse_validation_require_principal_ra($principal_ra);
+        if ($principal_ra <= 0) {
+            return array();
+        }
+
+        return caisse_validation_flags_strip_author(array(
+            'is_actifverser' => 1,
+            'is_actifverserad' => 1,
+            'valider_vers' => 1,
+            'validop' => $principal_ra,
+        ));
+    }
+}
+
+if (!function_exists('caisse_validation_chef_arrete_versement_sql')) {
+    function caisse_validation_chef_arrete_versement_sql($alias = 'v')
+    {
+        return "IFNULL({$alias}.active_verse, 0) = 1
+            AND IFNULL({$alias}.is_actifverserad, 0) = 0
+            AND IFNULL({$alias}.is_actifverser, 0) = 0
+            AND IFNULL({$alias}.valider_vers, 0) = 0
+            AND IFNULL({$alias}.arret_caisvers, 0) = 0
+            AND IFNULL({$alias}.type_versement, '') <> 'Courrier'
+            AND IFNULL({$alias}.type_versement, '') <> 'Bordereau_bancairecourrier'";
+    }
+}
+
+if (!function_exists('caisse_validation_pending_adjoint_versement_sql')) {
+    function caisse_validation_pending_adjoint_versement_sql($adjoint_ra, $alias = 'v')
+    {
+        $adjoint_ra = (int) $adjoint_ra;
+
+        return "{$alias}.validopad = {$adjoint_ra}
+            AND IFNULL({$alias}.is_actifverserad, 0) = 1
+            AND IFNULL({$alias}.is_actifverser, 0) = 0
+            AND IFNULL({$alias}.arret_caisvers, 0) = 1
+            AND IFNULL({$alias}.valider_vers, 0) = 0
+            AND IFNULL({$alias}.type_versement, '') <> 'Courrier'
+            AND IFNULL({$alias}.type_versement, '') <> 'Bordereau_bancairecourrier'";
     }
 }
 

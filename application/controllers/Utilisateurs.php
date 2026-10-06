@@ -960,6 +960,7 @@
             $this->property['recette_stop'] = $this->m_recette->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
             $this->property['depense_stop'] = $this->m_depense->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
             $this->property['depot_stop'] = $this->m_depot->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
+            $this->property['versement_stop'] = $this->m_versements->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
             $this->property['is_profil_adjoint'] = recette_role_is_validateur_adjoint($profil_role) ? 1 : 0;
             $this->property['recette_stop_details'] = array();
             $this->property['depense_stop_details'] = array();

@@ -76,6 +76,10 @@
             $idcmpt = $this->input->post('compconnected');
 
             $is_adjoint = recette_role_is_validateur_adjoint($this->session->agent->userole);
+            $fr = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('r.nom') : '';
+            $fd = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_perso') : '';
+            $fp = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_pre') : '';
+            $fv = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('v.nom_beneficiaire') : '';
 
             $this->db->trans_start();
 
@@ -86,7 +90,10 @@
                         WHERE r.operavalidad = ?
                         AND r.is_actifrecetad = 1
                         AND r.is_actifrecet = 0
-                        AND r.idcaisse = ?",
+                        AND IFNULL(r.arret_caisrecet, 0) = 0
+                        AND IFNULL(r.ferme_caisrecet, 0) = 0
+                        AND r.idcaisse = ?
+                        {$fr}",
                         array($idcpt, (int) $idc)
                     )->result();
                 } else {
@@ -94,7 +101,8 @@
                         "SELECT r.id_recette, r.active_recet, r.idopera FROM recette r
                         WHERE (r.idopera = ? OR r.operavalidchef = ?)
                         AND r.active_recet = 0
-                        AND r.idcaisse = ?",
+                        AND r.idcaisse = ?
+                        {$fr}",
                         array($idcpt, $idcpt, (int) $idc)
                     )->result();
                 }
@@ -103,6 +111,7 @@
                         if ($is_adjoint) {
                             $plarray = caisse_validation_flags_chef_by_validator('18', $idcpt, true);
                             $plarray['valid_recet'] = 'valid';
+                            $plarray['arret_caisrecet'] = 1;
                         } else {
                             $plarray = array(
                                 'active_recet' => 1,
@@ -118,7 +127,10 @@
                         WHERE d.opevalidad = ?
                         AND d.is_actifdepad = 1
                         AND d.is_actifdep = 0
-                        AND d.idcaisse_depens = ?",
+                        AND IFNULL(d.arret_caisdep, 0) = 0
+                        AND IFNULL(d.ferme_caisdep, 0) = 0
+                        AND d.idcaisse_depens = ?
+                        {$fd}",
                         array($idcpt, (int) $idc)
                     )->result();
                 } else {
@@ -126,7 +138,8 @@
                         "SELECT d.id_depense, d.active_dep, d.idop_dep FROM depense d
                         WHERE (d.idop_dep = ? OR d.opevalidchef = ?)
                         AND d.active_dep = 0
-                        AND d.idcaisse_depens = ?",
+                        AND d.idcaisse_depens = ?
+                        {$fd}",
                         array($idcpt, $idcpt, (int) $idc)
                     )->result();
                 }
@@ -135,6 +148,7 @@
                         if ($is_adjoint) {
                             $dplarray = caisse_validation_flags_depense_chef_by_validator('18', $idcpt, true);
                             $dplarray['valid_depens'] = 'valid';
+                            $dplarray['arret_caisdep'] = 1;
                         } else {
                             $dplarray = array(
                                 'active_dep' => 1,
@@ -150,9 +164,11 @@
                         WHERE d.opvalidad = ?
                         AND d.idcaisse_depot = ?
                         AND d.arret_caisdepo = 0
+                        AND IFNULL(d.ferme_caisdepo, 0) = 0
                         AND d.is_actifdepoad = 1
                         AND d.is_actifdepo = 0
-                        AND d.actif_depo = 0",
+                        AND d.actif_depo = 0
+                        {$fp}",
                         array($idcpt, (int) $idc)
                     )->result();
                 } else {
@@ -164,7 +180,8 @@
                         AND d.is_validdepo = 0
                         AND d.is_actifdepo = 0
                         AND d.actif_depo = 0
-                        AND COALESCE(d.valid_depo, '') <> 'valid'",
+                        AND COALESCE(d.valid_depo, '') <> 'valid'
+                        {$fp}",
                         array($idcpt, $idcpt, (int) $idc)
                     )->result();
                 }
@@ -173,12 +190,53 @@
                     if ($is_adjoint) {
                         $dpoarray = caisse_validation_flags_depot_chef_by_validator('18', $idcpt, true);
                         $dpoarray['valid_depo'] = 'valid';
+                        $dpoarray['arret_caisdepo'] = 1;
                     } else {
                         $dpoarray = array(
                             'valid_depo' => 'valid',
                         );
                     }
                     $this->m_depot->update($item9->id_depot, $dpoarray);
+                }
+
+                if ($is_adjoint) {
+                    $cfvers = $this->db->query(
+                        "SELECT v.id_versements FROM versements v
+                        WHERE v.validopad = ?
+                        AND IFNULL(v.is_actifverserad, 0) = 1
+                        AND IFNULL(v.is_actifverser, 0) = 0
+                        AND IFNULL(v.arret_caisvers, 0) = 0
+                        AND IFNULL(v.ferme_caisvers, 0) = 0
+                        AND v.idcaisse_versement = ?
+                        AND IFNULL(v.type_versement, '') <> 'Courrier'
+                        AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
+                        {$fv}",
+                        array($idcpt, (int) $idc)
+                    )->result();
+                } else {
+                    $cfvers = $this->db->query(
+                        "SELECT v.id_versements FROM versements v
+                        WHERE v.idop_versement = ?
+                        AND IFNULL(v.active_verse, 0) = 0
+                        AND IFNULL(v.valider_vers, 0) = 0
+                        AND IFNULL(v.is_actifverser, 0) = 0
+                        AND IFNULL(v.is_actifverserad, 0) = 0
+                        AND IFNULL(v.arret_caisvers, 0) = 0
+                        AND IFNULL(v.ferme_caisvers, 0) = 0
+                        AND v.idcaisse_versement = ?
+                        AND IFNULL(v.type_versement, '') <> 'Courrier'
+                        AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
+                        {$fv}",
+                        array($idcpt, (int) $idc)
+                    )->result();
+                }
+                foreach ($cfvers as $itemv) {
+                    if ($is_adjoint) {
+                        $versarray = array('arret_caisvers' => 1);
+                    } else {
+                        $versarray = array('active_verse' => 1);
+                    }
+                    $this->m_versements->update($itemv->id_versements, $versarray);
                 }
 
             $this->db->trans_complete();
@@ -189,7 +247,7 @@
 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
             
-            redirect('caisses/' . $this->session->company->ekey.'/cais/'.$g. '/'. $idc. '/'. $iduser.'/arretcaisse_adjoint/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            redirect('caisses/' . $this->session->company->ekey.'/cais/'.$g. '/'. $idc. '/'. $iduser.'/arretcaisse_adjoint/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         /**
@@ -783,6 +841,102 @@
                 $iduser,
                 $sgid
             );
+        }
+
+        public function valideversement($ckey, $g, $idc, $idcpt, $iduser, $sgid)
+        {
+            $this->_valider_versement_chef($ckey, $g, $idc, $idcpt, $iduser, $sgid, false);
+        }
+
+        public function rejetversement($ckey, $g, $idc, $idcpt, $iduser, $sgid)
+        {
+            $this->_valider_versement_chef($ckey, $g, $idc, $idcpt, $iduser, $sgid, true);
+        }
+
+        public function advalideversement($ckey, $g, $idc, $idcpt, $iduser, $sgid)
+        {
+            $this->_valider_versement_adjoint($ckey, $g, $idc, $idcpt, $iduser, $sgid, false);
+        }
+
+        public function adrejetversement($ckey, $g, $idc, $idcpt, $iduser, $sgid)
+        {
+            $this->_valider_versement_adjoint($ckey, $g, $idc, $idcpt, $iduser, $sgid, true);
+        }
+
+        protected function _valider_versement_chef($ckey, $g, $idc, $idcpt, $iduser, $sgid, $rejet)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $ctx['chef_ra'];
+            $iduser = $ctx['caissier_ra'];
+            $arrete = caisse_validation_chef_arrete_versement_sql('v');
+            $escale_sql = caissier_escale_nom_filtre_sql('v.nom_beneficiaire');
+            $rows = $this->db->query(
+                "SELECT v.id_versements FROM versements v
+                WHERE v.idop_versement = ?
+                AND v.idcaisse_versement = ?
+                AND {$arrete}
+                {$escale_sql}",
+                array($idcpt, (int) $idc)
+            )->result();
+            foreach ($rows as $row) {
+                if ($rejet) {
+                    $flags = array(
+                        'active_verse' => 0,
+                        'is_actifverser' => 0,
+                        'is_actifverserad' => 0,
+                        'valider_vers' => 0,
+                        'arret_caisvers' => 0,
+                    );
+                } else {
+                    $flags = caisse_validation_flags_versement_by_validator(
+                        $this->session->agent->userole,
+                        $iduser
+                    );
+                }
+                if ($flags) {
+                    $this->m_versements->update($row->id_versements, $flags);
+                }
+            }
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            caissier_validation_viewcaissier_redirect(
+                $this->company->ekey, $g, $idc, $idcpt, $iduser, $sgid
+            );
+        }
+
+        protected function _valider_versement_adjoint($ckey, $g, $idc, $idcpt, $iduser, $sgid, $rejet)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            $bind = caissier_principale_adjoint_validation_bind($this->company->ekey, $g, $idcpt, $iduser);
+            $idcpt = $bind['adjoint_ra'];
+            $iduser = $bind['caissier_ra'];
+            $pending = caisse_validation_pending_adjoint_versement_sql($idcpt, 'v');
+            $escale_sql = caissier_escale_nom_filtre_sql('v.nom_beneficiaire');
+            $rows = $this->db->query(
+                "SELECT v.id_versements FROM versements v
+                WHERE {$pending}
+                AND v.idcaisse_versement = ?
+                {$escale_sql}",
+                array((int) $idc)
+            )->result();
+            foreach ($rows as $row) {
+                if ($rejet) {
+                    $flags = array(
+                        'is_actifverserad' => 0,
+                        'validopad' => null,
+                        'arret_caisvers' => 0,
+                        'is_actifverser' => 0,
+                        'valider_vers' => 0,
+                    );
+                } else {
+                    $flags = caisse_validation_flags_promote_adjoint_versement($iduser);
+                }
+                if ($flags) {
+                    $this->m_versements->update($row->id_versements, $flags);
+                }
+            }
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            redirect('utilisateurs/' . $this->session->company->ekey.'/caissier/'.$g. '/'. $idc.'/'.$idcpt.'/'.$iduser.'/'.$sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function validrecette($ckey, $g, $idc, $idcpt, $recet)
@@ -1411,6 +1565,13 @@
                 return ($q && is_object($q)) ? $q->result() : array();
             };
 
+            $blocage = $this->_arret_caisse_message_blocage($ekey, $g, $idc, $db, $df, $fr, $fd, $fp, $fv);
+            if ($blocage !== '') {
+                $this->session->set_flashdata('error', $blocage);
+                redirect($back);
+                return;
+            }
+
             $cfrecet = $rows(
                 "SELECT r.id_recette FROM recette r
                 WHERE r.is_validerecet = 1
@@ -1562,6 +1723,374 @@
             $this->property['UPDATE_SUCCESS'] = TRUE;
             $this->session->set_flashdata('success', 'Arrêt de caisse enregistré pour la période sélectionnée.');
             redirect($back);
+        }
+
+        /**
+         * Opérations de la période encore chez le chef, l'adjoint ou la caissière.
+         * Vide si la caissière peut fermer ce qu'elle a déjà validé.
+         *
+         * @param string $ekey
+         * @param string $gare
+         * @param int $idc
+         * @param string $du
+         * @param string $au
+         * @param string $fr
+         * @param string $fd
+         * @param string $fp
+         * @param string $fv
+         * @return string
+         */
+        protected function _arret_caisse_message_blocage($ekey, $gare, $idc, $du, $au, $fr, $fd, $fp, $fv)
+        {
+            $idc = (int) $idc;
+            $horsCourrier = " AND IFNULL(%s, '') <> 'Courrier' ";
+            $parts = array();
+
+            $push = function ($nature, $lieu, $ra, $nb) use (&$parts) {
+                $nb = (int) $nb;
+                $ra = (int) $ra;
+                if ($nb <= 0) {
+                    return;
+                }
+                $key = $nature . '|' . $lieu . '|' . $ra;
+                if (!isset($parts[$key])) {
+                    $parts[$key] = array('nature' => $nature, 'lieu' => $lieu, 'ra' => $ra, 'nb' => 0);
+                }
+                $parts[$key]['nb'] += $nb;
+            };
+
+            $run = function ($sql, $binds, $nature, $lieu) use ($push) {
+                $q = $this->db->query($sql, $binds);
+                if (!$q) {
+                    return;
+                }
+                foreach ($q->result() as $row) {
+                    $push($nature, $lieu, isset($row->ra) ? $row->ra : 0, isset($row->nb) ? $row->nb : 0);
+                }
+            };
+
+            $b = array($idc, $du, $au);
+            $run(
+                "SELECT r.idopera AS ra, COUNT(*) AS nb FROM recette r
+                WHERE r.idcaisse = ? AND r.date_recet BETWEEN ? AND ?
+                AND IFNULL(r.ferme_caisrecet, 0) = 0
+                AND IFNULL(r.active_recet, 0) = 0
+                AND IFNULL(r.is_actifrecet, 0) = 0
+                AND IFNULL(r.is_actifrecetad, 0) = 0
+                AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)
+                " . sprintf($horsCourrier, 'r.type_recet') . " {$fr}
+                GROUP BY r.idopera",
+                $b, 'recette', 'chef'
+            );
+            $run(
+                "SELECT r.idopera AS ra, COUNT(*) AS nb FROM recette r
+                WHERE r.idcaisse = ? AND r.date_recet BETWEEN ? AND ?
+                AND IFNULL(r.ferme_caisrecet, 0) = 0
+                AND IFNULL(r.active_recet, 0) = 1
+                AND IFNULL(r.is_actifrecetad, 0) = 0
+                AND IFNULL(r.is_actifrecet, 0) = 0
+                AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)
+                " . sprintf($horsCourrier, 'r.type_recet') . " {$fr}
+                GROUP BY r.idopera",
+                $b, 'recette', 'attente'
+            );
+            $run(
+                "SELECT IFNULL(r.operavalidad, 0) AS ra, COUNT(*) AS nb FROM recette r
+                WHERE r.idcaisse = ? AND r.date_recet BETWEEN ? AND ?
+                AND IFNULL(r.ferme_caisrecet, 0) = 0
+                AND IFNULL(r.is_actifrecetad, 0) = 1
+                AND IFNULL(r.is_actifrecet, 0) = 0
+                AND IFNULL(r.arret_caisrecet, 0) = 0
+                " . sprintf($horsCourrier, 'r.type_recet') . " {$fr}
+                GROUP BY IFNULL(r.operavalidad, 0)",
+                $b, 'recette', 'adjoint'
+            );
+            $run(
+                "SELECT IFNULL(r.operavalid, 0) AS ra, COUNT(*) AS nb FROM recette r
+                WHERE r.idcaisse = ? AND r.date_recet BETWEEN ? AND ?
+                AND IFNULL(r.ferme_caisrecet, 0) = 0
+                AND IFNULL(r.is_actifrecetad, 0) = 1
+                AND IFNULL(r.is_actifrecet, 0) = 0
+                AND IFNULL(r.arret_caisrecet, 0) = 1
+                " . sprintf($horsCourrier, 'r.type_recet') . " {$fr}
+                GROUP BY IFNULL(r.operavalid, 0)",
+                $b, 'recette', 'principale'
+            );
+
+            $run(
+                "SELECT d.idop_dep AS ra, COUNT(*) AS nb FROM depense d
+                WHERE d.idcaisse_depens = ? AND d.date_depens BETWEEN ? AND ?
+                AND IFNULL(d.ferme_caisdep, 0) = 0
+                AND IFNULL(d.active_dep, 0) = 0
+                AND IFNULL(d.is_actifdep, 0) = 0
+                AND IFNULL(d.is_actifdepad, 0) = 0
+                AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
+                " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
+                GROUP BY d.idop_dep",
+                $b, 'depense', 'chef'
+            );
+            $run(
+                "SELECT d.idop_dep AS ra, COUNT(*) AS nb FROM depense d
+                WHERE d.idcaisse_depens = ? AND d.date_depens BETWEEN ? AND ?
+                AND IFNULL(d.ferme_caisdep, 0) = 0
+                AND IFNULL(d.active_dep, 0) = 1
+                AND IFNULL(d.is_actifdepad, 0) = 0
+                AND IFNULL(d.is_actifdep, 0) = 0
+                AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
+                " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
+                GROUP BY d.idop_dep",
+                $b, 'depense', 'attente'
+            );
+            $run(
+                "SELECT IFNULL(d.opevalidad, 0) AS ra, COUNT(*) AS nb FROM depense d
+                WHERE d.idcaisse_depens = ? AND d.date_depens BETWEEN ? AND ?
+                AND IFNULL(d.ferme_caisdep, 0) = 0
+                AND IFNULL(d.is_actifdepad, 0) = 1
+                AND IFNULL(d.is_actifdep, 0) = 0
+                AND IFNULL(d.arret_caisdep, 0) = 0
+                " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
+                GROUP BY IFNULL(d.opevalidad, 0)",
+                $b, 'depense', 'adjoint'
+            );
+            $run(
+                "SELECT IFNULL(d.opevalid, 0) AS ra, COUNT(*) AS nb FROM depense d
+                WHERE d.idcaisse_depens = ? AND d.date_depens BETWEEN ? AND ?
+                AND IFNULL(d.ferme_caisdep, 0) = 0
+                AND IFNULL(d.is_actifdepad, 0) = 1
+                AND IFNULL(d.is_actifdep, 0) = 0
+                AND IFNULL(d.arret_caisdep, 0) = 1
+                " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
+                GROUP BY IFNULL(d.opevalid, 0)",
+                $b, 'depense', 'principale'
+            );
+
+            $run(
+                "SELECT d.idop_depot AS ra, COUNT(*) AS nb FROM depot d
+                WHERE d.idcaisse_depot = ? AND d.datedepot BETWEEN ? AND ?
+                AND IFNULL(d.ferme_caisdepo, 0) = 0
+                AND IFNULL(d.is_actifdepo, 0) = 0
+                AND IFNULL(d.is_actifdepoad, 0) = 0
+                AND IFNULL(d.is_validdepo, 0) = 0
+                AND IFNULL(d.arret_caisdepo, 0) = 0
+                AND COALESCE(d.valid_depo, '') <> 'valid'
+                " . sprintf($horsCourrier, 'd.type_depot') . " {$fp}
+                GROUP BY d.idop_depot",
+                $b, 'depot', 'chef'
+            );
+            $run(
+                "SELECT d.idop_depot AS ra, COUNT(*) AS nb FROM depot d
+                WHERE d.idcaisse_depot = ? AND d.datedepot BETWEEN ? AND ?
+                AND IFNULL(d.ferme_caisdepo, 0) = 0
+                AND IFNULL(d.is_actifdepo, 0) = 0
+                AND IFNULL(d.is_actifdepoad, 0) = 0
+                AND IFNULL(d.is_validdepo, 0) = 0
+                AND IFNULL(d.arret_caisdepo, 0) = 0
+                AND COALESCE(d.valid_depo, '') = 'valid'
+                " . sprintf($horsCourrier, 'd.type_depot') . " {$fp}
+                GROUP BY d.idop_depot",
+                $b, 'depot', 'attente'
+            );
+            $run(
+                "SELECT IFNULL(d.opvalidad, 0) AS ra, COUNT(*) AS nb FROM depot d
+                WHERE d.idcaisse_depot = ? AND d.datedepot BETWEEN ? AND ?
+                AND IFNULL(d.ferme_caisdepo, 0) = 0
+                AND IFNULL(d.is_actifdepoad, 0) = 1
+                AND IFNULL(d.is_actifdepo, 0) = 0
+                AND IFNULL(d.arret_caisdepo, 0) = 0
+                " . sprintf($horsCourrier, 'd.type_depot') . " {$fp}
+                GROUP BY IFNULL(d.opvalidad, 0)",
+                $b, 'depot', 'adjoint'
+            );
+            $run(
+                "SELECT IFNULL(d.opvalid, 0) AS ra, COUNT(*) AS nb FROM depot d
+                WHERE d.idcaisse_depot = ? AND d.datedepot BETWEEN ? AND ?
+                AND IFNULL(d.ferme_caisdepo, 0) = 0
+                AND IFNULL(d.is_actifdepoad, 0) = 1
+                AND IFNULL(d.is_actifdepo, 0) = 0
+                AND IFNULL(d.arret_caisdepo, 0) = 1
+                " . sprintf($horsCourrier, 'd.type_depot') . " {$fp}
+                GROUP BY IFNULL(d.opvalid, 0)",
+                $b, 'depot', 'principale'
+            );
+
+            $horsVers = " AND IFNULL(v.type_versement, '') <> 'Courrier'
+                AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier' ";
+            $run(
+                "SELECT v.idop_versement AS ra, COUNT(*) AS nb FROM versements v
+                WHERE v.idcaisse_versement = ? AND v.date_versement BETWEEN ? AND ?
+                AND IFNULL(v.ferme_caisvers, 0) = 0
+                AND IFNULL(v.is_actifverser, 0) = 0
+                AND IFNULL(v.is_actifverserad, 0) = 0
+                AND IFNULL(v.active_verse, 0) = 0
+                AND IFNULL(v.valider_vers, 0) = 0
+                AND IFNULL(v.arret_caisvers, 0) = 0
+                {$horsVers} {$fv}
+                GROUP BY v.idop_versement",
+                $b, 'versement', 'chef'
+            );
+            $run(
+                "SELECT v.idop_versement AS ra, COUNT(*) AS nb FROM versements v
+                WHERE v.idcaisse_versement = ? AND v.date_versement BETWEEN ? AND ?
+                AND IFNULL(v.ferme_caisvers, 0) = 0
+                AND IFNULL(v.active_verse, 0) = 1
+                AND IFNULL(v.is_actifverser, 0) = 0
+                AND IFNULL(v.is_actifverserad, 0) = 0
+                AND IFNULL(v.valider_vers, 0) = 0
+                AND IFNULL(v.arret_caisvers, 0) = 0
+                {$horsVers} {$fv}
+                GROUP BY v.idop_versement",
+                $b, 'versement', 'attente'
+            );
+            $run(
+                "SELECT IFNULL(v.validopad, 0) AS ra, COUNT(*) AS nb FROM versements v
+                WHERE v.idcaisse_versement = ? AND v.date_versement BETWEEN ? AND ?
+                AND IFNULL(v.ferme_caisvers, 0) = 0
+                AND IFNULL(v.is_actifverser, 0) = 0
+                AND IFNULL(v.is_actifverserad, 0) = 1
+                AND IFNULL(v.arret_caisvers, 0) = 0
+                {$horsVers} {$fv}
+                GROUP BY IFNULL(v.validopad, 0)",
+                $b, 'versement', 'adjoint'
+            );
+            $run(
+                "SELECT IFNULL(v.validop, 0) AS ra, COUNT(*) AS nb FROM versements v
+                WHERE v.idcaisse_versement = ? AND v.date_versement BETWEEN ? AND ?
+                AND IFNULL(v.ferme_caisvers, 0) = 0
+                AND IFNULL(v.is_actifverserad, 0) = 1
+                AND IFNULL(v.is_actifverser, 0) = 0
+                AND IFNULL(v.arret_caisvers, 0) = 1
+                {$horsVers} {$fv}
+                GROUP BY IFNULL(v.validop, 0)",
+                $b, 'versement', 'principale'
+            );
+
+            if (!$parts) {
+                return '';
+            }
+
+            $noms = $this->_arret_caisse_noms_detenteurs($ekey, $gare, $parts);
+            $lignes = array();
+            $libNature = array(
+                'recette' => array('recette', 'recettes'),
+                'depense' => array('dépense', 'dépenses'),
+                'depot' => array('dépôt', 'dépôts'),
+                'versement' => array('versement', 'versements'),
+            );
+            $libLieu = array(
+                'chef' => 'chez le chef de guichet',
+                'attente' => 'en attente de validation (adjoint ou caissier)',
+                'adjoint' => 'chez le caissier adjoint',
+                'principale' => 'chez la caissière principale',
+            );
+            foreach ($parts as $key => $item) {
+                $n = (int) $item['nb'];
+                $mot = $libNature[$item['nature']];
+                $mot = ($n > 1) ? $mot[1] : $mot[0];
+                $ou = isset($libLieu[$item['lieu']]) ? $libLieu[$item['lieu']] : $item['lieu'];
+                $qui = isset($noms[$key]) ? $noms[$key] : '';
+                $lignes[] = $n . ' ' . $mot . ' ' . $ou . ($qui !== '' ? ' : ' . $qui : '');
+                if (count($lignes) >= 12) {
+                    $lignes[] = 'D’autres opérations de cette période ne sont pas encore finalisées.';
+                    break;
+                }
+            }
+
+            return "Arrêt de caisse refusé. Il reste des opérations du {$du} au {$au} qui ne sont pas encore finalisées.\n"
+                . implode("\n", $lignes);
+        }
+
+        /**
+         * Nom du détenteur, ou les adjoints / caissières de la gare si la ligne n'est pas encore prise.
+         *
+         * @param string $ekey
+         * @param string $gare
+         * @param array $parts
+         * @return array
+         */
+        protected function _arret_caisse_noms_detenteurs($ekey, $gare, array $parts)
+        {
+            $ids = array();
+            $besoinAdjoint = false;
+            $besoinPrincipale = false;
+            foreach ($parts as $item) {
+                $ra = (int) $item['ra'];
+                if ($ra > 0) {
+                    $ids[$ra] = $ra;
+                } elseif ($item['lieu'] === 'adjoint' || $item['lieu'] === 'attente') {
+                    $besoinAdjoint = true;
+                } elseif ($item['lieu'] === 'principale') {
+                    $besoinPrincipale = true;
+                }
+            }
+            $parId = array();
+            if ($ids) {
+                $in = implode(',', $ids);
+                $rows = $this->db->query(
+                    "SELECT ar.roleattribut,
+                        COALESCE(
+                            NULLIF(TRIM(CONCAT(IFNULL(u.first_name, ''), ' ', IFNULL(u.last_name, ''))), ''),
+                            NULLIF(TRIM(cu.username), ''),
+                            CONCAT(ar.roleattribut, '')
+                        ) AS nom
+                    FROM attributions_role ar
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                    JOIN utilisateurs u ON cu.userlog_id = u.uid
+                    WHERE ar.roleattribut IN ({$in})"
+                )->result();
+                if (is_array($rows)) {
+                    foreach ($rows as $row) {
+                        $parId[(int) $row->roleattribut] = trim((string) $row->nom);
+                    }
+                }
+            }
+            $listeRole = function ($userole) use ($ekey, $gare) {
+                $rows = $this->db->query(
+                    "SELECT DISTINCT COALESCE(
+                            NULLIF(TRIM(CONCAT(IFNULL(u.first_name, ''), ' ', IFNULL(u.last_name, ''))), ''),
+                            NULLIF(TRIM(cu.username), ''),
+                            CONCAT(ar.roleattribut, '')
+                        ) AS nom
+                    FROM attributions_role ar
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                    JOIN utilisateurs u ON cu.userlog_id = u.uid
+                    JOIN entreprise e ON u.cle_comp = e.ekey
+                    WHERE e.ekey = ?
+                    AND ar.userole = ?
+                    AND IFNULL(ar.activer_role, 0) = 0
+                    AND ul.guser = ?
+                    ORDER BY nom ASC",
+                    array($ekey, (int) $userole, $gare)
+                )->result();
+                $noms = array();
+                if (is_array($rows)) {
+                    foreach ($rows as $row) {
+                        $nom = trim((string) $row->nom);
+                        if ($nom !== '') {
+                            $noms[$nom] = $nom;
+                        }
+                    }
+                }
+                return $noms ? implode(', ', $noms) : '';
+            };
+            $nomAdjoint = $besoinAdjoint ? $listeRole(18) : '';
+            $nomPrincipale = $besoinPrincipale ? $listeRole(4) : '';
+            $out = array();
+            foreach ($parts as $key => $item) {
+                $ra = (int) $item['ra'];
+                if ($ra > 0 && isset($parId[$ra]) && $parId[$ra] !== '') {
+                    $out[$key] = $parId[$ra];
+                } elseif ($item['lieu'] === 'adjoint') {
+                    $out[$key] = $nomAdjoint !== '' ? $nomAdjoint : 'caissier adjoint de la gare';
+                } elseif ($item['lieu'] === 'principale') {
+                    $out[$key] = $nomPrincipale !== '' ? $nomPrincipale : 'caissière principale de la gare';
+                } elseif ($item['lieu'] === 'chef') {
+                    $out[$key] = 'chef de guichet';
+                }
+            }
+
+            return $out;
         }
     }
     /* End of file: Arretcaisses */

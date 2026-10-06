@@ -1372,6 +1372,46 @@
                 GROUP BY gr.genre_depens, v.type_versement, v.nom_beneficiaire")->result();
 
         }
+
+        public function valideget_par_profil($cid, $gid, $idcais, $use, $userole)
+        {
+            $today = mdate('%Y-%m-%d', now());
+            $use = (int) $use;
+            $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('v.nom_beneficiaire') : '';
+            if (function_exists('recette_role_is_validateur_adjoint') && recette_role_is_validateur_adjoint($userole)) {
+                $pending = caisse_validation_pending_adjoint_versement_sql($use, 'v');
+                return $this->db->query(
+                    "SELECT SUM(v.montant_verser) AS total, COUNT(*) AS nb_ops, v.validopad, cs.gexp_caiss, v.idcaisse_versement
+                    FROM versements v
+                    JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
+                    JOIN compagnies c ON v.compkey_vers = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = " . $this->db->escape($cid) . "
+                    AND cs.gexp_caiss = " . $this->db->escape($gid) . "
+                    AND cs.id_caiss = " . (int) $idcais . "
+                    AND {$pending}
+                    AND v.date_versement <= " . $this->db->escape($today) . "
+                    {$peri}
+                    GROUP BY v.validopad, cs.gexp_caiss, v.idcaisse_versement"
+                )->result();
+            }
+            $arrete = caisse_validation_chef_arrete_versement_sql('v');
+            return $this->db->query(
+                "SELECT SUM(v.montant_verser) AS total, COUNT(*) AS nb_ops, v.idop_versement, cs.gexp_caiss, v.idcaisse_versement
+                FROM versements v
+                JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
+                JOIN compagnies c ON v.compkey_vers = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = " . $this->db->escape($cid) . "
+                AND cs.gexp_caiss = " . $this->db->escape($gid) . "
+                AND cs.id_caiss = " . (int) $idcais . "
+                AND v.idop_versement = {$use}
+                AND {$arrete}
+                AND v.date_versement <= " . $this->db->escape($today) . "
+                {$peri}
+                GROUP BY v.idop_versement, cs.gexp_caiss, v.idcaisse_versement"
+            )->result();
+        }
     }
     /* End of file: Versements_model.php */
     /* File location: application/models/Versements_model.php */

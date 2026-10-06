@@ -1951,8 +1951,9 @@
             $conect = (int) $conect;
             $userole = recette_role_userole_for_attribut($conect);
             $op_sql = recette_role_is_validateur_adjoint($userole)
-                ? "AND r.operavalidad = {$conect} AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0"
+                ? "AND r.operavalidad = {$conect} AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0 AND IFNULL(r.arret_caisrecet, 0) = 0"
                 : "AND (r.idopera = {$conect} OR r.operavalidchef = {$conect}) AND r.active_recet = 0";
+            $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('r.nom') : '';
 
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total FROM recette r
@@ -1971,6 +1972,7 @@
                 AND cs.gexp_caiss = '$g'
                 AND r.type_recet <> 'Courrier'
                 AND r.actif_rect = 0
+                {$peri}
                 GROUP BY cs.id_caiss")->row();
         }
         //recette de la caisse pour arret caisse

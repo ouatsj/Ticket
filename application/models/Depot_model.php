@@ -660,7 +660,6 @@
                 JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND d.arret_caisdepo = 0
                 AND d.idcaisse_depot = '$idcais'
                 AND {$pending}
                 AND d.datedepot <= '$today'
@@ -704,7 +703,6 @@
                 JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = ?
-                AND d.arret_caisdepo = 0
                 AND d.idcaisse_depot = ?
                 AND {$pending}
                 AND d.datedepot <= ?

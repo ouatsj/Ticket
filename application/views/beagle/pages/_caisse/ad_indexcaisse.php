@@ -305,6 +305,8 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
             <div class="card-body">
                 <p>MONTANT RECETTES:&nbsp;<span><? if (!empty($recettes)): ?><?= number_format($recettes->total, 0, '', ' '); ?><? endif; ?></span></p>
                 <p>MONTANT DEPENSES:&nbsp;<span><? if (!empty($depenses)): ?><?= number_format($depenses->total, 0, '', ' '); ?><? endif; ?></span></p>
+                <p>MONTANT DEPOT:&nbsp;<span><? if (!empty($depots_compte)): ?><?= number_format($depots_compte->total, 0, '', ' '); ?><? endif; ?></span></p>
+                <p>MONTANT VERSEMENT:&nbsp;<span><? if (!empty($versements_compte)): ?><?= number_format($versements_compte->total, 0, '', ' '); ?><? endif; ?></span></p>
             
                     <? if($recettes == ''):?><? $r=0?><? else:?><? $r=$recettes->total; ?><?endif; ?>
 
@@ -317,7 +319,7 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
                     <?php
                     // Activer l'arrêt dès qu'il reste des lignes à envoyer au caissier,
                     // même si le montant total est 0 F (tickets gratuits, solde net nul, etc.).
-                    $has_arret_compte_pending = !empty($recettes) || !empty($depenses);
+                    $has_arret_compte_pending = !empty($recettes) || !empty($depenses) || !empty($depots_compte) || !empty($versements_compte);
                     ?>
                     <? if ($has_arret_compte_pending): ?>
                         <button class="btn btn-space <?= ($comptejours->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger"
@@ -349,6 +351,7 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                                     <input type="hidden" name="idcaisse" value="<?= $caisseident->id_caiss; ?>">
                                     <input type="hidden" name="idgarecode" value="<?= $caisseident->gexp_caiss; ?>">
+                                    <?= function_exists('caissier_escale_hidden_inputs') ? caissier_escale_hidden_inputs() : ''; ?>
                                     
                                     <? if (!empty($recettes)): ?>
                                         
@@ -422,8 +425,10 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
                     <?php
                     // Même règle : données à arrêter (y compris montants 0 F) ⇒ bouton actif.
                     $has_arret_caisse_pending = !empty($recettecaisses) || !empty($depensecaisses) || !empty($depotcaisses);
+                    $role_compte = !empty($comptejours->userole) ? (string) $comptejours->userole : '';
+                    $masquer_arret_caisse = in_array($role_compte, array('5', '16', '18'), true);
                     ?>
-                    <? if ($has_arret_caisse_pending): ?>
+                    <? if ($has_arret_caisse_pending && !$masquer_arret_caisse): ?>
                         <button class="btn btn-space <?= ($comptejours->is_conect === '0') ? 'btn-danger' : 'btn-success'; ?> md-trigger"
                                 title="ARRÊTER CAISSE"
                                 data-modal="unstope-<?= $comptejours->roleattribut; ?>">

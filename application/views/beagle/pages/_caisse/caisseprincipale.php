@@ -4,6 +4,12 @@ $escale_nom = trim((string) $this->input->get('escale'));
 $depuis_escale = ($escale_nom !== '');
 $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
 ?>
+<?php if ($msg = $this->session->flashdata('error')): ?>
+    <div class="alert alert-danger mx-4" style="white-space: pre-line;"><?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?></div>
+<?php endif; ?>
+<?php if ($msg = $this->session->flashdata('success')): ?>
+    <div class="alert alert-success mx-4"><?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?></div>
+<?php endif; ?>
     <div class="row">
         <p class="mt-0 mb-2 ml-4">
             <?php if ($depuis_escale): ?>

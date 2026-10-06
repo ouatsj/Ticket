@@ -74,7 +74,8 @@ $render_validation_cards = function ($items, $pending_map, $label_badge) use ($c
                         <?php endif; ?>
                         <p class="mb-0 small">Recettes : <?= number_format($pending->total_recettes, 0, ',', ' '); ?> F</p>
                         <p class="mb-0 small">Dépenses : <?= number_format($pending->total_depenses, 0, ',', ' '); ?> F</p>
-                        <p class="mb-2 small">Dépôts : <?= number_format($pending->total_depots, 0, ',', ' '); ?> F</p>
+                        <p class="mb-0 small">Dépôts : <?= number_format($pending->total_depots, 0, ',', ' '); ?> F</p>
+                        <p class="mb-2 small">Versements : <?= number_format(isset($pending->total_versements) ? $pending->total_versements : 0, 0, ',', ' '); ?> F</p>
                     <? else: ?>
                         <p class="text-muted small mb-2">Aucun arrêt en attente de validation.</p>
                     <? endif; ?>
