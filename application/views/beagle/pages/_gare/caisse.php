@@ -481,6 +481,15 @@
                                 <span class="fas fa-eye"></span>
                                 DEPENSES
                             </a>
+                            <? if ($this->session->agent->userole === '18'): ?>
+                            <a href="<?= site_url('caisses/'
+                                . $this->session->company->ekey . '/cais/'
+                                . $item->gexp_caiss. '/'. $item->id_caiss.'/' . $conex->roleattribut. '/arretcaisse_adjoint/'. $gare_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>"
+                            class="btn btn-block btn-rounded text-dark bg-white">
+                                <span class="fas fa-eye"></span>
+                                ARRÊT COMPTE
+                            </a>
+                            <? endif; ?>
                             <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '18'): ?>
                             <a href="<?= site_url('caisses/'
                                 . $this->session->company->ekey . '/gTv/'

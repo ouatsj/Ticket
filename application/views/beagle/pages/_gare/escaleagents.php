@@ -20,7 +20,7 @@
         <?php
         $profils_admin = array(
             array('id' => 'chef', 'label' => 'Chef de guichet', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, arrêt. L’aide chef a les mêmes boutons. La recette vente escale est la liste ci-dessous.', 'recette' => true, 'badge' => ''),
-            array('id' => 'adjoint', 'label' => 'Adjoint caisse', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, validation.', 'recette' => false, 'badge' => ''),
+            array('id' => 'adjoint', 'label' => 'Adjoint caisse', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, arrêt de compte, validation.', 'recette' => false, 'badge' => ''),
             array('id' => 'caissier', 'label' => 'Caissier', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, arrêt de caisse, validation.', 'recette' => false, 'badge' => ''),
             array('id' => 'comptable', 'label' => 'Comptable', 'note' => 'Exercices escale, comme sur la page de la sous-gare.', 'recette' => false, 'badge' => 'Comptable'),
             array('id' => 'superviseur', 'label' => 'Superviseur', 'note' => 'Cartes caissier et adjoint, plus les exercices escale.', 'recette' => false, 'badge' => 'Comptable'),

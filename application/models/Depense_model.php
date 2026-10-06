@@ -226,12 +226,19 @@
                 ORDER BY d.id_depense DESC")->row();
         }
 
-        public function getsdepen($cid, $idcais, $gid, $usc, $ddbut, $dfin, $cop, $toutes = false)
+        public function getsdepen($cid, $idcais, $gid, $usc, $ddbut, $dfin, $cop, $toutes = false, $niveau_caisse = false)
         {
                 $copSql = (trim((string) $cop) !== '')
                     ? " AND d.compkey_dep = '" . $this->db->escape_str($cop) . "'"
                     : '';
-                $ownerSql = $toutes ? '' : " AND d.idop_dep = '" . (int) $usc . "'";
+                $ra = (int) $usc;
+                if ($toutes) {
+                    $ownerSql = '';
+                } elseif ($niveau_caisse) {
+                    $ownerSql = " AND (d.idop_dep = {$ra} OR d.opevalid = {$ra})";
+                } else {
+                    $ownerSql = " AND d.idop_dep = '{$ra}'";
+                }
                 return $this->db->query(
                 "SELECT * FROM depense d
                 JOIN sousgare sg ON d.sousgidepens = sg.idsousgare

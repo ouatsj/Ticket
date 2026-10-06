@@ -57,8 +57,10 @@
             $this->property['bus_stop'] = $bus_stop;
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $pageUser ? $pageUser : $iduser);
             $this->property['conex'] = $conex;
+            $role_tri = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
             $this->property['depenses'] = caissier_escale_filtrer_lignes($this->m_depense->getsdepen(
-                $this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop, saisie_tri_est_admin()
+                $this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop, saisie_tri_est_admin(),
+                recette_role_is_validateur_principal($role_tri)
             ));
 			$caisseident = $this->m_caisse->get($this->company->id_entreprise, $idgd, $idcais);
               $this->property['caisseident'] = $caisseident;

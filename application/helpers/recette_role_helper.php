@@ -459,11 +459,31 @@ if (!function_exists('saisie_depense_modifiable')) {
         if (saisie_tri_est_admin($userole)) {
             return (bool) $row;
         }
+        if ($userole === null) {
+            $CI =& get_instance();
+            $agent = $CI->session->userdata('agent') ? $CI->session->agent : null;
+            $userole = ($agent && !empty($agent->userole)) ? $agent->userole : '';
+        }
         if ($roleattribut === null && function_exists('roleattribut_guard_session_ra')) {
             $roleattribut = roleattribut_guard_session_ra();
         }
-        $owner = ($row && isset($row->idop_dep)) ? (int) $row->idop_dep : 0;
-        if ($owner <= 0 || $owner !== (int) $roleattribut) {
+        if (!$row) {
+            return false;
+        }
+        $owner = isset($row->idop_dep) ? (int) $row->idop_dep : 0;
+        $ra = (int) $roleattribut;
+        if (recette_role_is_validateur_principal($userole)) {
+            $validateur = isset($row->opevalid) ? (int) $row->opevalid : 0;
+            if ($ra <= 0 || ($owner !== $ra && $validateur !== $ra)) {
+                return false;
+            }
+            if ((isset($row->ferme_caisdep) && (int) $row->ferme_caisdep === 1)
+                || (isset($row->validcptabledep) && (int) $row->validcptabledep === 1)) {
+                return false;
+            }
+            return true;
+        }
+        if ($owner <= 0 || $owner !== $ra) {
             return false;
         }
         return !saisie_ligne_arret_valide($row, 'arret_caisdep', array(
