@@ -425,3 +425,33 @@ SET @sql := IF(@exists = 0,
   'CREATE INDEX idx_ar_vente_escale_value ON attributions_role (vente_escale_value)',
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- -----------------------------------------------------------------------------
+-- Identifiant du chef qui valide, sans remplacer l'auteur
+-- -----------------------------------------------------------------------------
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'recette' AND COLUMN_NAME = 'operavalidchef'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE recette ADD COLUMN operavalidchef INT(11) NULL DEFAULT NULL',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'depense' AND COLUMN_NAME = 'opevalidchef'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE depense ADD COLUMN opevalidchef INT(11) NULL DEFAULT NULL',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'depot' AND COLUMN_NAME = 'opvalidchef'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE depot ADD COLUMN opvalidchef INT(11) NULL DEFAULT NULL',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
