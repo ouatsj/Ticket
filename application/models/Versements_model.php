@@ -747,7 +747,7 @@
             $date_sql = recette_role_rd_date_sql($last_arret, $userole, false, 'r.date_recet');
             // Chef : idopera uniquement (carte caisse) ; validateurs : helper rôle.
             $op_sql = recette_role_is_saisie($userole)
-                ? ('AND r.idopera = ' . $cx)
+                ? ('AND (r.idopera = ' . $cx . ' OR r.operavalidchef = ' . $cx . ')')
                 : recette_role_op_sql_recette($cx, $userole);
             $pending_sql = recette_role_pending_recette_sql($userole);
             $active_sql = recette_role_is_validateur_adjoint($userole)

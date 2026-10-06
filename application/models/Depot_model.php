@@ -1865,7 +1865,7 @@
             $userole = recette_role_userole_for_attribut($conect);
             $op_sql = recette_role_is_validateur_adjoint($userole)
                 ? "AND d.opvalidad = {$conect} AND d.is_actifdepoad = 1 AND d.is_actifdepo = 0"
-                : "AND d.idop_depot = {$conect}";
+                : "AND (d.idop_depot = {$conect} OR d.opvalidchef = {$conect})";
 
             return $this->db->query(
                 "SELECT SUM(montant_depot) AS total FROM depot d

@@ -612,7 +612,7 @@
                                 AND r.active_recet = 0
                                 AND r.type_recet <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
-                                AND r.idopera = '$conex->roleattribut'
+                                AND (r.idopera = '$conex->roleattribut' OR r.operavalidchef = '$conex->roleattribut')
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND r.recetsgid = '$gare_stop->idsousgare'
                                 {$hors_r}
@@ -632,7 +632,7 @@
                                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
                                 AND d.type_depense <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
-                                AND d.idop_dep = '$conex->roleattribut'
+                                AND (d.idop_dep = '$conex->roleattribut' OR d.opevalidchef = '$conex->roleattribut')
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND d.sousgidepens = '$gare_stop->idsousgare'
                                 {$hors_d}
@@ -650,7 +650,7 @@
                                 AND dp.arret_caisdepo = 0
                                 AND dp.type_depot <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
-                                AND dp.idop_depot = '$conex->roleattribut'
+                                AND (dp.idop_depot = '$conex->roleattribut' OR dp.opvalidchef = '$conex->roleattribut')
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND dp.sousgdepot = '$gare_stop->idsousgare'
                                 {$hors_dp}

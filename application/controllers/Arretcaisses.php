@@ -92,10 +92,10 @@
                 } else {
                     $cfrecet = $this->db->query(
                         "SELECT r.id_recette, r.active_recet, r.idopera FROM recette r
-                        WHERE r.idopera = ?
+                        WHERE (r.idopera = ? OR r.operavalidchef = ?)
                         AND r.active_recet = 0
                         AND r.idcaisse = ?",
-                        array($idcpt, (int) $idc)
+                        array($idcpt, $idcpt, (int) $idc)
                     )->result();
                 }
 
@@ -124,10 +124,10 @@
                 } else {
                     $cfdepe = $this->db->query(
                         "SELECT d.id_depense, d.active_dep, d.idop_dep FROM depense d
-                        WHERE d.idop_dep = ?
+                        WHERE (d.idop_dep = ? OR d.opevalidchef = ?)
                         AND d.active_dep = 0
                         AND d.idcaisse_depens = ?",
-                        array($idcpt, (int) $idc)
+                        array($idcpt, $idcpt, (int) $idc)
                     )->result();
                 }
 
@@ -158,14 +158,14 @@
                 } else {
                     $cfdepo = $this->db->query(
                         "SELECT d.id_depot FROM depot d
-                        WHERE d.idop_depot = ?
+                        WHERE (d.idop_depot = ? OR d.opvalidchef = ?)
                         AND d.idcaisse_depot = ?
                         AND d.arret_caisdepo = 0
                         AND d.is_validdepo = 0
                         AND d.is_actifdepo = 0
                         AND d.actif_depo = 0
                         AND COALESCE(d.valid_depo, '') <> 'valid'",
-                        array($idcpt, (int) $idc)
+                        array($idcpt, $idcpt, (int) $idc)
                     )->result();
                 }
 
@@ -506,11 +506,11 @@
             $cfrecet = $this->db->query(
                 "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse
                 FROM recette r
-                WHERE r.idopera = ?
+                WHERE (r.idopera = ? OR r.operavalidchef = ?)
                 AND r.idcaisse = ?
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, (int) $idc)
+                array($idcpt, $idcpt, (int) $idc)
             )->result();
 
                     foreach ($cfrecet as $item9) {
@@ -552,11 +552,11 @@
                 $cfrecet = $this->db->query(
                     "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse, r.valid_recet
                     FROM recette r
-                    WHERE r.idopera = ?
+                    WHERE (r.idopera = ? OR r.operavalidchef = ?)
                     AND r.idcaisse = ?
                     AND {$arrete}
                     {$escale_sql}",
-                    array($idcpt, (int) $idc)
+                    array($idcpt, $idcpt, (int) $idc)
                 )->result();
 
                     foreach ($cfrecet as $item10) {
@@ -608,11 +608,11 @@
             $cfdepes = $this->db->query(
                 "SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens
                 FROM depense d
-                WHERE d.idop_dep = ?
+                WHERE (d.idop_dep = ? OR d.opevalidchef = ?)
                 AND d.idcaisse_depens = ?
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, (int) $idc)
+                array($idcpt, $idcpt, (int) $idc)
             )->result();
 
                     foreach ($cfdepes as $cfdep) {
@@ -651,11 +651,11 @@
                 $cfdepe = $this->db->query(
                     "SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.idop_dep, d.idcaisse_depens
                     FROM depense d
-                    WHERE d.idop_dep = ?
+                    WHERE (d.idop_dep = ? OR d.opevalidchef = ?)
                     AND d.idcaisse_depens = ?
                     AND {$arrete}
                     {$escale_sql}",
-                    array($idcpt, (int) $idc)
+                    array($idcpt, $idcpt, (int) $idc)
                 )->result();
 
                     foreach ($cfdepe as $teme1) {
@@ -704,11 +704,11 @@
             $cfdepo = $this->db->query(
                 "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot
                 FROM depot d
-                WHERE d.idop_depot = ?
+                WHERE (d.idop_depot = ? OR d.opvalidchef = ?)
                 AND d.idcaisse_depot = ?
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, (int) $idc)
+                array($idcpt, $idcpt, (int) $idc)
             )->result();
 
                     foreach ($cfdepo as $tems) {
@@ -746,11 +746,11 @@
             $cfdepo = $this->db->query(
                 "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot
                 FROM depot d
-                WHERE d.idop_depot = ?
+                WHERE (d.idop_depot = ? OR d.opvalidchef = ?)
                 AND d.idcaisse_depot = ?
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, (int) $idc)
+                array($idcpt, $idcpt, (int) $idc)
             )->result();
 
                     foreach ($cfdepo as $tem) {
@@ -804,12 +804,12 @@
             $row = $this->db->query(
                 "SELECT r.id_recette FROM recette r
                 WHERE r.id_recette = ?
-                AND r.idopera = ?
+                AND (r.idopera = ? OR r.operavalidchef = ?)
                 AND r.idcaisse = ?
                 AND {$arrete}
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $recet, $idcpt, (int) $idc)
+                array((int) $recet, $idcpt, $idcpt, (int) $idc)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -870,11 +870,11 @@
             $row = ($escale_sql === '') ? true : $this->db->query(
                 "SELECT r.id_recette FROM recette r
                 WHERE r.id_recette = ?
-                AND r.idopera = ?
+                AND (r.idopera = ? OR r.operavalidchef = ?)
                 AND r.idcaisse = ?
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $recet, $idcpt, (int) $idc)
+                array((int) $recet, $idcpt, $idcpt, (int) $idc)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -951,12 +951,12 @@
             $row = $this->db->query(
                 "SELECT d.id_depense FROM depense d
                 WHERE d.id_depense = ?
-                AND d.idop_dep = ?
+                AND (d.idop_dep = ? OR d.opevalidchef = ?)
                 AND d.idcaisse_depens = ?
                 AND {$arrete}
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $idp, $idcpt, (int) $idc)
+                array((int) $idp, $idcpt, $idcpt, (int) $idc)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -1018,11 +1018,11 @@
             $row = ($escale_sql === '') ? true : $this->db->query(
                 "SELECT d.id_depense FROM depense d
                 WHERE d.id_depense = ?
-                AND d.idop_dep = ?
+                AND (d.idop_dep = ? OR d.opevalidchef = ?)
                 AND d.idcaisse_depens = ?
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $idp, $idcpt, (int) $idc)
+                array((int) $idp, $idcpt, $idcpt, (int) $idc)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -1097,12 +1097,12 @@
             $row = $this->db->query(
                 "SELECT d.id_depot FROM depot d
                 WHERE d.id_depot = ?
-                AND d.idop_depot = ?
+                AND (d.idop_depot = ? OR d.opvalidchef = ?)
                 AND d.idcaisse_depot = ?
                 AND {$arrete}
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $idpo, $idcpt, (int) $idc)
+                array((int) $idpo, $idcpt, $idcpt, (int) $idc)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -1164,11 +1164,11 @@
             $row = ($escale_sql === '') ? true : $this->db->query(
                 "SELECT d.id_depot FROM depot d
                 WHERE d.id_depot = ?
-                AND d.idop_depot = ?
+                AND (d.idop_depot = ? OR d.opvalidchef = ?)
                 AND d.idcaisse_depot = ?
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $idpo, $idcpt, (int) $idc)
+                array((int) $idpo, $idcpt, $idcpt, (int) $idc)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(

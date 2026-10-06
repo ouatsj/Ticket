@@ -79,7 +79,7 @@ if (!function_exists('recette_role_op_sql_recette')) {
             return "AND {$alias}.operavalidad = {$roleattribut}";
         }
         if (recette_role_is_saisie($userole)) {
-            return "AND ({$alias}.idopera = {$roleattribut} OR {$alias}.operavalid = {$roleattribut} OR {$alias}.operavalidad = {$roleattribut})";
+            return "AND ({$alias}.idopera = {$roleattribut} OR {$alias}.operavalidchef = {$roleattribut} OR {$alias}.operavalid = {$roleattribut} OR {$alias}.operavalidad = {$roleattribut})";
         }
 
         return "AND {$alias}.idopera = {$roleattribut}";
@@ -109,7 +109,7 @@ if (!function_exists('recette_role_op_sql_depense')) {
             return "AND {$alias}.opevalidad = {$roleattribut}";
         }
         if (recette_role_is_saisie($userole)) {
-            return "AND ({$alias}.idop_dep = {$roleattribut} OR {$alias}.opevalid = {$roleattribut} OR {$alias}.opevalidad = {$roleattribut})";
+            return "AND ({$alias}.idop_dep = {$roleattribut} OR {$alias}.opevalidchef = {$roleattribut} OR {$alias}.opevalid = {$roleattribut} OR {$alias}.opevalidad = {$roleattribut})";
         }
 
         return "AND {$alias}.idop_dep = {$roleattribut}";
@@ -138,7 +138,7 @@ if (!function_exists('recette_role_op_sql_depot')) {
             return "AND {$alias}.opvalidad = {$roleattribut}";
         }
         if (recette_role_is_saisie($userole)) {
-            return "AND ({$alias}.idop_depot = {$roleattribut} OR {$alias}.opvalid = {$roleattribut} OR {$alias}.opvalidad = {$roleattribut})";
+            return "AND ({$alias}.idop_depot = {$roleattribut} OR {$alias}.opvalidchef = {$roleattribut} OR {$alias}.opvalid = {$roleattribut} OR {$alias}.opvalidad = {$roleattribut})";
         }
 
         return "AND {$alias}.idop_depot = {$roleattribut}";
@@ -331,7 +331,9 @@ if (!function_exists('recette_role_op_sql_recette_list')) {
     function recette_role_op_sql_recette_list($roleattribut, $userole = null, $gare_scope = false, $alias = 'r')
     {
         if (recette_role_is_chef_guichet_rd_list($userole, $gare_scope)) {
-            return 'AND ' . $alias . '.idopera = ' . (int) $roleattribut;
+            $ra = (int) $roleattribut;
+
+            return 'AND (' . $alias . '.idopera = ' . $ra . ' OR ' . $alias . '.operavalidchef = ' . $ra . ')';
         }
 
         return recette_role_op_sql_recette($roleattribut, $userole, $alias);
@@ -345,7 +347,9 @@ if (!function_exists('recette_role_op_sql_depense_list')) {
     function recette_role_op_sql_depense_list($roleattribut, $userole = null, $gare_scope = false, $alias = 'd')
     {
         if (recette_role_is_chef_guichet_rd_list($userole, $gare_scope)) {
-            return 'AND ' . $alias . '.idop_dep = ' . (int) $roleattribut;
+            $ra = (int) $roleattribut;
+
+            return 'AND (' . $alias . '.idop_dep = ' . $ra . ' OR ' . $alias . '.opevalidchef = ' . $ra . ')';
         }
 
         return recette_role_op_sql_depense($roleattribut, $userole, $alias);

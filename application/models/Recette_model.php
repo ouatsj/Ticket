@@ -1952,7 +1952,7 @@
             $userole = recette_role_userole_for_attribut($conect);
             $op_sql = recette_role_is_validateur_adjoint($userole)
                 ? "AND r.operavalidad = {$conect} AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0"
-                : "AND r.idopera = {$conect} AND r.active_recet = 0";
+                : "AND (r.idopera = {$conect} OR r.operavalidchef = {$conect}) AND r.active_recet = 0";
 
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total FROM recette r
@@ -1981,7 +1981,7 @@
             $userole = recette_role_userole_for_attribut($conect);
             $op_sql = recette_role_is_validateur_adjoint($userole)
                 ? "AND r.operavalidad = {$conect} AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0"
-                : "AND r.idopera = {$conect}";
+                : "AND (r.idopera = {$conect} OR r.operavalidchef = {$conect})";
 
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total FROM recette r
@@ -2708,7 +2708,7 @@
                 $gare_sql = 'AND cs.gexp_caiss = ' . $this->db->escape($gare_code);
             }
             if (recette_role_is_saisie($userole)) {
-                $op_sql = "AND (r.idopera = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
+                $op_sql = "AND (r.idopera = {$roleattribut} OR r.operavalidchef = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
                 $closed_sql = 'AND r.is_actifrecet = 1';
             } elseif (recette_role_is_validateur_adjoint($userole)) {
                 $op_sql = "AND r.operavalidad = {$roleattribut}";
@@ -2799,8 +2799,8 @@
             $date_sql = recette_role_rd_date_sql($after_date, $userole, $gare_scope, 'r.date_recet');
             if (recette_role_is_saisie($userole)) {
                 $op_sql = $gare_scope
-                    ? 'AND r.idopera = ' . $roleattribut
-                    : "AND (r.idopera = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
+                    ? 'AND (r.idopera = ' . $roleattribut . ' OR r.operavalidchef = ' . $roleattribut . ')'
+                    : "AND (r.idopera = {$roleattribut} OR r.operavalidchef = {$roleattribut} OR r.operavalid = {$roleattribut} OR r.operavalidad = {$roleattribut})";
                 $pending_sql = $gare_scope
                     ? 'AND r.is_actifrecet = 0 AND r.active_recet = 0 AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)'
                     : 'AND r.is_actifrecet = 0';

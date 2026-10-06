@@ -1505,7 +1505,7 @@
             $userole = recette_role_userole_for_attribut($conect);
             $op_sql = recette_role_is_validateur_adjoint($userole)
                 ? "AND d.opevalidad = {$conect} AND d.is_actifdepad = 1 AND d.is_actifdep = 0"
-                : "AND d.idop_dep = {$conect}";
+                : "AND (d.idop_dep = {$conect} OR d.opevalidchef = {$conect})";
             $sg_sql = '';
             if ($sg !== null && $sg !== '' && $sg !== false) {
                 $sg_sql = 'AND d.sousgidepens = ' . $this->db->escape($sg);
@@ -1971,7 +1971,7 @@
                 $gare_sql = 'AND cs.gexp_caiss = ' . $this->db->escape($gare_code);
             }
             if (recette_role_is_saisie($userole)) {
-                $op_sql = "AND (d.idop_dep = {$roleattribut} OR d.opevalid = {$roleattribut} OR d.opevalidad = {$roleattribut})";
+                $op_sql = "AND (d.idop_dep = {$roleattribut} OR d.opevalidchef = {$roleattribut} OR d.opevalid = {$roleattribut} OR d.opevalidad = {$roleattribut})";
                 $closed_sql = 'AND d.is_actifdep = 1';
             } elseif (recette_role_is_validateur_adjoint($userole)) {
                 $op_sql = "AND d.opevalidad = {$roleattribut}";
@@ -2062,8 +2062,8 @@
             $date_sql = recette_role_rd_date_sql($after_date, $userole, $gare_scope, 'd.date_depens');
             if (recette_role_is_saisie($userole)) {
                 $op_sql = $gare_scope
-                    ? 'AND d.idop_dep = ' . $roleattribut
-                    : "AND (d.idop_dep = {$roleattribut} OR d.opevalid = {$roleattribut} OR d.opevalidad = {$roleattribut})";
+                    ? 'AND (d.idop_dep = ' . $roleattribut . ' OR d.opevalidchef = ' . $roleattribut . ')'
+                    : "AND (d.idop_dep = {$roleattribut} OR d.opevalidchef = {$roleattribut} OR d.opevalid = {$roleattribut} OR d.opevalidad = {$roleattribut})";
                 $pending_sql = $gare_scope
                     ? 'AND d.is_actifdep = 0 AND d.active_dep = 0 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)'
                     : 'AND d.is_actifdep = 0';

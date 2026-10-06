@@ -2024,9 +2024,9 @@ if (!function_exists('validerecette_flags_validateur')) {
             );
         }
         if (recette_role_is_saisie($role)) {
+            // Le chef valide : l'auteur reste idopera, son id entre dans son compte.
             return array(
-                'active_recet' => 1,
-                'valid_recet' => 'valid',
+                'operavalidchef' => $ra,
             );
         }
 
@@ -2069,8 +2069,7 @@ if (!function_exists('validedepense_flags_validateur')) {
         }
         if (recette_role_is_saisie($role)) {
             return array(
-                'active_dep' => 1,
-                'valid_depens' => 'valid',
+                'opevalidchef' => $ra,
             );
         }
 
