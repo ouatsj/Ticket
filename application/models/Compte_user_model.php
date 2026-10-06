@@ -143,12 +143,163 @@
         }
 
         /**
-         * Escales configurées sur les agents vente escale (rôle 17) du lieu.
+         * Vendeurs escale (rôle 17) du lieu choisi pour le tri Versement.
+         * Le compte peut rester sur le guichet d'affiliation : le lieu est le libellé
+         * d'escale, la gare de connexion, ou une vente escalclients sur la période.
          *
          * @param string $ekey
-         * @param string $gid idengare ou code gare
+         * @param string $gid
+         * @param string $du
+         * @param string $au
          * @return array
          */
+        public function vendeurs_escale_tri_gare($ekey, $gid, $du = '', $au = '')
+        {
+            $gid = trim((string) $gid);
+            if ($gid === '' || $gid === '0') {
+                return array();
+            }
+            $CI =& get_instance();
+            if (!isset($CI->m_gare_depart)) {
+                $CI->load->model('Gare_depart_model', 'm_gare_depart');
+            }
+            $lieu = $CI->m_gare_depart->resolve_lieu($gid);
+            $codes = array();
+            if (!empty($lieu['codes']) && is_array($lieu['codes'])) {
+                foreach ($lieu['codes'] as $code) {
+                    $code = trim((string) $code);
+                    if ($code !== '') {
+                        $codes[$code] = $code;
+                    }
+                }
+            }
+            if (!empty($lieu['phys'])) {
+                $phys = trim((string) $lieu['phys']);
+                if ($phys !== '') {
+                    $codes[$phys] = $phys;
+                }
+            }
+            $codes[$gid] = $gid;
+
+            $this->load->helper('role17_context');
+            $nomLieu = '';
+            $nomRow = $this->db->query(
+                "SELECT nom_gaep FROM gare_exp WHERE code_gaexp = ? OR garesid = ? LIMIT 1",
+                array($gid, !empty($lieu['phys']) ? $lieu['phys'] : $gid)
+            )->row();
+            if ($nomRow && !empty($nomRow->nom_gaep) && function_exists('role17_nom_lieu_escale')) {
+                $nomLieu = role17_nom_lieu_escale($nomRow->nom_gaep);
+            }
+
+            $byId = array();
+            $remember = function ($row, $depuisVente = false) use (&$byId, $nomLieu) {
+                if (!$row || empty($row->roleattribut)) {
+                    return;
+                }
+                $id = (int) $row->roleattribut;
+                if ($id <= 0 || isset($byId[$id])) {
+                    return;
+                }
+                $placeAgent = '';
+                if (!empty($row->vente_escale_label) && function_exists('role17_nom_lieu_escale')) {
+                    $placeAgent = role17_nom_lieu_escale($row->vente_escale_label);
+                }
+                // Un libellé d'un autre lieu ne doit pas suivre la gare de connexion.
+                if (!$depuisVente && $placeAgent !== '' && $nomLieu !== ''
+                    && strcasecmp($placeAgent, $nomLieu) !== 0
+                ) {
+                    return;
+                }
+                $fn = isset($row->first_name) ? trim((string) $row->first_name) : '';
+                $ln = isset($row->last_name) ? trim((string) $row->last_name) : '';
+                $base = trim($fn . ' ' . $ln);
+                if ($base === '' && isset($row->username)) {
+                    $base = trim((string) $row->username);
+                }
+                if ($base === '') {
+                    $base = (string) $id;
+                }
+                $place = $placeAgent !== '' ? $placeAgent : $nomLieu;
+                $row->username = ($place !== '') ? ($base . ' — ' . $place) : ($base . ' — escale');
+                $byId[$id] = $row;
+            };
+
+            $labelSql = '';
+            $binds = array($ekey);
+            if ($nomLieu !== '' && $this->db->field_exists('vente_escale_label', 'attributions_role')) {
+                $labelSql = " OR UPPER(TRIM(SUBSTRING_INDEX(ar.vente_escale_label, '(', 1))) = UPPER(?) ";
+                $binds[] = $nomLieu;
+            }
+            $lieuSql = $this->_sql_ul_guser_lieu($gid, 'ul');
+            $labelCol = $this->db->field_exists('vente_escale_label', 'attributions_role')
+                ? 'ar.vente_escale_label'
+                : "'' AS vente_escale_label";
+            $rows = $this->db->query(
+                "SELECT DISTINCT ar.roleattribut,
+                        u.first_name,
+                        u.last_name,
+                        {$labelCol},
+                        COALESCE(
+                            NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
+                            NULLIF(TRIM(cu.username), ''),
+                            ar.roleattribut
+                        ) AS username
+                FROM compte_user cu
+                JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
+                JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = ?
+                AND ar.userole = 17
+                AND ((1=1 {$lieuSql}) {$labelSql})",
+                $binds
+            )->result();
+            if (is_array($rows)) {
+                foreach ($rows as $row) {
+                    $remember($row);
+                }
+            }
+
+            $du = trim((string) $du);
+            $au = trim((string) $au);
+            if ($codes && preg_match('/^\d{4}-\d{2}-\d{2}$/', $du) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $au)) {
+                $in = array();
+                $params = array($ekey, $du, $au);
+                foreach ($codes as $code) {
+                    $in[] = '?';
+                    $params[] = $code;
+                }
+                $vendus = $this->db->query(
+                    "SELECT DISTINCT ar.roleattribut,
+                            u.first_name,
+                            u.last_name,
+                            COALESCE(
+                                NULLIF(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), ''),
+                                NULLIF(TRIM(cu.username), ''),
+                                ar.roleattribut
+                            ) AS username
+                    FROM escalclients es
+                    JOIN attributions_role ar ON es.iduseescal = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                    JOIN utilisateurs u ON cu.userlog_id = u.uid
+                    JOIN entreprise e ON u.cle_comp = e.ekey
+                    WHERE e.ekey = ?
+                    AND ar.userole = 17
+                    AND es.dateescal >= ? AND es.dateescal < DATE_ADD(?, INTERVAL 1 DAY)
+                    AND es.departgescal IN (" . implode(',', $in) . ")",
+                    $params
+                )->result();
+                if (is_array($vendus)) {
+                    foreach ($vendus as $row) {
+                        $remember($row, true);
+                    }
+                }
+            }
+
+            return array_values($byId);
+        }
+
         /**
          * Vendeurs escale (rôle 17) du même nom de lieu, y compris les attributions inactives.
          *

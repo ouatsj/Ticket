@@ -365,6 +365,29 @@
                 }
             }
 
+            // Vente escale : le vendeur reste visible même si son compte est sur le guichet du chef.
+            $escaleUsers = $this->m_compte_user->vendeurs_escale_tri_gare($ekey, $gare, $du, $au);
+            if (is_array($escaleUsers)) {
+                $index = array();
+                foreach ($out as $i => $u) {
+                    $k = isset($u->roleattribut) ? (string) $u->roleattribut : '';
+                    if ($k !== '') {
+                        $index[$k] = $i;
+                    }
+                }
+                foreach ($escaleUsers as $u) {
+                    $k = isset($u->roleattribut) ? (string) $u->roleattribut : '';
+                    if ($k === '') {
+                        continue;
+                    }
+                    if (isset($index[$k])) {
+                        $out[$index[$k]]->username = $u->username;
+                        continue;
+                    }
+                    $push($u);
+                }
+            }
+
             // Tri alpha sur username pour l’affichage.
             usort($out, function ($a, $b) {
                 $na = isset($a->username) ? (string) $a->username : '';

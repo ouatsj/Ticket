@@ -2478,6 +2478,112 @@
         }
 
         /**
+         * Recettes d'escale du lieu, même si la caisse est celle du chef.
+         *
+         * @param string $cid
+         * @param string $gid
+         * @return string
+         */
+        protected function _sql_versements_vente_escale($cid, $gid)
+        {
+            $CI =& get_instance();
+            if (!isset($CI->m_compte_user)) {
+                $CI->load->model('Compte_user_model', 'm_compte_user');
+            }
+            $rows = $CI->m_compte_user->vendeurs_escale_tri_gare($cid, $gid);
+            if (!is_array($rows) || !$rows) {
+                return '';
+            }
+            $ids = array();
+            $names = array();
+            foreach ($rows as $row) {
+                $id = isset($row->roleattribut) ? (int) $row->roleattribut : 0;
+                if ($id > 0) {
+                    $ids[$id] = $id;
+                }
+                $fn = isset($row->first_name) ? trim((string) $row->first_name) : '';
+                $ln = isset($row->last_name) ? trim((string) $row->last_name) : '';
+                $full = preg_replace('/\s+/', ' ', trim($fn . ' ' . $ln));
+                if ($full !== '') {
+                    $names[$full] = $this->db->escape($full);
+                }
+            }
+            $parts = array();
+            if ($names) {
+                $nomCol = "REPLACE(REPLACE(REPLACE(TRIM(r.nom), '  ', ' '), '  ', ' '), '  ', ' ')";
+                $parts[] = $nomCol . ' IN (' . implode(',', $names) . ')';
+            }
+            if ($ids && $this->db->field_exists('iduseescal', 'recette')) {
+                $parts[] = 'r.iduseescal IN (' . implode(',', $ids) . ')';
+            }
+            $nomLieu = '';
+            $nomRow = $this->db->query(
+                "SELECT nom_gaep FROM gare_exp WHERE code_gaexp = ? OR garesid = ? LIMIT 1",
+                array($gid, $gid)
+            )->row();
+            if ($nomRow && !empty($nomRow->nom_gaep)) {
+                $this->load->helper('role17_context');
+                if (function_exists('role17_nom_lieu_escale')) {
+                    $nomLieu = role17_nom_lieu_escale($nomRow->nom_gaep);
+                }
+            }
+            if ($nomLieu !== '') {
+                $parts[] = 'r.commentaire_recet LIKE ' . $this->db->escape('%[[escale:' . $nomLieu . '%');
+            }
+            if (!$parts) {
+                return '';
+            }
+
+            return '(' . implode(' OR ', $parts) . ')';
+        }
+
+        /**
+         * roleattribut des vendeurs escale dont le nom est celui choisi au tri.
+         *
+         * @param string $cid
+         * @param string[] $noms
+         * @return int[]
+         */
+        protected function _ids_vendeurs_escale_par_noms($cid, array $noms)
+        {
+            $escaped = array();
+            foreach ($noms as $n) {
+                $collapsed = preg_replace('/\s+/', ' ', trim((string) $n));
+                if ($collapsed !== '') {
+                    $escaped[$collapsed] = $this->db->escape($collapsed);
+                }
+            }
+            if (!$escaped) {
+                return array();
+            }
+            $nomCol = "REPLACE(REPLACE(REPLACE(TRIM(CONCAT(IFNULL(u.first_name,''), ' ', IFNULL(u.last_name,''))), '  ', ' '), '  ', ' '), '  ', ' ')";
+            $userCol = "REPLACE(REPLACE(REPLACE(TRIM(cu.username), '  ', ' '), '  ', ' '), '  ', ' ')";
+            $rows = $this->db->query(
+                "SELECT ar.roleattribut
+                FROM attributions_role ar
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = ?
+                AND ar.userole = 17
+                AND ({$nomCol} IN (" . implode(',', $escaped) . ") OR {$userCol} IN (" . implode(',', $escaped) . "))",
+                array($cid)
+            )->result();
+            $ids = array();
+            if (is_array($rows)) {
+                foreach ($rows as $row) {
+                    $id = isset($row->roleattribut) ? (int) $row->roleattribut : 0;
+                    if ($id > 0) {
+                        $ids[$id] = $id;
+                    }
+                }
+            }
+
+            return array_values($ids);
+        }
+
+        /**
          * Versements (table recette) filtrés par type Ticket|Courrier|Bagage.
          *
          * @param string|array|false $nop
@@ -2538,8 +2644,19 @@
             }
             $gidTrim = trim((string) $gid);
             if ($gidTrim !== '' && $gidTrim !== '0') {
-                $gareSql = " AND (ex.code_gaexp = ? OR ex.garesid = {$physEsc})";
+                $caisseGare = "(ex.code_gaexp = ? OR ex.garesid = {$physEsc})";
                 $binds[] = $gidTrim;
+                $escaleOu = $this->_sql_versements_vente_escale($cid, $gidTrim);
+                $gareSql = ($escaleOu !== '')
+                    ? ' AND (' . $caisseGare . ' OR ' . $escaleOu . ')'
+                    : ' AND ' . $caisseGare;
+            }
+            if (!empty($noms) && $this->db->field_exists('iduseescal', 'recette')) {
+                $idsEscale = $this->_ids_vendeurs_escale_par_noms($cid, $noms);
+                if ($idsEscale && $nomSql !== '') {
+                    $nomSql = ' AND (' . preg_replace('/^\s*AND\s+/', '', $nomSql)
+                        . ' OR r.iduseescal IN (' . implode(',', $idsEscale) . ')) ';
+                }
             }
             $binds[] = $dt1;
             $binds[] = $dt2;
