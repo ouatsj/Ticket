@@ -323,7 +323,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND d.active_dep = 1
                 AND d.is_actifdep = 0
-                AND d.idop_dep = '$us'
+                AND (d.idop_dep = " . (int) $us . " OR d.opevalidchef = " . (int) $us . ")
                 AND cs.gexp_caiss = '$gid'
                 AND d.type_depense <> 'Courrier'
                 AND d.actif_deps = 0
@@ -344,7 +344,7 @@
                 AND d.active_dep = 1
                 AND d.is_actifdep = 0
                 AND d.ferme_caisdep = 0
-                AND d.idop_dep = '$us'
+                AND (d.idop_dep = " . (int) $us . " OR d.opevalidchef = " . (int) $us . ")
                 AND cs.gexp_caiss = '$gid'
                 AND d.id_depense = '$pk'
                 AND d.type_depense <> 'Courrier'
@@ -870,9 +870,10 @@
         public function valideget($cid, $gid, $idcais, $use)
         {
             $today = mdate('%Y-%m-%d', now());
+            $use = (int) $use;
             return $this->db->query(
-                "SELECT SUM(montant_depens) AS mont, d.idop_dep, cu.is_conect, d.idcaisse_depens, cs.gexp_caiss FROM depense d
-                JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
+                "SELECT SUM(d.montant_depens) AS mont, {$use} AS idop_dep, cu.is_conect, d.idcaisse_depens, cs.gexp_caiss FROM depense d
+                JOIN attributions_role ar ON ar.roleattribut = {$use}
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                 JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
@@ -882,7 +883,7 @@
                 WHERE e.ekey = '$cid'
                 AND d.active_dep = 1
                 AND d.idcaisse_depens ='$idcais'
-                AND d.idop_dep = '$use'
+                AND (d.idop_dep = {$use} OR d.opevalidchef = {$use})
                 AND cs.gexp_caiss = '$gid'
                 AND d.is_validedep = 0
                 AND COALESCE(d.valid_depens, '') = 'valid'
@@ -890,7 +891,7 @@
                 AND d.date_depens <= '$today'
                 AND d.type_depense <> 'Courrier'
                 " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
-                GROUP BY cs.id_caiss, ar.roleattribut")->result();
+                GROUP BY d.idcaisse_depens, cs.gexp_caiss, cu.is_conect")->result();
         }
 
         public function validegead($cid, $gid, $idcais, $use)
@@ -1167,7 +1168,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '".$this->db->escape_str($cid)."'
                 AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
-                AND d.idop_dep = '".$this->db->escape_str($conect)."'
+                AND (d.idop_dep = '".$this->db->escape_str($conect)."' OR d.opevalidchef = '".$this->db->escape_str($conect)."')
                 AND cs.gexp_caiss = '".$this->db->escape_str($gid)."'
                 $filtre_lieu
                 AND d.type_depense <> 'Courrier'

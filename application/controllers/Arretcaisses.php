@@ -1065,7 +1065,8 @@
                         'commentaire_recet'=> $this->input->post('comment'),
                         'idcaisse' => $idc,
                         'active_recet' => 0,
-                        'is_actifreceta' => 0,
+                        'is_actifrecet' => 0,
+                        'is_actifrecetad' => 0,
                         'is_validerecet' => 0,
                         'valid_recet' => 'rejet',
                     );
@@ -1770,8 +1771,11 @@
             };
 
             $b = array($idc, $du, $au);
+            $det_rec = caisse_validation_detenteur_sql('r.idopera', 'r.operavalidchef');
+            $det_dep = caisse_validation_detenteur_sql('d.idop_dep', 'd.opevalidchef');
+            $det_depo = caisse_validation_detenteur_sql('d.idop_depot', 'd.opvalidchef');
             $run(
-                "SELECT r.idopera AS ra, COUNT(*) AS nb FROM recette r
+                "SELECT {$det_rec} AS ra, COUNT(*) AS nb FROM recette r
                 WHERE r.idcaisse = ? AND r.date_recet BETWEEN ? AND ?
                 AND IFNULL(r.ferme_caisrecet, 0) = 0
                 AND IFNULL(r.active_recet, 0) = 0
@@ -1779,11 +1783,11 @@
                 AND IFNULL(r.is_actifrecetad, 0) = 0
                 AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)
                 " . sprintf($horsCourrier, 'r.type_recet') . " {$fr}
-                GROUP BY r.idopera",
+                GROUP BY {$det_rec}",
                 $b, 'recette', 'chef'
             );
             $run(
-                "SELECT r.idopera AS ra, COUNT(*) AS nb FROM recette r
+                "SELECT {$det_rec} AS ra, COUNT(*) AS nb FROM recette r
                 WHERE r.idcaisse = ? AND r.date_recet BETWEEN ? AND ?
                 AND IFNULL(r.ferme_caisrecet, 0) = 0
                 AND IFNULL(r.active_recet, 0) = 1
@@ -1791,7 +1795,7 @@
                 AND IFNULL(r.is_actifrecet, 0) = 0
                 AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)
                 " . sprintf($horsCourrier, 'r.type_recet') . " {$fr}
-                GROUP BY r.idopera",
+                GROUP BY {$det_rec}",
                 $b, 'recette', 'attente'
             );
             $run(
@@ -1818,7 +1822,7 @@
             );
 
             $run(
-                "SELECT d.idop_dep AS ra, COUNT(*) AS nb FROM depense d
+                "SELECT {$det_dep} AS ra, COUNT(*) AS nb FROM depense d
                 WHERE d.idcaisse_depens = ? AND d.date_depens BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdep, 0) = 0
                 AND IFNULL(d.active_dep, 0) = 0
@@ -1826,11 +1830,11 @@
                 AND IFNULL(d.is_actifdepad, 0) = 0
                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
                 " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
-                GROUP BY d.idop_dep",
+                GROUP BY {$det_dep}",
                 $b, 'depense', 'chef'
             );
             $run(
-                "SELECT d.idop_dep AS ra, COUNT(*) AS nb FROM depense d
+                "SELECT {$det_dep} AS ra, COUNT(*) AS nb FROM depense d
                 WHERE d.idcaisse_depens = ? AND d.date_depens BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdep, 0) = 0
                 AND IFNULL(d.active_dep, 0) = 1
@@ -1838,7 +1842,7 @@
                 AND IFNULL(d.is_actifdep, 0) = 0
                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
                 " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
-                GROUP BY d.idop_dep",
+                GROUP BY {$det_dep}",
                 $b, 'depense', 'attente'
             );
             $run(
@@ -1865,7 +1869,7 @@
             );
 
             $run(
-                "SELECT d.idop_depot AS ra, COUNT(*) AS nb FROM depot d
+                "SELECT {$det_depo} AS ra, COUNT(*) AS nb FROM depot d
                 WHERE d.idcaisse_depot = ? AND d.datedepot BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdepo, 0) = 0
                 AND IFNULL(d.is_actifdepo, 0) = 0
@@ -1874,11 +1878,11 @@
                 AND IFNULL(d.arret_caisdepo, 0) = 0
                 AND COALESCE(d.valid_depo, '') <> 'valid'
                 " . sprintf($horsCourrier, 'd.type_depot') . " {$fp}
-                GROUP BY d.idop_depot",
+                GROUP BY {$det_depo}",
                 $b, 'depot', 'chef'
             );
             $run(
-                "SELECT d.idop_depot AS ra, COUNT(*) AS nb FROM depot d
+                "SELECT {$det_depo} AS ra, COUNT(*) AS nb FROM depot d
                 WHERE d.idcaisse_depot = ? AND d.datedepot BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdepo, 0) = 0
                 AND IFNULL(d.is_actifdepo, 0) = 0
@@ -1887,7 +1891,7 @@
                 AND IFNULL(d.arret_caisdepo, 0) = 0
                 AND COALESCE(d.valid_depo, '') = 'valid'
                 " . sprintf($horsCourrier, 'd.type_depot') . " {$fp}
-                GROUP BY d.idop_depot",
+                GROUP BY {$det_depo}",
                 $b, 'depot', 'attente'
             );
             $run(

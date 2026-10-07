@@ -6,6 +6,7 @@
     foreach ($recettes as $_item) {
         $total_attente_recette += (float) $_item->montant_recet;
     }
+    $chef_ra = !empty($user_connect->roleattribut) ? (int) $user_connect->roleattribut : 0;
     $chef_label = trim(($user_connect->first_name ?? '') . ' ' . ($user_connect->last_name ?? ''));
     if ($chef_label === '') {
         $chef_label = !empty($user_connect->username) ? $user_connect->username : 'Chef guichet';
@@ -103,7 +104,7 @@
                                                             class="mdi mdi-close text-white"></span>
                                                 </button>
                                             </div>
-                                            <?= form_open("Arretcaisses/validrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$item->id_recette}" . $escale_q,
+                                            <?= form_open("Arretcaisses/validrecette/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$chef_ra}/{$item->id_recette}" . $escale_q,
                                                 array('class' => 'modal-body form')); ?>
 
                                             <div class="row">
@@ -148,7 +149,7 @@
                                                             class="mdi mdi-close text-white"></span>
                                                 </button>
                                             </div>
-                                            <?= form_open("Arretcaisses/rejetrecet/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$item->idopera}/{$item->id_recette}" . $escale_q,
+                                            <?= form_open("Arretcaisses/rejetrecet/{$this->session->company->ekey}/{$item->gexp_caiss}/{$item->idcaisse}/{$chef_ra}/{$item->id_recette}" . $escale_q,
                                                 array('class' => 'modal-body form')); ?>
 
                                             <div class="row">

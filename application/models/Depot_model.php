@@ -619,11 +619,11 @@
         public function valideget($cid, $gid, $idcais, $use)
         {
             $today = mdate('%Y-%m-%d', now());
-            return $this->db->query("SELECT SUM(montant_depot) AS totalmont, d.idop_depot, d.idcaisse_depot, cs.gexp_caiss, cu.is_conect FROM depot d
-                JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
+            $use = (int) $use;
+            return $this->db->query("SELECT SUM(d.montant_depot) AS totalmont, {$use} AS idop_depot, d.idcaisse_depot, cs.gexp_caiss, cu.is_conect FROM depot d
+                JOIN attributions_role ar ON ar.roleattribut = {$use}
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
                 JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
@@ -631,7 +631,7 @@
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
                 AND d.idcaisse_depot = '$idcais'
-                AND d.idop_depot = '$use'
+                AND (d.idop_depot = {$use} OR d.opvalidchef = {$use})
                 AND d.is_validdepo = 0
                 AND COALESCE(d.valid_depo, '') = 'valid'
                 AND d.datedepot <= '$today'
@@ -639,7 +639,7 @@
                 AND d.type_depot <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
                 " . caissier_escale_nom_filtre_sql('d.nom_pre') . "
-                GROUP BY cs.id_caiss, cu.cpuser_id")->result();
+                GROUP BY d.idcaisse_depot, cs.gexp_caiss, cu.is_conect")->result();
         }
 
         public function validegead($cid, $gid, $idcais, $use)
@@ -1266,7 +1266,7 @@
                 WHERE e.ekey = '$cid'
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
-                AND pt.idop_depot = '$us'
+                AND (pt.idop_depot = " . (int) $us . " OR pt.opvalidchef = " . (int) $us . ")
                 AND cs.gexp_caiss = '$gid'
                 AND cs.id_caiss = '$idcais'
                 AND pt.type_depot <> 'Courrier'
@@ -1284,7 +1284,7 @@
                 WHERE e.ekey = '$cid'
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
-                AND pt.idop_depot = '$us'
+                AND (pt.idop_depot = " . (int) $us . " OR pt.opvalidchef = " . (int) $us . ")
                 AND cs.gexp_caiss = '$gid'
                 AND cs.id_caiss = '$idcais'
                 AND pt.id_depot = '$pk'
@@ -1343,7 +1343,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
                     AND cs.gexp_caiss = '$gid'
-                    AND d.idop_depot = '$adjoint'
+                    AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -1368,7 +1368,7 @@
                     AND d.actif_depo = 0
                     AND d.type_depot = '$typ'
                     AND cs.gexp_caiss = '$gid'
-                    AND d.idop_depot = '$adjoint'
+                    AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -1393,7 +1393,7 @@
                     AND d.type_depot = '$typ'
                     AND tp.type_personnel = '$gr'
                     AND cs.gexp_caiss = '$gid'
-                    AND d.idop_depot = '$adjoint'
+                    AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -1419,7 +1419,7 @@
                     AND tp.type_personnel = '$gr'
                     AND d.nom_per = '$nm'
                     AND cs.gexp_caiss = '$gid'
-                    AND d.idop_depot = '$adjoint'
+                    AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -1444,7 +1444,7 @@
                     AND tp.type_personnel = '$gr'
                     AND d.nom_per = '$nm'
                     AND d.id_depot = '$iddep'
-                    AND d.idop_depot = '$adjoint'
+                    AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->row();
         }   
@@ -1469,7 +1469,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
                     AND cs.gexp_caiss = '$gid'
-                    AND d.idop_depot = '$adjoint'
+                    AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -1494,7 +1494,7 @@
                     AND d.actif_depo = 0
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depot = '$typ'
-                    AND d.idop_depot = '$adjoint'
+                    AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -1519,7 +1519,7 @@
                     AND cs.gexp_caiss = '$gid'
                     AND d.type_depot = '$typ'
                     AND gr.genre_depot = '$gr'
-                    AND d.idop_depot = '$adjoint'
+                    AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -1545,7 +1545,7 @@
                     AND gr.genre_depot = '$gr'
                     AND d.nom_per = '$nm'
                     AND cs.gexp_caiss = '$gid'
-                    AND d.idop_depot = '$adjoint'
+                    AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -1570,7 +1570,7 @@
                     AND cs.gexp_caiss = '$gid'
                     AND d.nom_per = '$nm'
                     AND d.id_depot = '$iddep'
-                    AND d.idop_depot = '$adjoint'
+                    AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->row();
         }

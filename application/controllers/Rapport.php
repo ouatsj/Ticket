@@ -994,7 +994,7 @@
             } elseif ($role === '1' || $role === '2') {
                 $rows = $this->m_depot->tridepotadmin($this->entreprise->ekey, $gid, $comp, $date1, $date2, $typ, $gen, $nm);
             } elseif (recette_role_is_saisie($role)) {
-                $rows = $this->m_depot->tridepot_adjoint($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $typ, $gen, $nm);
+                $rows = $this->m_depot->tridepot_adjoint($this->entreprise->ekey, $gid, $comp, $atr, $date1, $date2, $typ, $gen, $nm);
             } else {
                 $rows = array();
             }

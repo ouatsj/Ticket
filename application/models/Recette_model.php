@@ -353,7 +353,7 @@
         //recette non valide pour une caisse
         public function recetnonvalide($cid, $gid, $idcais, $use, $pk = FALSE)
         {
-            $today = mdate('%Y-%m-%d', now());
+            $use = (int) $use;
             if ($pk === FALSE) {
                 return $this->db->query(
                 "SELECT * FROM recette r
@@ -366,7 +366,7 @@
                 AND r.actif_rect = 0
                 AND cs.id_caiss = '$idcais'
                 AND cs.gexp_caiss = '$gid'
-                AND r.idopera = '$use'
+                AND (r.idopera = {$use} OR r.operavalidchef = {$use})
                 AND r.type_recet <> 'Courrier'
                 AND r.is_actifrecet = 0
                 AND r.is_validerecet = 0
@@ -385,7 +385,7 @@
                 AND r.actif_rect = 0
                 AND cs.id_caiss = '$idcais'
                 AND cs.gexp_caiss = '$gid'
-                AND r.idopera = '$use'
+                AND (r.idopera = {$use} OR r.operavalidchef = {$use})
                 AND r.type_recet <> 'Courrier'
                 AND r.is_actifrecet = 0
                 AND r.is_validerecet = 0
@@ -1175,7 +1175,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 0
-                AND r.idopera = '$conect'
+                AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                 AND r.date_recet <= '$today'
                 AND cs.id_caiss = '$idcais'
                 AND cu.is_conect = 1
@@ -1188,12 +1188,12 @@
         public function valideget($cid, $gid, $idcais, $use)
         {
             $today = mdate('%Y-%m-%d', now());
+            $use = (int) $use;
             return $this->db->query(
-                "SELECT SUM(montant_recet) AS total, r.idopera, r.idcaisse, cs.gexp_caiss, cu.is_conect FROM recette r
-                JOIN attributions_role ar ON r.idopera = ar.roleattribut
+                "SELECT SUM(r.montant_recet) AS total, {$use} AS idopera, r.idcaisse, cs.gexp_caiss, cu.is_conect FROM recette r
+                JOIN attributions_role ar ON ar.roleattribut = {$use}
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                JOIN gares g ON ul.guser = g.idengare
                 JOIN caisse cs ON r.idcaisse = cs.id_caiss
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
@@ -1202,14 +1202,14 @@
                 AND r.active_recet = 1
                 AND cs.id_caiss = '$idcais'
                 AND cs.gexp_caiss = '$gid'
-                AND r.idopera = '$use'
+                AND (r.idopera = {$use} OR r.operavalidchef = {$use})
                 AND r.is_validerecet = 0
                 AND COALESCE(r.valid_recet, '') = 'valid'
                 AND r.actif_rect = 0
                 AND r.type_recet <> 'Courrier'
                 AND r.date_recet <= '$today'
                 " . caissier_escale_nom_filtre_sql('r.nom') . "
-                GROUP BY cs.id_caiss, ar.roleattribut")->result();
+                GROUP BY r.idcaisse, cs.gexp_caiss, cu.is_conect")->result();
         }
 
         public function validegead($cid, $gid, $idcais, $use)
@@ -1727,7 +1727,7 @@
                         AND cs.gexp_caiss = '$gid'
                         AND r.actif_rect = 0
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                        AND r.idopera = '$conect'
+                        AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                         AND r.type_recet <> 'Courrier'
                         ORDER BY r.date_recet ASC")->result();
             }
@@ -1749,7 +1749,7 @@
                         AND cs.gexp_caiss = '$gid'
                         AND r.actif_rect = 0
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                        AND r.idopera = '$conect'
+                        AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                         AND r.type_recet <> 'Courrier'
                         ORDER BY r.date_recet ASC")->result();
             }
@@ -1773,7 +1773,7 @@
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
                         AND r.type_recet = '$typ'
                         AND r.actif_rect = 0
-                        AND r.idopera = '$conect'
+                        AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                         AND r.type_recet <> 'Courrier'
                         ORDER BY r.date_recet ASC")->result();
             }
@@ -1798,7 +1798,7 @@
                         AND r.type_recet = '$typ'
                         AND r.type_recet <> 'Courrier'
                         AND tp.type_personnel = '$gr'
-                        AND r.idopera = '$conect'
+                        AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                         ORDER BY r.date_recet ASC")->result();
             }
             
@@ -1822,7 +1822,7 @@
                         AND r.actif_rect = 0
                         AND r.nom = '$nm'
                         AND r.type_recet <> 'Courrier'
-                        AND r.idopera = '$conect'
+                        AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                         ORDER BY r.date_recet ASC")->result();
         }
 
@@ -1845,7 +1845,7 @@
                         AND cs.gexp_caiss = '$gid'
                         AND r.actif_rect = 0
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                        AND r.idopera = '$conect'
+                        AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                         AND r.type_recet = 'Courrier'
                         ORDER BY r.date_recet ASC")->result();
             }
@@ -1870,7 +1870,7 @@
                         AND r.type_recet = 'Courrier'
                         AND r.actif_rect = 0
                         AND tp.type_personnel = '$gr'
-                        AND r.idopera = '$conect'
+                        AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                         ORDER BY r.date_recet ASC")->result();
             }
             elseif($nm === '')
@@ -1893,7 +1893,7 @@
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
                         AND r.type_recet = 'Courrier'
                         AND tp.type_personnel = '$gr'
-                        AND r.idopera = '$conect'
+                        AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                         ORDER BY r.date_recet ASC")->result();
             }
             elseif($cmp === '')
@@ -1916,7 +1916,7 @@
                         AND r.type_recet = 'Courrier'
                         AND tp.type_personnel = '$gr'
                         AND r.nom = '$nm'
-                        AND r.idopera = '$conect'
+                        AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                         ORDER BY r.date_recet ASC")->result();
             }
             
@@ -1939,7 +1939,7 @@
                         AND tp.type_personnel = '$gr'
                         AND r.actif_rect = 0
                         AND r.nom = '$nm'
-                        AND r.idopera = '$conect'
+                        AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                         ORDER BY r.date_recet ASC")->result();
         }
 
@@ -2215,7 +2215,7 @@
         //tri chef de guichet
         public function trisrecet($cid, $g, $cmp, $cais, $conect, $dt1, $dt2, $typ = FALSE)
         {
-            $qui = "AND r.idopera = '$conect'";
+            $qui = "AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')";
             $ops = function_exists('caissier_escale_ops_from_request') ? caissier_escale_ops_from_request() : null;
             if ($ops) {
                 $cible = (int) $conect;

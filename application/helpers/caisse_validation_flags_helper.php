@@ -461,6 +461,21 @@ if (!function_exists('caisse_validation_flags_promote_adjoint_versement')) {
     }
 }
 
+if (!function_exists('caisse_validation_detenteur_sql')) {
+    /**
+     * Compte qui porte la ligne vers l’adjoint ou le caissier :
+     * le chef valideur quand il est posé, sinon l’auteur.
+     *
+     * @param string $author_col
+     * @param string $chef_col
+     * @return string
+     */
+    function caisse_validation_detenteur_sql($author_col, $chef_col)
+    {
+        return 'COALESCE(NULLIF(' . $chef_col . ', 0), ' . $author_col . ')';
+    }
+}
+
 if (!function_exists('caisse_validation_chef_arrete_versement_sql')) {
     function caisse_validation_chef_arrete_versement_sql($alias = 'v')
     {

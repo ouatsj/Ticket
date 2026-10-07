@@ -2963,14 +2963,26 @@ if (!function_exists('caissier_arret_pending_map')) {
         list($scope_depo_sql, $scope_depo_bind) = caissier_arret_scope_sql('d.idop_depot', 'd.nom_pre', $scope_ops);
         list($scope_ver_sql, $scope_ver_bind) = caissier_arret_scope_sql('v.idop_versement', 'v.nom_beneficiaire', $scope_ops);
         $gare_seule = !(is_array($scope_ops) && $scope_ops);
+        $detenteur = function ($author, $chef) use ($gare_seule) {
+            if (!$gare_seule) {
+                return $author;
+            }
+            if (function_exists('caisse_validation_detenteur_sql')) {
+                return caisse_validation_detenteur_sql($author, $chef);
+            }
+            return 'COALESCE(NULLIF(' . $chef . ', 0), ' . $author . ')';
+        };
+        $holder_rec = $detenteur('r.idopera', 'r.operavalidchef');
+        $holder_dep = $detenteur('d.idop_dep', 'd.opevalidchef');
+        $holder_depo = $detenteur('d.idop_depot', 'd.opvalidchef');
         $hors_rec = $gare_seule ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
         $hors_dep = $gare_seule ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
         $hors_depo = $gare_seule ? recette_role_hors_escale_sql('d.nom_pre', 'd.idop_depot') : '';
         $hors_ver = $gare_seule ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
         $rec_rows = $CI->db->query(
-            "SELECT r.idopera AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total
+            "SELECT {$holder_rec} AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total
             FROM recette r
-            JOIN attributions_role ar ON r.idopera = ar.roleattribut
+            JOIN attributions_role ar ON ar.roleattribut = {$holder_rec}
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN caisse cs ON r.idcaisse = cs.id_caiss
             JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -2989,7 +3001,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             {$caisse_sql}
             {$scope_rec_sql}
             {$hors_rec}
-            GROUP BY r.idopera",
+            GROUP BY {$holder_rec}",
             array_merge(array($ekey, $gid), $scope_rec_bind)
         )->result();
 
@@ -3000,9 +3012,9 @@ if (!function_exists('caissier_arret_pending_map')) {
         }
 
         $dep_rows = $CI->db->query(
-            "SELECT d.idop_dep AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(d.montant_depens), 0) AS total
+            "SELECT {$holder_dep} AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(d.montant_depens), 0) AS total
             FROM depense d
-            JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
+            JOIN attributions_role ar ON ar.roleattribut = {$holder_dep}
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
             JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -3022,7 +3034,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             {$caisse_sql}
             {$scope_dep_sql}
             {$hors_dep}
-            GROUP BY d.idop_dep",
+            GROUP BY {$holder_dep}",
             array_merge(array($ekey, $gid), $scope_dep_bind)
         )->result();
 
@@ -3033,9 +3045,9 @@ if (!function_exists('caissier_arret_pending_map')) {
         }
 
         $depo_rows = $CI->db->query(
-            "SELECT d.idop_depot AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(d.montant_depot), 0) AS total
+            "SELECT {$holder_depo} AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(d.montant_depot), 0) AS total
             FROM depot d
-            JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
+            JOIN attributions_role ar ON ar.roleattribut = {$holder_depo}
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
             JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -3054,7 +3066,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             {$caisse_sql}
             {$scope_depo_sql}
             {$hors_depo}
-            GROUP BY d.idop_depot",
+            GROUP BY {$holder_depo}",
             array_merge(array($ekey, $gid), $scope_depo_bind)
         )->result();
 
