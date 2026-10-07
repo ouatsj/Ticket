@@ -7,7 +7,6 @@
     <title>Impression</title>
     <style>
         @page {
-            size: 57mm 40mm;
             margin: 0;
         }
         html, body {
@@ -18,16 +17,11 @@
             -webkit-text-size-adjust: 100%;
         }
         @media print {
-            /* Hauteur laissée aux vues ticket/reçu (1 page 57×40 à la fois). */
             html, body {
-                width: 57mm !important;
-                height: auto !important;
-                min-height: 0 !important;
-                max-height: none !important;
+                width: 80mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 background: #fff !important;
-                overflow: visible !important;
             }
         }
     </style>

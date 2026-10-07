@@ -81,12 +81,6 @@ $contenu = ticket_escale_libre_pos_text(
     trim($nb . ($type !== '' ? (' (' . $type . ')') : '') . ' ' . (isset($item->contenubagageesc) ? $item->contenubagageesc : '')),
     true
 );
-if (function_exists('mb_substr')) {
-    $contenu = mb_substr($contenu, 0, 30, 'UTF-8');
-} else {
-    $contenu = substr($contenu, 0, 30);
-}
-
 $compagnie = !empty($item->nom_compagnie)
     ? ticket_escale_libre_pos_text((string) $item->nom_compagnie, true)
     : '';
@@ -107,168 +101,14 @@ $copies = array(
     array('n' => '2/2', 'label' => 'ARCHIVE'),
 );
 ?>
-<style>
-@page { size: 57mm 40mm; margin: 0; }
-html, body {
-    margin: 0 !important; padding: 0 !important; background: #fff !important; color: #000 !important;
-    -webkit-print-color-adjust: exact; print-color-adjust: exact;
-}
-@media screen {
-    html, body { width: 100%; height: 100%; min-height: 100vh; overflow: hidden; }
-    #printStatus {
-        position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; background: #fff;
-        font-family: Arial, Helvetica, sans-serif; color: #222; text-align: center; padding: 24px;
-    }
-    #printStatus .msg { font-size: 20px; font-weight: 700; margin: 0 0 8px; }
-    #printStatus .sub { font-size: 14px; color: #666; margin: 0; }
-    #recuEpsonStack { position: absolute; left: 0; top: 0; z-index: 1; }
-}
-@media print {
-    #printStatus { display: none !important; }
-    /* Une seule copie active = même job que le ticket vente (1× 57×40). */
-    html, body { width: 57mm !important; height: 40mm !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; }
-    #recuEpsonStack { position: static !important; width: 57mm !important; height: 40mm !important; }
-    .recu-copy.is-print-skip { display: none !important; }
-    .recu-copy:not(.is-print-skip) {
-        position: static !important;
-        width: 57mm !important;
-        height: 40mm !important;
-        page-break-after: auto;
-        break-after: auto;
-    }
-}
-.recu-copy {
-    box-sizing: border-box; width: 57mm; height: 40mm; margin: 0; padding: 0.5mm 1.6mm 0.4mm;
-    background: #fff; color: #000; text-align: center;
-    font-family: Arial, Helvetica, DejaVu Sans, sans-serif; overflow: hidden;
-    display: flex; flex-direction: column; align-items: center; justify-content: space-between; line-height: 1.05;
-}
-.recu-copy .t-logo { display: block; max-width: 24mm; max-height: 5.5mm; width: auto; height: auto; margin: 0 auto; object-fit: contain; }
-.recu-copy .t-company { font-size: 7.5pt; font-weight: 700; max-width: 53mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.recu-copy .t-title { font-size: 7pt; font-weight: 700; letter-spacing: 0.04em; }
-.recu-copy .t-od { font-size: 8.5pt; font-weight: 700; max-width: 53mm; overflow: hidden; }
-.recu-copy .t-line { font-size: 7.5pt; font-weight: 700; max-width: 53mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.recu-copy .t-prix { font-size: 11pt; font-weight: 800; }
-.recu-copy .t-code { font-size: 7pt; font-weight: 700; }
-.recu-copy img.ticket-barcode { display: block; width: 48mm; height: 6mm; margin: 0 auto; object-fit: fill; }
-.recu-copy .t-emis { font-size: 5.5pt; max-width: 53mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-</style>
+<?php $this->load->view('beagle/pages/_tickets/_pos_escale_plein'); ?>
 <script>
-(function () {
-    var homeUrl = <?= json_encode($accueil_url); ?>;
-    var copies = [];
-    var idx = 0;
-    var gone = false;
-    var waitingAfterPrint = false;
-    var fallbackTimer = null;
-
-    function goHome() {
-        if (gone) return;
-        gone = true;
-        try { location.replace(homeUrl); } catch (e) { location.href = homeUrl; }
-    }
-
-    function showOnly(i) {
-        for (var n = 0; n < copies.length; n++) {
-            if (n === i) copies[n].classList.remove('is-print-skip');
-            else copies[n].classList.add('is-print-skip');
-        }
-    }
-
-    function whenImagesReady(cb) {
-        var imgs = document.querySelectorAll('#recuEpsonStack img');
-        if (!imgs.length) {
-            setTimeout(cb, 150);
-            return;
-        }
-        var left = imgs.length;
-        var done = false;
-        function one() {
-            left--;
-            if (left <= 0 && !done) {
-                done = true;
-                setTimeout(cb, 200);
-            }
-        }
-        for (var i = 0; i < imgs.length; i++) {
-            if (imgs[i].complete) one();
-            else {
-                imgs[i].addEventListener('load', one);
-                imgs[i].addEventListener('error', one);
-            }
-        }
-        setTimeout(function () {
-            if (!done) {
-                done = true;
-                cb();
-            }
-        }, 2500);
-    }
-
-    function afterOneCopy() {
-        if (!waitingAfterPrint) return;
-        waitingAfterPrint = false;
-        if (fallbackTimer) {
-            clearTimeout(fallbackTimer);
-            fallbackTimer = null;
-        }
-        idx++;
-        if (idx >= copies.length) {
-            setTimeout(goHome, 1800);
-            return;
-        }
-        /* Pause courte entre jobs pour laisser POSPrinter éjecter. */
-        setTimeout(printNext, 500);
-    }
-
-    function printNext() {
-        if (gone) return;
-        showOnly(idx);
-        waitingAfterPrint = true;
-        try {
-            window.print();
-        } catch (e) {
-            goHome();
-            return;
-        }
-        fallbackTimer = setTimeout(function () {
-            if (waitingAfterPrint) afterOneCopy();
-        }, 10000);
-    }
-
-    if ('onafterprint' in window) {
-        window.onafterprint = function () {
-            if (waitingAfterPrint) afterOneCopy();
-        };
-    }
-    if (window.matchMedia) {
-        try {
-            var mq = window.matchMedia('print');
-            var handler = function (ev) {
-                if (!ev.matches && waitingAfterPrint) afterOneCopy();
-            };
-            if (mq.addEventListener) mq.addEventListener('change', handler);
-            else if (mq.addListener) mq.addListener(handler);
-        } catch (e2) {}
-    }
-
-    window.onload = function () {
-        copies = Array.prototype.slice.call(document.querySelectorAll('#recuEpsonStack .recu-copy'));
-        whenImagesReady(function () {
-            if (!copies.length) {
-                goHome();
-                return;
-            }
-            printNext();
-        });
-    };
-})();
+posEscalePrintCopies(<?= json_encode($accueil_url); ?>);
 </script>
 
 <div id="printStatus">
     <p class="msg">Impression en cours…</p>
-    <p class="sub">2 exemplaires · CLIENT + ARCHIVE · POSPrinter 57×40</p>
+    <p class="sub">2 exemplaires · CLIENT + ARCHIVE · POSPrinter</p>
 </div>
 
 <div id="recuEpsonStack">
@@ -276,7 +116,8 @@ html, body {
     <div class="recu-copy">
         <?php if ($logo !== ''): ?>
             <img class="t-logo" src="<?= htmlspecialchars($logo, ENT_QUOTES, 'UTF-8'); ?>" alt="">
-        <?php elseif ($compagnie !== ''): ?>
+        <?php endif; ?>
+        <?php if ($compagnie !== ''): ?>
             <div class="t-company"><?= htmlspecialchars($compagnie, ENT_QUOTES, 'UTF-8'); ?></div>
         <?php endif; ?>
         <div class="t-title">RECU BAGAGE <?= htmlspecialchars($copy['n'] . ' ' . $copy['label'], ENT_QUOTES, 'UTF-8'); ?></div>

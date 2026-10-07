@@ -1,7 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 /**
- * Ticket escale libre — POSPrinter 57×40 mm.
- * Écran : message seul (pas d'aperçu). Impression : ticket plein format.
+ * Ticket escale libre — rouleau POS 80 mm, hauteur libre, contenu collé en haut.
  */
 $this->load->helper(array('ticket_escale_libre_print', 'url_safe', 'ticket_prix'));
 
@@ -48,163 +47,7 @@ if (!empty($item->dateheureescal) && $item->dateheureescal !== '0000-00-00 00:00
 $emis = ticket_emis_texte($item, $emis_raw, isset($conex) ? $conex : null);
 $logo = !empty($item->logo) ? site_url($item->logo) : '';
 ?>
-<style>
-@page {
-    size: 57mm 40mm;
-    margin: 0;
-}
-html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #fff !important;
-    color: #000 !important;
-    -webkit-text-size-adjust: 100%;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-}
-
-/* ——— ÉCRAN : pas d'aperçu ticket (POSPrinter) ——— */
-@media screen {
-    html, body {
-        width: 100%;
-        height: 100%;
-        min-height: 100vh;
-        overflow: hidden;
-    }
-    #printStatus {
-        position: fixed;
-        inset: 0;
-        z-index: 50;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: #fff;
-        font-family: Arial, Helvetica, sans-serif;
-        color: #222;
-        text-align: center;
-        padding: 24px;
-    }
-    #printStatus .msg {
-        font-size: 20px;
-        font-weight: 700;
-        margin: 0 0 8px;
-    }
-    #printStatus .sub {
-        font-size: 14px;
-        color: #666;
-        margin: 0;
-    }
-    /* Ticket sous le masque blanc — prêt pour le job d'impression */
-    #ticketEpsonLibre {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 57mm;
-        height: 40mm;
-        z-index: 1;
-    }
-}
-
-/* ——— IMPRESSION : ticket plein 57×40 ——— */
-@media print {
-    #printStatus {
-        display: none !important;
-    }
-    html, body {
-        width: 57mm !important;
-        height: 40mm !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-    }
-    #ticketEpsonLibre {
-        position: static !important;
-        width: 57mm !important;
-        height: 40mm !important;
-        margin: 0 !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-}
-
-#ticketEpsonLibre {
-    box-sizing: border-box;
-    width: 57mm;
-    height: 40mm;
-    margin: 0;
-    padding: 0.6mm 1.8mm 0.5mm;
-    background: #fff;
-    color: #000;
-    text-align: center;
-    font-family: Arial, Helvetica, DejaVu Sans, sans-serif;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-    line-height: 1.08;
-}
-#ticketEpsonLibre .t-logo {
-    display: block;
-    max-width: 28mm;
-    max-height: 6.5mm;
-    width: auto;
-    height: auto;
-    margin: 0 auto;
-    object-fit: contain;
-}
-#ticketEpsonLibre .t-company {
-    font-size: 8.5pt;
-    font-weight: 700;
-    max-width: 53mm;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-#ticketEpsonLibre .t-od {
-    font-size: 10.5pt;
-    font-weight: 700;
-    max-width: 53mm;
-    overflow: hidden;
-}
-#ticketEpsonLibre .t-passager {
-    font-size: 9pt;
-    font-weight: 700;
-    max-width: 53mm;
-    overflow: hidden;
-}
-#ticketEpsonLibre .t-tel {
-    font-size: 8pt;
-    max-width: 53mm;
-    white-space: nowrap;
-    overflow: hidden;
-}
-#ticketEpsonLibre .t-prix {
-    font-size: 12pt;
-    font-weight: 700;
-}
-#ticketEpsonLibre .t-code {
-    font-size: 8pt;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-}
-#ticketEpsonLibre img.ticket-barcode {
-    display: block !important;
-    width: 50mm !important;
-    max-width: 50mm !important;
-    height: 6.5mm !important;
-    margin: 0 auto !important;
-    object-fit: fill !important;
-}
-#ticketEpsonLibre .t-emis {
-    font-size: 6.5pt;
-    max-width: 53mm;
-    white-space: nowrap;
-    overflow: hidden;
-}
-</style>
-
+<?php $this->load->view('beagle/pages/_tickets/_pos_escale_plein'); ?>
 <script type="text/javascript">
 (function () {
     var accueil = <?= json_encode($accueil_url); ?>;
@@ -225,6 +68,7 @@ html, body {
     }
 
     function runPrint() {
+        posEscaleFitPage(document.getElementById('ticketEpsonLibre'));
         try {
             window.print();
         } catch (e) {
@@ -283,10 +127,11 @@ html, body {
     <p class="sub">POSPrinter · retour automatique</p>
 </div>
 
-<div id="ticketEpsonLibre">
+    <div id="ticketEpsonLibre">
     <?php if ($logo !== ''): ?>
         <img class="t-logo" src="<?= htmlspecialchars($logo, ENT_QUOTES, 'UTF-8'); ?>" alt="">
-    <?php elseif ($compagnie !== ''): ?>
+    <?php endif; ?>
+    <?php if ($compagnie !== ''): ?>
         <div class="t-company"><?= htmlspecialchars($compagnie, ENT_QUOTES, 'UTF-8'); ?></div>
     <?php endif; ?>
 
