@@ -1314,6 +1314,95 @@
         /**
          * Affiche un état en page (tableau) au lieu d’un PDF direct.
          */
+        /**
+         * Vrai quand l'état est ouvert depuis une escale (pas depuis la sous-gare).
+         *
+         * @return bool
+         */
+        protected function _escale_contexte_demande()
+        {
+            return trim((string) $this->input->get_post('escale')) !== ''
+                || trim((string) $this->input->get_post('escale_nom')) !== ''
+                || trim((string) $this->input->get_post('escale_ops')) !== '';
+        }
+
+        /**
+         * Conserve le lieu d'escale dans le lien d'export.
+         *
+         * @param string $qs
+         * @return string
+         */
+        protected function _escale_qs_merge($qs)
+        {
+            if (!$this->_escale_contexte_demande()) {
+                return (string) $qs;
+            }
+            $extra = array_filter(array(
+                'escale' => trim((string) $this->input->get_post('escale')),
+                'escale_nom' => trim((string) $this->input->get_post('escale_nom')),
+                'escale_ops' => trim((string) $this->input->get_post('escale_ops')),
+            ), function ($valeur) {
+                return $valeur !== '';
+            });
+            $ajout = http_build_query($extra);
+            if ($ajout === '') {
+                return (string) $qs;
+            }
+            $qs = (string) $qs;
+
+            return ($qs === '') ? $ajout : ($qs . '&' . $ajout);
+        }
+
+        /**
+         * Ne garde que les lignes de l'escale demandée. Hors escale, la liste est inchangée.
+         *
+         * @param array $rows
+         * @return array
+         */
+        protected function _filtrer_lignes_escale($rows)
+        {
+            if (!$this->_escale_contexte_demande() || !is_array($rows)) {
+                return $rows;
+            }
+            $this->load->helper('compte_arret');
+            if (!function_exists('caissier_escale_filtrer_lignes')) {
+                return $rows;
+            }
+
+            return caissier_escale_filtrer_lignes($rows);
+        }
+
+        /**
+         * Sur une escale, le versement suit la gare du lieu (Dissin), pas le seul compte
+         * listé dans escale_ops : les anciens vendeurs n'y figurent plus.
+         *
+         * @param string $gid
+         * @return string
+         */
+        protected function _gid_versement_lieu($gid)
+        {
+            if (!$this->_escale_contexte_demande()) {
+                return $gid;
+            }
+            $this->load->helper('role17_context');
+            if (!function_exists('escale_codes_gaexp_contexte')) {
+                return $gid;
+            }
+            $codes = escale_codes_gaexp_contexte();
+            if (!is_array($codes) || !$codes) {
+                return $gid;
+            }
+            $gid = trim((string) $gid);
+            foreach ($codes as $code) {
+                $code = trim((string) $code);
+                if ($code !== '' && strcasecmp($gid, $code) === 0) {
+                    return $code;
+                }
+            }
+
+            return trim((string) $codes[0]);
+        }
+
         protected function _etat_render_view($page_label, array $payload)
         {
             $payload = $this->_etat_ordonner_par_ligne($payload);
@@ -1330,7 +1419,9 @@
             $this->property['columns'] = isset($payload['columns']) ? $payload['columns'] : array();
             $this->property['lignes'] = isset($payload['lignes']) ? $payload['lignes'] : array();
             $this->property['total'] = isset($payload['total']) ? $payload['total'] : 0;
-            $this->property['filters_qs'] = isset($payload['filters_qs']) ? $payload['filters_qs'] : '';
+            $this->property['filters_qs'] = $this->_escale_qs_merge(
+                isset($payload['filters_qs']) ? $payload['filters_qs'] : ''
+            );
             $this->property['retour_url'] = isset($payload['retour_url']) ? $payload['retour_url'] : '#';
             $this->property['export_base'] = isset($payload['export_base']) ? $payload['export_base'] : '#';
             $this->property['signature_agent'] = isset($payload['signature_agent']) ? $payload['signature_agent'] : '';
@@ -1683,11 +1774,45 @@
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
             list($days, $days1) = $this->_recap_title_dates($ddbt, $dfin);
 
-            $aller = $this->m_passager->versefiltreadminsg($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $sg, $ivd);
-            $retour = $this->m_non_passager->versefiltadminsg($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $sg, $ivd);
+            $aller = array();
+            $retour = array();
+            $escale_recette = array();
+            if ($this->_escale_contexte_demande()) {
+                if (!isset($this->m_escalclients)) {
+                    $this->load->model('Escalclients_model', 'm_escalclients');
+                }
+                $escale_recette = $this->m_escalclients->listereportesc(
+                    $this->entreprise->ekey,
+                    $comp,
+                    $gid,
+                    $ddbt,
+                    $dfin,
+                    $ivd,
+                    ''
+                );
+                if (!is_array($escale_recette)) {
+                    $escale_recette = array();
+                }
+            } else {
+                $aller = $this->m_passager->versefiltreadminsg($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $sg, $ivd);
+                $retour = $this->m_non_passager->versefiltadminsg($this->entreprise->ekey, $gid, $ddbt, $dfin, $comp, $sg, $ivd);
+            }
 
             $lignes = array();
             $total = 0.0;
+            foreach ($escale_recette as $element) {
+                $mt = isset($element->tota) ? (float) $element->tota : 0.0;
+                $lignes[] = array(
+                    'nom' => trim(
+                        (isset($element->first_name) ? (string) $element->first_name : '')
+                        . ' '
+                        . (isset($element->last_name) ? (string) $element->last_name : '')
+                    ),
+                    'ligne' => isset($element->nom_ligne) ? (string) $element->nom_ligne : '',
+                    'montant' => $mt,
+                );
+                $total += $mt;
+            }
             if (is_array($aller)) {
                 foreach ($aller as $item) {
                     $mt = isset($item->total) ? (float) $item->total : 0.0;
@@ -1771,6 +1896,7 @@
             if ($gid === '') {
                 $gid = $this->_normalize_recap_gare_code_filter($g);
             }
+            $gid = $this->_gid_versement_lieu($gid);
             $op = $this->_resolve_report_operateur($ivd);
             $us = $op['label'];
             $noms = $op['noms'];
@@ -1788,9 +1914,17 @@
                     $datsar = explode('-', isset($item->date_recet) ? $item->date_recet : '');
                     $daysar = (count($datsar) === 3) ? ($datsar[2] . '-' . $datsar[1] . '-' . $datsar[0]) : (string) (isset($item->date_recet) ? $item->date_recet : '');
                     $mt = isset($item->montant_recet) ? (float) $item->montant_recet : 0.0;
+                    $operateur = isset($item->nom) ? trim((string) $item->nom) : '';
+                    if ($operateur === '') {
+                        $operateur = trim(
+                            (isset($item->first_name) ? (string) $item->first_name : '')
+                            . ' '
+                            . (isset($item->last_name) ? (string) $item->last_name : '')
+                        );
+                    }
                     $lignes[] = array(
                         'date' => $daysar,
-                        'operateur' => isset($item->nom) ? (string) $item->nom : '',
+                        'operateur' => $operateur,
                         'montant' => $mt,
                     );
                     $total += $mt;
@@ -1848,6 +1982,7 @@
             if ($gid === '') {
                 $gid = $this->_normalize_recap_gare_code_filter($g);
             }
+            $gid = $this->_gid_versement_lieu($gid);
             $op = $this->_resolve_report_operateur($ivd);
             $us = $op['label'];
             $noms = $op['noms'];
@@ -1919,6 +2054,7 @@
             if ($gid === '') {
                 $gid = $this->_normalize_recap_gare_code_filter($g);
             }
+            $gid = $this->_gid_versement_lieu($gid);
             $op = $this->_resolve_report_operateur($ivd);
             $us = $op['label'];
             $noms = $op['noms'];
@@ -7102,17 +7238,38 @@
             $us = $op['label'];
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
 
-            $onreport = $this->m_passager->listereportverscptgl($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
-            $retourreport = $this->m_non_passager->listereportversretourcptad($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
+            $onreport = array();
+            $retourreport = array();
+            if ($this->_escale_contexte_demande()) {
+                if (!isset($this->m_escalclients)) {
+                    $this->load->model('Escalclients_model', 'm_escalclients');
+                }
+                $onreport = $this->m_escalclients->listereportverscptglexo(
+                    $this->entreprise->ekey,
+                    $comp,
+                    $gid,
+                    $dt1,
+                    $dt2,
+                    $cais
+                );
+            } else {
+                $onreport = $this->m_passager->listereportverscptgl($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
+                $retourreport = $this->m_non_passager->listereportversretourcptad($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $cais, $lign);
+            }
 
             $lignes = array();
             $total = 0.0;
             if (is_array($onreport)) {
                 foreach ($onreport as $element) {
-                    $mt = isset($element->total) ? (float) $element->total : 0.0;
+                    $mt = isset($element->tota)
+                        ? (float) $element->tota
+                        : (isset($element->total) ? (float) $element->total : 0.0);
+                    $dateLigne = isset($element->datedepescal)
+                        ? (string) $element->datedepescal
+                        : (isset($element->datep_create) ? (string) $element->datep_create : '');
                     $lignes[] = array(
-                        'date' => isset($element->datep_create) ? (string) $element->datep_create : '',
-                        'type' => 'Aller',
+                        'date' => $dateLigne,
+                        'type' => isset($element->datedepescal) ? 'Escale' : 'Aller',
                         'montant' => $mt,
                     );
                     $total += $mt;
@@ -7354,7 +7511,12 @@
             $op = $this->_resolve_report_operateur($user);
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
 
-            if ($sta === 'confirm') {
+            if ($this->_escale_contexte_demande()) {
+                if (!isset($this->m_escalclients)) {
+                    $this->load->model('Escalclients_model', 'm_escalclients');
+                }
+                $ticketetats = $this->m_escalclients->etats_lieu($this->entreprise->ekey, $gid, $dt1, $dt2, $user);
+            } elseif ($sta === 'confirm') {
                 $ticketetats = $this->m_passager->etatsc($this->entreprise->ekey, $dt1, $dt2, $gid, $user, $sta);
             } elseif ($sta === 'repor') {
                 $ticketetats = $this->m_passager->etats($this->entreprise->ekey, $dt1, $dt2, $gid, $user, $sta);

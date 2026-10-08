@@ -957,6 +957,105 @@
         )->result();
     }
 
+        /**
+         * Montants vendus sur l'escale demandée, par jour et par vendeur.
+         * Inclut les tickets libres, qui n'ont pas de ligne programmée.
+         *
+         * @param string $cid
+         * @param string $gid
+         * @param string $dt1
+         * @param string $dt2
+         * @param string $user
+         * @param string $comp
+         * @return array
+         */
+        public function versements_lieu($cid, $gid, $dt1, $dt2, $user = '', $comp = '')
+        {
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $comp = $this->db->escape_str($comp);
+            $gareSql = $this->sql_filtre_gare_escal($gid);
+            $opSql = $this->sql_filtre_operateur_escal($user);
+            $dateSql = '';
+            if ($dt1 !== '' && $dt2 !== '') {
+                $dateSql = " AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY) ";
+            }
+            $compSql = '';
+            if ($comp !== '' && $comp !== '0') {
+                $compSql = " AND (dest.id_compaga = '{$comp}' OR dest.id_compaga IS NULL) ";
+            }
+
+            return $this->db->query(
+                "SELECT DATE(esp.datedepescal) AS date_recet,
+                        u.first_name, u.last_name,
+                        SUM(esp.prixescal) AS montant_recet
+                FROM escalclients esp
+                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                LEFT JOIN sousgare sg ON esp.departsgescal = sg.idsousgare
+                LEFT JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                WHERE e.ekey = '{$cid}'
+                AND esp.prixescal IS NOT NULL
+                AND esp.prixescal > 0
+                {$dateSql}
+                {$compSql}
+                {$gareSql}
+                {$opSql}
+                GROUP BY DATE(esp.datedepescal), ar.roleattribut, u.first_name, u.last_name
+                ORDER BY DATE(esp.datedepescal) ASC, u.first_name ASC, u.last_name ASC"
+            )->result();
+        }
+
+        /**
+         * Tickets de l'escale demandée (lieu + vendeurs), pour l'état passagers.
+         *
+         * @param string $cid
+         * @param string $gid
+         * @param string $dt1
+         * @param string $dt2
+         * @param string $user
+         * @return array
+         */
+        public function etats_lieu($cid, $gid, $dt1, $dt2, $user = '')
+        {
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $gareSql = $this->sql_filtre_gare_escal($gid);
+            $opSql = $this->sql_filtre_operateur_escal($user);
+            $dateSql = '';
+            if ($dt1 !== '' && $dt2 !== '') {
+                $dateSql = " AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY) ";
+            }
+
+            return $this->db->query(
+                "SELECT esp.idclescal AS code_ticket, lg.nom_ligne, cl.nom_client, cl.prenom_client,
+                        esp.datedepescal AS date_progr, h.heure, esp.prixescal AS prixvente
+                FROM escalclients esp
+                JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                LEFT JOIN sousgare sg ON esp.departsgescal = sg.idsousgare
+                LEFT JOIN client cl ON esp.clientescal = cl.id_client
+                LEFT JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                LEFT JOIN ligne_heure lh ON esp.id_lgeheur = lh.id_ligneheure
+                LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                WHERE e.ekey = '{$cid}'
+                AND esp.prixescal IS NOT NULL
+                {$dateSql}
+                {$gareSql}
+                {$opSql}
+                ORDER BY esp.datedepescal DESC, esp.idclescal DESC"
+            )->result();
+        }
+
     public function listereportverscptglexo($cid, $cp, $gid, $dt1, $dt2, $acl = FALSE)
     {
         $filtreLettres = etat_filtre_lettres('esp.escalpanier', 'esp.datedepescal', $cp, 'ticket_escal', $dt1, $dt2);

@@ -67,6 +67,9 @@
             $db = $this->db->escape_str($db);
             $df = $this->db->escape_str($df);
 
+            $this->load->helper('role17_context');
+            $lieuEscale = function_exists('escale_lieu_sql_requete') ? escale_lieu_sql_requete('ar') : '';
+
             $useSql = '';
             $useTrim = is_string($use) || is_numeric($use) ? trim((string) $use) : '';
             if ($useTrim !== '' && $useTrim !== '0') {
@@ -90,6 +93,7 @@
                 AND ccd.compcourdepens = '$cp'
                 AND ccd.comptdatearretdepens BETWEEN '$db' AND '$df'
                 {$useSql}
+                {$lieuEscale}
                 ORDER BY ccd.comptdatearretdepens ASC")->result();
         }
     }

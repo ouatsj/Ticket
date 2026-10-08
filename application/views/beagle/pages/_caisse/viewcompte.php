@@ -1,8 +1,25 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php
+$this->load->helper('compte_arret');
+$escale_qs = function_exists('caissier_escale_query_suffix') ? caissier_escale_query_suffix() : '';
+$filtre_escale_r = '';
+$filtre_escale_d = '';
+$filtre_escale_p = '';
+$filtre_escale_v = '';
+if (function_exists('caissier_escale_ops_from_request')
+    && caissier_escale_ops_from_request()
+    && function_exists('caissier_escale_nom_filtre_sql')
+) {
+    $filtre_escale_r = caissier_escale_nom_filtre_sql('r.nom');
+    $filtre_escale_d = caissier_escale_nom_filtre_sql('d.nom_perso');
+    $filtre_escale_p = caissier_escale_nom_filtre_sql('dp.nom_pre');
+    $filtre_escale_v = caissier_escale_nom_filtre_sql('v.nom_beneficiaire');
+}
+?>
 
     <div class="row">
         <p class="mt-0 mb-2 ml-4">
-            <a href="<?= site_url("gares/{$this->session->company->ekey}"."/gTv/".$gare_stop->idengare."/cais/".$conex->roleattribut.'/'.$gare_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+            <a href="<?= site_url("gares/{$this->session->company->ekey}"."/gTv/".$gare_stop->idengare."/cais/".$conex->roleattribut.'/'.$gare_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))) . $escale_qs; ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
         </p>
@@ -42,6 +59,7 @@
                             AND cs.gexp_caiss = '$gare_stop->idengare'
                             AND v.validop = '$item->roleattribut'
                             AND v.valid_cptablevers = 0
+                            {$filtre_escale_v}
                             GROUP BY cs.id_caiss, cs.gexp_caiss")->row();
                             $recettes = $this->db->query(
                                 "SELECT SUM(montant_recet) AS montant_recet FROM recette r
@@ -54,6 +72,7 @@
                                 AND r.valid_cptablerecet = 0
                                 AND cs.gexp_caiss = '$gare_stop->idengare'
                                 AND r.operavalid = '$item->roleattribut'
+                                {$filtre_escale_r}
                                 GROUP BY cs.id_caiss, cs.gexp_caiss")->row();
                                 $depenses = $this->db->query(
                                     "SELECT SUM(montant_depens) AS montant_depens FROM depense d
@@ -66,6 +85,7 @@
                                     AND d.validcptabledep = 0
                                     AND cs.gexp_caiss = '$gare_stop->idengare'
                                     AND d.opevalid = '$item->roleattribut'
+                                    {$filtre_escale_d}
                                     GROUP BY cs.id_caiss, cs.gexp_caiss")->row();
                                     $depots = $this->db->query(
                                         "SELECT SUM(montant_depot) AS montant_depot FROM depot dp
@@ -78,6 +98,7 @@
                                         AND dp.opvalid = '$item->roleattribut'
                                         AND dp.ferme_caisdepo = 1
                                         AND dp.valid_cptabledepo = 0
+                                        {$filtre_escale_p}
                                         GROUP BY cs.id_caiss, cs.gexp_caiss")->row();?>
                                     <? if($versements == NULL):?><?$v=0;?><? else:?><? $v = $versements->montant_verser;?><?endif;?>
                                     <? if($recettes == NULL):?><?$r=0;?><? else:?><? $r = $recettes->montant_recet;?><?endif;?>
@@ -94,29 +115,29 @@
                         
                     <a href="<?= site_url('utilisateurs/'
                         . $this->session->company->ekey . '/caissierprincip/'
-                        . $item->guser. '/'. $conex->roleattribut. '/'. $gare_stop->idsousgare. '/'. $item->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
+                        . $item->guser. '/'. $conex->roleattribut. '/'. $gare_stop->idsousgare. '/'. $item->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))) . $escale_qs; ?>"
                          class="btn btn-block btn-rounded text-dark">
                             <span class="icon mdi mdi-eye">VOIR RECAPT CAISSE</span>
                     </a>
 
                     <a href="<?= site_url('utilisateurs/'
                         . $this->session->company->ekey . '/caisseprincrecette/'
-                        . $item->guser. '/'. $conex->roleattribut. '/'. $gare_stop->idsousgare. '/'. $item->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-block btn-rounded text-dark">
+                        . $item->guser. '/'. $conex->roleattribut. '/'. $gare_stop->idsousgare. '/'. $item->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))) . $escale_qs; ?>" class="btn btn-block btn-rounded text-dark">
                             <span class="icon mdi mdi-eye">VALIDATION RECETTE</span>
                     </a>
                     <a href="<?= site_url('utilisateurs/'
                         . $this->session->company->ekey . '/caisseprincdepense/'
-                        . $item->guser. '/'. $conex->roleattribut.'/'. $gare_stop->idsousgare. '/'. $item->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-block btn-rounded text-dark">
+                        . $item->guser. '/'. $conex->roleattribut.'/'. $gare_stop->idsousgare. '/'. $item->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))) . $escale_qs; ?>" class="btn btn-block btn-rounded text-dark">
                             <span class="icon mdi mdi-eye">VALIDATION DEPENSE</span>
                     </a>
                     <a href="<?= site_url('utilisateurs/'
                         . $this->session->company->ekey . '/caisseprincdepot/'
-                        . $item->guser. '/'. $conex->roleattribut. '/'. $gare_stop->idsousgare. '/'. $item->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-block btn-rounded text-dark">
+                        . $item->guser. '/'. $conex->roleattribut. '/'. $gare_stop->idsousgare. '/'. $item->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))) . $escale_qs; ?>" class="btn btn-block btn-rounded text-dark">
                             <span class="icon mdi mdi-eye">VALIDATION DEPOT</span>
                     </a>
                     <a href="<?= site_url('utilisateurs/'
                         . $this->session->company->ekey . '/caisseprincversement/'
-                        . $item->guser. '/'. $conex->roleattribut. '/'. $gare_stop->idsousgare. '/'. $item->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-block btn-rounded text-dark">
+                        . $item->guser. '/'. $conex->roleattribut. '/'. $gare_stop->idsousgare. '/'. $item->roleattribut.'/' . mdate("%d/%m/%Y", now('UTC'))) . $escale_qs; ?>" class="btn btn-block btn-rounded text-dark">
                             <span class="icon mdi mdi-eye">VALIDATION VERSEMENT</span>
                     </a>
                 </div>

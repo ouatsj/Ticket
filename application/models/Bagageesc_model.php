@@ -31,6 +31,52 @@
             return $this->m_bagage->sql_filtre_operateur_bagage($us);
         }
 
+        /**
+         * Montants bagage de l'escale demandée, par jour et par vendeur.
+         *
+         * @param string $cid
+         * @param string $gid
+         * @param string $dt1
+         * @param string $dt2
+         * @param string $user
+         * @return array
+         */
+        public function versements_lieu($cid, $gid, $dt1, $dt2, $user = '')
+        {
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $gareSql = $this->_sql_gare_esc($gid);
+            $opSql = $this->_sql_op_esc($user);
+            $dateSql = '';
+            if ($dt1 !== '' && $dt2 !== '') {
+                $dateSql = " AND bg.date_createesc >= '{$dt1}' AND bg.date_createesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY) ";
+            }
+
+            return $this->db->query(
+                "SELECT DATE(bg.date_createesc) AS date_recet,
+                        u.first_name, u.last_name,
+                        SUM(bg.prix_bagageesc) AS montant_recet
+                FROM bagagesesc bg
+                JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                LEFT JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                WHERE e.ekey = '{$cid}'
+                AND bg.prix_bagageesc IS NOT NULL
+                AND bg.prix_bagageesc > 0
+                AND bg.annulebagesc = 0
+                {$dateSql}
+                {$gareSql}
+                {$opSql}
+                GROUP BY DATE(bg.date_createesc), ar.roleattribut, u.first_name, u.last_name
+                ORDER BY DATE(bg.date_createesc) ASC, u.first_name ASC, u.last_name ASC"
+            )->result();
+        }
+
         public function create(array $data)
         {
             $this->db->insert($this->table, $data);

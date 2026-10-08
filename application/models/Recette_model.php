@@ -2648,7 +2648,12 @@
             if ($gidTrim !== '' && $gidTrim !== '0') {
                 $caisseGare = "(ex.code_gaexp = ? OR ex.garesid = {$physEsc})";
                 $binds[] = $gidTrim;
-                $escaleOu = $this->_sql_versements_vente_escale($cid, $gidTrim);
+                // Depuis une escale : uniquement la caisse de ce lieu.
+                // Le nom d'un vendeur ne doit pas ramener Bobo, Ouaga ou une autre gare.
+                $escaleDemande = trim((string) $this->input->get_post('escale')) !== ''
+                    || trim((string) $this->input->get_post('escale_nom')) !== ''
+                    || trim((string) $this->input->get_post('escale_ops')) !== '';
+                $escaleOu = $escaleDemande ? '' : $this->_sql_versements_vente_escale($cid, $gidTrim);
                 $gareSql = ($escaleOu !== '')
                     ? ' AND (' . $caisseGare . ' OR ' . $escaleOu . ')'
                     : ' AND ' . $caisseGare;
@@ -2663,6 +2668,12 @@
             $binds[] = $dt1;
             $binds[] = $dt2;
             $binds[] = $type;
+            // Ancien versement : operavalidchef est vide, le montant validé est déjà dans montant_recet.
+            // Nouveau : le chef a ajouté son identifiant. Seul un 0 explicite (pas encore validé) est écarté.
+            $chefSql = '';
+            if ($this->db->field_exists('operavalidchef', 'recette')) {
+                $chefSql = ' AND (r.operavalidchef IS NULL OR r.operavalidchef <> 0) ';
+            }
 
             return $this->db->query(
                 "SELECT r.* FROM recette r
@@ -2674,6 +2685,7 @@
                     {$compSql}
                     {$gareSql}
                     AND r.actif_rect = 0
+                    {$chefSql}
                     AND r.date_recet BETWEEN ? AND ?
                     AND r.type_recet = ?
                     {$nomSql}

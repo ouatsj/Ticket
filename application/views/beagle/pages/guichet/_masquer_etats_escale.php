@@ -57,7 +57,14 @@ document.addEventListener('DOMContentLoaded', function () {
         escale_nom: <?= json_encode($escale_nom_vue); ?>,
         escale_ops: <?= json_encode($escale_ops_vue); ?>
     };
+    function cleBouton(el) {
+        return (el.textContent || '')
+            .toUpperCase()
+            .replace(/ESCAL/g, '')
+            .replace(/[^A-Z0-9]/g, '');
+    }
     var noeuds = document.querySelectorAll('button, a.btn, a.btn-secondary');
+    var visibles = [];
     noeuds.forEach(function (el) {
         if (el.closest('.modal-container, .modal, .modal-content, .modal-footer')) {
             return;
@@ -66,15 +73,71 @@ document.addEventListener('DOMContentLoaded', function () {
         if (texte.indexOf('RETOUR') !== -1) {
             return;
         }
-        var estEscal = texte.indexOf('ESCAL') !== -1;
-        if (escaleSeule) {
-            if (!estEscal) {
+        visibles.push(el);
+    });
+    if (escaleSeule) {
+        var parCle = {};
+        visibles.forEach(function (el) {
+            var cle = cleBouton(el);
+            if (!cle) {
+                return;
+            }
+            if (!parCle[cle]) {
+                parCle[cle] = [];
+            }
+            parCle[cle].push(el);
+        });
+        Object.keys(parCle).forEach(function (cle) {
+            var groupe = parCle[cle];
+            var gare = null;
+            var escale = null;
+            groupe.forEach(function (el) {
+                if ((el.textContent || '').toUpperCase().indexOf('ESCAL') !== -1) {
+                    escale = el;
+                } else if (!gare) {
+                    gare = el;
+                }
+            });
+            if (!gare || !escale || gare === escale) {
+                return;
+            }
+            var modal = escale.getAttribute('data-modal');
+            if (modal) {
+                gare.setAttribute('data-modal', modal);
+            }
+            (escale.className || '').split(/\s+/).forEach(function (cls) {
+                if (cls.length > 3 && cls.slice(-3) === 'esc') {
+                    var racine = cls.slice(0, -3);
+                    if (gare.classList.contains(racine)) {
+                        gare.classList.remove(racine);
+                    }
+                    gare.classList.add(cls);
+                }
+            });
+            escale.style.display = 'none';
+        });
+        visibles.forEach(function (el) {
+            if (el.tagName !== 'A') {
+                return;
+            }
+            var href = el.getAttribute('href') || '';
+            if (!href || href.indexOf('escale=') !== -1) {
+                return;
+            }
+            Object.keys(champs).forEach(function (cle) {
+                if (champs[cle]) {
+                    href += (href.indexOf('?') === -1 ? '?' : '&') + cle + '=' + encodeURIComponent(champs[cle]);
+                }
+            });
+            el.setAttribute('href', href);
+        });
+    } else {
+        visibles.forEach(function (el) {
+            if ((el.textContent || '').toUpperCase().indexOf('ESCAL') !== -1) {
                 el.style.display = 'none';
             }
-        } else if (estEscal) {
-            el.style.display = 'none';
-        }
-    });
+        });
+    }
     if (!escaleSeule) {
         return;
     }

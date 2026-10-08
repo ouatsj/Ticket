@@ -114,6 +114,47 @@
             return $this->m_courriers_exp->sql_filtre_operateur_courrier($us);
         }
 
+        /**
+         * Montants courrier de l'escale demandée, par jour et par vendeur.
+         *
+         * @param string $cid
+         * @param string $gid
+         * @param string $dt1
+         * @param string $dt2
+         * @param string $user
+         * @return array
+         */
+        public function versements_lieu($cid, $gid, $dt1, $dt2, $user = '')
+        {
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $opSql = $this->_sql_op_courrier($user);
+            $dateSql = '';
+            if ($dt1 !== '' && $dt2 !== '') {
+                $dateSql = " AND es.dateenvoiesc >= '{$dt1}' AND es.dateenvoiesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY) ";
+            }
+
+            return $this->db->query(
+                "SELECT DATE(es.dateenvoiesc) AS date_recet,
+                        u.first_name, u.last_name,
+                        SUM(es.prixcolisesc) AS montant_recet
+                FROM courriers_expesc es
+                JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = '{$cid}'
+                AND es.prixcolisesc IS NOT NULL
+                AND es.prixcolisesc > 0
+                {$dateSql}
+                {$opSql}
+                GROUP BY DATE(es.dateenvoiesc), ar.roleattribut, u.first_name, u.last_name
+                ORDER BY DATE(es.dateenvoiesc) ASC, u.first_name ASC, u.last_name ASC"
+            )->result();
+        }
+
         public function create(array $data)
         {
             $this->db->insert($this->table, $this->_figer_ligne_vendue($data));
