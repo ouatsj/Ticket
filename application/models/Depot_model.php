@@ -112,10 +112,14 @@
          * @param int[] $ops
          * @return array
          */
-        public function adgetdepot_escale($cid, $gid, array $ops)
+        public function adgetdepot_escale($cid, $gid, array $ops, $porteur = 0)
         {
             $lieu = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('pt.nom_pre', 'pt.idop_depot') : '';
             $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql(array('pt.idop_depot'), 'pt.nom_pre', $ops);
+            $qui = function_exists('recette_role_porteur_personne_sql')
+                ? recette_role_porteur_personne_sql('pt.idop_depot', 'pt.opvalidchef', $porteur)
+                : recette_role_porteur_sql('pt.idop_depot', 'pt.opvalidchef', $porteur);
+            $gare_sql = ($lieu !== '') ? '' : 'AND cs.gexp_caiss = ' . $this->db->escape($gid);
 
             return $this->db->query(
                 "SELECT * FROM depot pt
@@ -131,8 +135,9 @@
                 AND (pt.is_actifdepo = 0 OR pt.is_actifdepo IS NULL)
                 AND (pt.is_actifdepoad = 0 OR pt.is_actifdepoad IS NULL)
                 AND (pt.is_validdepo = 0 OR pt.is_validdepo IS NULL)
-                AND cs.gexp_caiss = '$gid'
+                {$gare_sql}
                 AND pt.type_depot <> 'Courrier'
+                {$qui}
                 {$op_sql}
                 ORDER BY pt.id_depot DESC"
             )->result();

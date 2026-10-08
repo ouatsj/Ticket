@@ -422,7 +422,17 @@
                    AND IFNULL(ul.comptactif, 0) = 0
                    AND ar.vente_escale_value IS NOT NULL
                    AND TRIM(ar.vente_escale_value) <> ''
-                   {$lieu}
+                   AND (
+                        1=1 {$lieu}
+                        OR EXISTS (
+                            SELECT 1
+                            FROM itineraire_escales ie
+                            JOIN gares ge ON UPPER(TRIM(ge.garenom)) = UPPER(TRIM(ie.nom_escale))
+                            WHERE ie.actif_escale = 1
+                              AND REPLACE(TRIM(ar.vente_escale_value), '|', '~') = CONCAT('escale~', ie.id_escale)
+                              AND (ge.idengare = {$this->db->escape($gid)} OR ge.codegares = {$this->db->escape($gid)})
+                        )
+                   )
                  ORDER BY ar.vente_escale_label ASC, agent_nom ASC",
                 array($ekey)
             )->result();

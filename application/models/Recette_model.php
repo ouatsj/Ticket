@@ -1189,8 +1189,18 @@
         {
             $today = mdate('%Y-%m-%d', now());
             $use = (int) $use;
+            $idcais = (int) $idcais;
+            $escale = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            $qui = $escale && function_exists('caissier_validation_personne_where')
+                ? caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $use)
+                : "(r.idopera = {$use} OR r.operavalidchef = {$use})";
+            $caisse_sql = $escale ? '' : "AND cs.id_caiss = '{$idcais}' AND cs.gexp_caiss = " . $this->db->escape($gid);
+            $idcaisse_sel = $escale ? (string) $idcais : 'r.idcaisse';
+            $gexp_sel = $escale ? $this->db->escape($gid) : 'cs.gexp_caiss';
+            $group = $escale ? 'cu.is_conect' : 'r.idcaisse, cs.gexp_caiss, cu.is_conect';
+
             return $this->db->query(
-                "SELECT SUM(r.montant_recet) AS total, {$use} AS idopera, r.idcaisse, cs.gexp_caiss, cu.is_conect FROM recette r
+                "SELECT SUM(r.montant_recet) AS total, {$use} AS idopera, {$idcaisse_sel} AS idcaisse, {$gexp_sel} AS gexp_caiss, cu.is_conect FROM recette r
                 JOIN attributions_role ar ON ar.roleattribut = {$use}
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1200,16 +1210,17 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 1
-                AND cs.id_caiss = '$idcais'
-                AND cs.gexp_caiss = '$gid'
-                AND (r.idopera = {$use} OR r.operavalidchef = {$use})
+                {$caisse_sql}
+                AND {$qui}
                 AND r.is_validerecet = 0
+                AND r.is_actifrecet = 0
+                AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
                 AND COALESCE(r.valid_recet, '') = 'valid'
                 AND r.actif_rect = 0
                 AND r.type_recet <> 'Courrier'
                 AND r.date_recet <= '$today'
                 " . caissier_escale_nom_filtre_sql('r.nom') . "
-                GROUP BY r.idcaisse, cs.gexp_caiss, cu.is_conect")->result();
+                GROUP BY {$group}")->result();
         }
 
         public function validegead($cid, $gid, $idcais, $use)
@@ -1557,7 +1568,7 @@
          * @param int[] $ops
          * @return array
          */
-        public function ad_getrecet_escale($cid, $idg, array $ops)
+        public function ad_getrecet_escale($cid, $idg, array $ops, $porteur = 0)
         {
             $cols = array('r.idopera');
             if ($this->db->field_exists('iduseescal', 'recette')) {
@@ -1567,6 +1578,10 @@
                 ? escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet')
                 : '';
             $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql($cols, 'r.nom', $ops);
+            $qui = function_exists('recette_role_porteur_personne_sql')
+                ? recette_role_porteur_personne_sql('r.idopera', 'r.operavalidchef', $porteur)
+                : recette_role_porteur_sql('r.idopera', 'r.operavalidchef', $porteur);
+            $gare_sql = ($lieu !== '') ? '' : "AND cs.gexp_caiss = " . $this->db->escape($idg);
             $open_sql = recette_role_rd_open_recette_sql('5', true, 'r');
 
             return $this->db->query(
@@ -1581,10 +1596,11 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND cs.gexp_caiss = '$idg'
+                {$gare_sql}
                 AND r.type_recet <> 'Courrier'
                 {$open_sql}
-                AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
+                AND IFNULL(r.is_actifrecetad, 0) = 0
+                {$qui}
                 {$op_sql}
                 ORDER BY r.date_recet DESC, r.id_recette DESC"
             )->result();
@@ -1622,6 +1638,32 @@
             $qui = function_exists('caissier_escale_validateur_sql')
                 ? caissier_escale_validateur_sql(($niveau === 'adjoint') ? 'r.operavalidad' : 'r.operavalid')
                 : '';
+            $gare_sql = 'AND cs.gexp_caiss = ' . $this->db->escape($idg);
+            if ($niveau !== 'adjoint'
+                && function_exists('caissier_escale_page_active')
+                && caissier_escale_page_active()
+                && function_exists('caissier_escale_roles_chefs_lieu')
+            ) {
+                $chefs = caissier_escale_roles_chefs_lieu($idg);
+                if ($chefs) {
+                    $in = implode(',', array_map('intval', $chefs));
+                    $gare_sql = '';
+                    $etat = '';
+                    $qui = '';
+                    $etat = 'AND (
+                        (cs.gexp_caiss = ' . $this->db->escape($idg) . ' AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1
+                         ' . (function_exists('caissier_escale_validateur_sql') ? caissier_escale_validateur_sql('r.operavalid') : '') . ')
+                        OR (
+                            r.active_recet = 1
+                            AND r.is_actifrecet = 0
+                            AND r.is_validerecet = 0
+                            AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
+                            AND COALESCE(r.valid_recet, \'\') = \'valid\'
+                            AND COALESCE(NULLIF(r.operavalidchef, 0), r.idopera) IN (' . $in . ')
+                        )
+                    )';
+                }
+            }
 
             return $this->db->query(
                 "SELECT * FROM recette r
@@ -1631,7 +1673,7 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND cs.gexp_caiss = '$idg'
+                {$gare_sql}
                 AND r.type_recet <> 'Courrier'
                 {$etat}
                 {$qui}
@@ -1968,7 +2010,16 @@
             $op_sql = recette_role_is_validateur_adjoint($userole)
                 ? "AND r.operavalidad = {$conect} AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0 AND IFNULL(r.arret_caisrecet, 0) = 0"
                 : "AND (r.idopera = {$conect} OR r.operavalidchef = {$conect}) AND r.active_recet = 0";
-            $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('r.nom') : '';
+            $peri = '';
+            if (function_exists('caissier_escale_ops_from_request') && caissier_escale_ops_from_request()) {
+                $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('r.nom') : '';
+            } elseif (recette_role_is_validateur_adjoint($userole)) {
+                $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('r.nom') : '';
+            } elseif (function_exists('recette_role_hors_escale_sauf_saisie_sql')) {
+                $peri = recette_role_hors_escale_sauf_saisie_sql('r.nom', 'r.idopera', $conect);
+            } elseif (function_exists('caissier_escale_nom_filtre_sql')) {
+                $peri = caissier_escale_nom_filtre_sql('r.nom');
+            }
 
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total FROM recette r

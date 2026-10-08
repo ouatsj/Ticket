@@ -76,10 +76,22 @@
             $idcmpt = $this->input->post('compconnected');
 
             $is_adjoint = recette_role_is_validateur_adjoint($this->session->agent->userole);
-            $fr = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('r.nom') : '';
-            $fd = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_perso') : '';
-            $fp = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_pre') : '';
-            $fv = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('v.nom_beneficiaire') : '';
+            $depuis_escale = function_exists('caissier_escale_ops_from_request') && caissier_escale_ops_from_request();
+            if ($depuis_escale || $is_adjoint) {
+                $fr = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('r.nom') : '';
+                $fd = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_perso') : '';
+                $fp = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_pre') : '';
+                $fv = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('v.nom_beneficiaire') : '';
+            } else {
+                $fr = function_exists('recette_role_hors_escale_sauf_saisie_sql')
+                    ? recette_role_hors_escale_sauf_saisie_sql('r.nom', 'r.idopera', $idcpt) : '';
+                $fd = function_exists('recette_role_hors_escale_sauf_saisie_sql')
+                    ? recette_role_hors_escale_sauf_saisie_sql('d.nom_perso', 'd.idop_dep', $idcpt) : '';
+                $fp = function_exists('recette_role_hors_escale_sauf_saisie_sql')
+                    ? recette_role_hors_escale_sauf_saisie_sql('d.nom_pre', 'd.idop_depot', $idcpt) : '';
+                $fv = function_exists('recette_role_hors_escale_sauf_saisie_sql')
+                    ? recette_role_hors_escale_sauf_saisie_sql('v.nom_beneficiaire', 'v.idop_versement', $idcpt) : '';
+            }
 
             $this->db->trans_start();
 
@@ -97,13 +109,18 @@
                         array($idcpt, (int) $idc)
                     )->result();
                 } else {
+                    $escale_arret = $depuis_escale && function_exists('caissier_validation_personne_where');
+                    $qui_r = $escale_arret
+                        ? caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $idcpt)
+                        : '(r.idopera = ? OR r.operavalidchef = ?)';
+                    $caisse_r = $escale_arret ? '' : 'AND r.idcaisse = ?';
                     $cfrecet = $this->db->query(
                         "SELECT r.id_recette, r.active_recet, r.idopera FROM recette r
-                        WHERE (r.idopera = ? OR r.operavalidchef = ?)
+                        WHERE {$qui_r}
                         AND r.active_recet = 0
-                        AND r.idcaisse = ?
+                        {$caisse_r}
                         {$fr}",
-                        array($idcpt, $idcpt, (int) $idc)
+                        $escale_arret ? array() : array($idcpt, $idcpt, (int) $idc)
                     )->result();
                 }
 
@@ -134,13 +151,18 @@
                         array($idcpt, (int) $idc)
                     )->result();
                 } else {
+                    $escale_arret = $depuis_escale && function_exists('caissier_validation_personne_where');
+                    $qui_d = $escale_arret
+                        ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $idcpt)
+                        : '(d.idop_dep = ? OR d.opevalidchef = ?)';
+                    $caisse_d = $escale_arret ? '' : 'AND d.idcaisse_depens = ?';
                     $cfdepe = $this->db->query(
                         "SELECT d.id_depense, d.active_dep, d.idop_dep FROM depense d
-                        WHERE (d.idop_dep = ? OR d.opevalidchef = ?)
+                        WHERE {$qui_d}
                         AND d.active_dep = 0
-                        AND d.idcaisse_depens = ?
+                        {$caisse_d}
                         {$fd}",
-                        array($idcpt, $idcpt, (int) $idc)
+                        $escale_arret ? array() : array($idcpt, $idcpt, (int) $idc)
                     )->result();
                 }
 
@@ -172,17 +194,22 @@
                         array($idcpt, (int) $idc)
                     )->result();
                 } else {
+                    $escale_arret = $depuis_escale && function_exists('caissier_validation_personne_where');
+                    $qui_p = $escale_arret
+                        ? caissier_validation_personne_where('d.idop_depot', 'd.opvalidchef', $idcpt)
+                        : '(d.idop_depot = ? OR d.opvalidchef = ?)';
+                    $caisse_p = $escale_arret ? '' : 'AND d.idcaisse_depot = ?';
                     $cfdepo = $this->db->query(
                         "SELECT d.id_depot FROM depot d
-                        WHERE (d.idop_depot = ? OR d.opvalidchef = ?)
-                        AND d.idcaisse_depot = ?
+                        WHERE {$qui_p}
+                        {$caisse_p}
                         AND d.arret_caisdepo = 0
                         AND d.is_validdepo = 0
                         AND d.is_actifdepo = 0
                         AND d.actif_depo = 0
                         AND COALESCE(d.valid_depo, '') <> 'valid'
                         {$fp}",
-                        array($idcpt, $idcpt, (int) $idc)
+                        $escale_arret ? array() : array($idcpt, $idcpt, (int) $idc)
                     )->result();
                 }
 
@@ -214,20 +241,25 @@
                         array($idcpt, (int) $idc)
                     )->result();
                 } else {
+                    $escale_arret = $depuis_escale && function_exists('caissier_validation_personne_where');
+                    $qui_v = $escale_arret
+                        ? caissier_validation_personne_where('v.idop_versement', '', $idcpt)
+                        : 'v.idop_versement = ?';
+                    $caisse_v = $escale_arret ? '' : 'AND v.idcaisse_versement = ?';
                     $cfvers = $this->db->query(
                         "SELECT v.id_versements FROM versements v
-                        WHERE v.idop_versement = ?
+                        WHERE {$qui_v}
                         AND IFNULL(v.active_verse, 0) = 0
                         AND IFNULL(v.valider_vers, 0) = 0
                         AND IFNULL(v.is_actifverser, 0) = 0
                         AND IFNULL(v.is_actifverserad, 0) = 0
                         AND IFNULL(v.arret_caisvers, 0) = 0
                         AND IFNULL(v.ferme_caisvers, 0) = 0
-                        AND v.idcaisse_versement = ?
+                        {$caisse_v}
                         AND IFNULL(v.type_versement, '') <> 'Courrier'
                         AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
                         {$fv}",
-                        array($idcpt, (int) $idc)
+                        $escale_arret ? array() : array($idcpt, (int) $idc)
                     )->result();
                 }
                 foreach ($cfvers as $itemv) {
@@ -561,14 +593,19 @@
             $arrete = caisse_validation_chef_arrete_recette_sql('r');
 
             $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
+            $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            $qui = $escale_page && function_exists('caissier_validation_personne_where')
+                ? caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $idcpt)
+                : '(r.idopera = ? OR r.operavalidchef = ?)';
+            $caisse_sql = $escale_page ? '' : 'AND r.idcaisse = ?';
             $cfrecet = $this->db->query(
                 "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse
                 FROM recette r
-                WHERE (r.idopera = ? OR r.operavalidchef = ?)
-                AND r.idcaisse = ?
+                WHERE {$qui}
+                {$caisse_sql}
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, $idcpt, (int) $idc)
+                $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
             )->result();
 
                     foreach ($cfrecet as $item9) {
@@ -579,6 +616,9 @@
                         );
                         if ((int) $sgid > 0) {
                             $plarray['recetsgid'] = (int) $sgid;
+                        }
+                        if ($escale_page && $plarray) {
+                            $plarray['idcaisse'] = (int) $idc;
                         }
 
                         $vald_recet = $this->m_recette->update($item9->id_recette, $plarray);
@@ -607,14 +647,19 @@
             $arrete = caisse_validation_chef_arrete_recette_sql('r');
            
                 $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
+                $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+                $qui = $escale_page && function_exists('caissier_validation_personne_where')
+                    ? caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $idcpt)
+                    : '(r.idopera = ? OR r.operavalidchef = ?)';
+                $caisse_sql = $escale_page ? '' : 'AND r.idcaisse = ?';
                 $cfrecet = $this->db->query(
                     "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse, r.valid_recet
                     FROM recette r
-                    WHERE (r.idopera = ? OR r.operavalidchef = ?)
-                    AND r.idcaisse = ?
+                    WHERE {$qui}
+                    {$caisse_sql}
                     AND {$arrete}
                     {$escale_sql}",
-                    array($idcpt, $idcpt, (int) $idc)
+                    $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
                 )->result();
 
                     foreach ($cfrecet as $item10) {
@@ -663,14 +708,19 @@
             $arrete = caisse_validation_chef_arrete_depense_sql('d');
 
             $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
+            $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            $qui = $escale_page && function_exists('caissier_validation_personne_where')
+                ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $idcpt)
+                : '(d.idop_dep = ? OR d.opevalidchef = ?)';
+            $caisse_sql = $escale_page ? '' : 'AND d.idcaisse_depens = ?';
             $cfdepes = $this->db->query(
                 "SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens
                 FROM depense d
-                WHERE (d.idop_dep = ? OR d.opevalidchef = ?)
-                AND d.idcaisse_depens = ?
+                WHERE {$qui}
+                {$caisse_sql}
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, $idcpt, (int) $idc)
+                $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
             )->result();
 
                     foreach ($cfdepes as $cfdep) {
@@ -681,6 +731,9 @@
                         );
                         if ((int) $sgid > 0) {
                             $dplarray['sousgidepens'] = (int) $sgid;
+                        }
+                        if ($escale_page && $dplarray) {
+                            $dplarray['idcaisse_depens'] = (int) $idc;
                         }
                         $vald_dep = $this->m_depense->update($cfdep->id_depense, $dplarray);
                     }
@@ -706,14 +759,19 @@
             $arrete = caisse_validation_chef_arrete_depense_sql('d');
            
                 $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
+                $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+                $qui = $escale_page && function_exists('caissier_validation_personne_where')
+                    ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $idcpt)
+                    : '(d.idop_dep = ? OR d.opevalidchef = ?)';
+                $caisse_sql = $escale_page ? '' : 'AND d.idcaisse_depens = ?';
                 $cfdepe = $this->db->query(
                     "SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.idop_dep, d.idcaisse_depens
                     FROM depense d
-                    WHERE (d.idop_dep = ? OR d.opevalidchef = ?)
-                    AND d.idcaisse_depens = ?
+                    WHERE {$qui}
+                    {$caisse_sql}
                     AND {$arrete}
                     {$escale_sql}",
-                    array($idcpt, $idcpt, (int) $idc)
+                    $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
                 )->result();
 
                     foreach ($cfdepe as $teme1) {
@@ -759,14 +817,19 @@
             $arrete = caisse_validation_chef_arrete_depot_sql('d');
 
             $escale_sql = caissier_escale_nom_filtre_sql('d.nom_pre');
+            $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            $qui = $escale_page && function_exists('caissier_validation_personne_where')
+                ? caissier_validation_personne_where('d.idop_depot', 'd.opvalidchef', $idcpt)
+                : '(d.idop_depot = ? OR d.opvalidchef = ?)';
+            $caisse_sql = $escale_page ? '' : 'AND d.idcaisse_depot = ?';
             $cfdepo = $this->db->query(
                 "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot
                 FROM depot d
-                WHERE (d.idop_depot = ? OR d.opvalidchef = ?)
-                AND d.idcaisse_depot = ?
+                WHERE {$qui}
+                {$caisse_sql}
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, $idcpt, (int) $idc)
+                $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
             )->result();
 
                     foreach ($cfdepo as $tems) {
@@ -777,6 +840,9 @@
                         );
                         if ((int) $sgid > 0) {
                             $dpolarray['sousgdepot'] = (int) $sgid;
+                        }
+                        if ($escale_page && $dpolarray) {
+                            $dpolarray['idcaisse_depot'] = (int) $idc;
                         }
                         $vald_depo = $this->m_depot->update($tems->id_depot, $dpolarray);
                     }
@@ -801,14 +867,19 @@
             $arrete = caisse_validation_chef_arrete_depot_sql('d');
 
             $escale_sql = caissier_escale_nom_filtre_sql('d.nom_pre');
+            $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            $qui = $escale_page && function_exists('caissier_validation_personne_where')
+                ? caissier_validation_personne_where('d.idop_depot', 'd.opvalidchef', $idcpt)
+                : '(d.idop_depot = ? OR d.opvalidchef = ?)';
+            $caisse_sql = $escale_page ? '' : 'AND d.idcaisse_depot = ?';
             $cfdepo = $this->db->query(
                 "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot
                 FROM depot d
-                WHERE (d.idop_depot = ? OR d.opvalidchef = ?)
-                AND d.idcaisse_depot = ?
+                WHERE {$qui}
+                {$caisse_sql}
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, $idcpt, (int) $idc)
+                $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
             )->result();
 
                     foreach ($cfdepo as $tem) {
@@ -871,13 +942,18 @@
             $iduser = $ctx['caissier_ra'];
             $arrete = caisse_validation_chef_arrete_versement_sql('v');
             $escale_sql = caissier_escale_nom_filtre_sql('v.nom_beneficiaire');
+            $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            $qui = $escale_page && function_exists('caissier_validation_personne_where')
+                ? caissier_validation_personne_where('v.idop_versement', '', $idcpt)
+                : 'v.idop_versement = ?';
+            $caisse_sql = $escale_page ? '' : 'AND v.idcaisse_versement = ?';
             $rows = $this->db->query(
                 "SELECT v.id_versements FROM versements v
-                WHERE v.idop_versement = ?
-                AND v.idcaisse_versement = ?
+                WHERE {$qui}
+                {$caisse_sql}
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, (int) $idc)
+                $escale_page ? array() : array($idcpt, (int) $idc)
             )->result();
             foreach ($rows as $row) {
                 if ($rejet) {
@@ -895,6 +971,9 @@
                     );
                 }
                 if ($flags) {
+                    if ($escale_page && !$rejet) {
+                        $flags['idcaisse_versement'] = (int) $idc;
+                    }
                     $this->m_versements->update($row->id_versements, $flags);
                 }
             }
@@ -1385,11 +1464,20 @@
             $pending = caisse_validation_pending_adjoint_recette_sql($idcpt, 'r');
             $dateSql = caisse_arret_date_filter_sql('r.date_recet', $date);
             $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
+            $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            if ($escale_page && function_exists('caissier_validation_personne_where')) {
+                $pending = str_replace(
+                    'r.operavalidad = ' . (int) $idcpt,
+                    caissier_validation_personne_where('r.operavalidad', '', $idcpt),
+                    $pending
+                );
+            }
+            $caisse_sql = $escale_page ? '' : "AND r.idcaisse ='$idc'";
 
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idopera, r.idcaisse FROM recette r
                     WHERE {$pending}
                     AND r.active_recet = 1
-                    AND r.idcaisse ='$idc'
+                    {$caisse_sql}
                     {$dateSql}
                     {$escale_sql}")->result();
                     
@@ -1400,6 +1488,9 @@
                         if (empty($plarray)) {
                             log_message('error', 'advaliderecette: promote refusé (RA non principal) iduser=' . $iduser);
                             continue;
+                        }
+                        if ($escale_page) {
+                            $plarray['idcaisse'] = (int) $idc;
                         }
                         $vald_recet = $this->m_recette->update($item9->id_recette, $plarray);
                     }
@@ -1448,11 +1539,20 @@
             $pending = caisse_validation_pending_adjoint_depense_sql($idcpt, 'd');
             $dateSql = caisse_arret_date_filter_sql('d.date_depens', $date);
             $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
+            $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            if ($escale_page && function_exists('caissier_validation_personne_where')) {
+                $pending = str_replace(
+                    'd.opevalidad = ' . (int) $idcpt,
+                    caissier_validation_personne_where('d.opevalidad', '', $idcpt),
+                    $pending
+                );
+            }
+            $caisse_sql = $escale_page ? '' : "AND d.idcaisse_depens = '$idc'";
            
                 $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.opevalidad, d.idop_dep, d.idcaisse_depens FROM depense d
                     WHERE {$pending}
                     AND d.active_dep = 1
-                    AND d.idcaisse_depens = '$idc'
+                    {$caisse_sql}
                     {$dateSql}
                     {$escale_sql}")->result();
 
@@ -1461,6 +1561,9 @@
                         if (empty($dplarray)) {
                             log_message('error', 'advalidedepense: promote refusé (RA non principal) iduser=' . $iduser);
                             continue;
+                        }
+                        if ($escale_page) {
+                            $dplarray['idcaisse_depens'] = (int) $idc;
                         }
                         $vald_dep = $this->m_depense->update($cfdep->id_depense, $dplarray);
                     }

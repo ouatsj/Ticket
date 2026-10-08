@@ -174,6 +174,7 @@
             $this->property['escales_lieu'] = array();
             if (in_array($role, $roles_escale, true)) {
                 $grouped = array();
+                $gares_masquees = array('BOR26' => true, 'KOM24' => true, 'DIS10' => true);
                 foreach ($this->property['gares'] as $g) {
                     if (empty($g->idengare)) {
                         continue;
@@ -197,15 +198,34 @@
                             $grouped[$cle] = (object) array(
                                 'label' => $label,
                                 'ligne' => $ligne,
-                                'gare' => !empty($esc->garenom) ? $esc->garenom : (isset($g->garenom) ? $g->garenom : ''),
+                                'gare' => !empty($g->garenom) ? $g->garenom : (isset($esc->garenom) ? $esc->garenom : ''),
+                                'gare_id' => (string) $g->idengare,
+                                'escale_value' => $value,
                                 'nb_agents' => 0,
+                                'ops' => array(),
                                 'voir_url' => site_url(
                                     'gares/' . $ekey . '/gTs/' . $g->idengare
                                     . '/escaleagents/' . rawurlencode($value) . '/0'
                                 ),
                             );
                         }
-                        $grouped[$cle]->nb_agents++;
+                        $op = (int) $esc->roleattribut;
+                        if ($op > 0 && !in_array($op, $grouped[$cle]->ops, true)) {
+                            $grouped[$cle]->ops[] = $op;
+                            $grouped[$cle]->nb_agents++;
+                        }
+                    }
+                }
+                $garder = array();
+                foreach ($grouped as $cle => $card) {
+                    if (!isset($garder[$card->escale_value]) || isset($gares_masquees[$card->gare_id])) {
+                        $garder[$card->escale_value] = $cle;
+                    }
+                }
+                foreach ($grouped as $cle => $card) {
+                    $gagnant = $grouped[$garder[$card->escale_value]];
+                    if (isset($gares_masquees[$gagnant->gare_id]) && $garder[$card->escale_value] !== $cle) {
+                        unset($grouped[$cle]);
                     }
                 }
                 $this->property['escales_lieu'] = array_values($grouped);

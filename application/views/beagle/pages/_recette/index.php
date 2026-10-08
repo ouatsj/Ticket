@@ -95,7 +95,7 @@
         </p>
     </div>
     <?php if ($depuis_escale): ?>
-    <div class="alert alert-info mb-2 ml-4 mr-4">Recettes de cette escale déjà chez <?= ($this->session->agent->userole === '18' || $this->input->get('escale_vue') === '18') ? 'le caissier adjoint' : 'le caissier principal'; ?>.</div>
+    <div class="alert alert-info mb-2 ml-4 mr-4">Recettes de cette escale chez <?= ($this->session->agent->userole === '18' || $this->input->get('escale_vue') === '18') ? 'le caissier adjoint' : 'le caissier principal'; ?>, y compris les arrêts du chef encore à valider.</div>
     <?php endif; ?>
     <div class="form-group text-center">Les recettes de la caisse : <? if($totalrecettes == NULL):?> 0 <? else:?> &nbsp;<?=$totalrecettes->total; ?><? endif; ?></div>
 <div class="row">

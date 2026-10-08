@@ -302,6 +302,56 @@ if (!function_exists('recette_role_hors_escale_sql')) {
     }
 }
 
+if (!function_exists('recette_role_hors_escale_sauf_saisie_sql')) {
+    /**
+     * Même exclusion que la gare, sauf la saisie de l'auteur arrêté.
+     * Un chef qui écrit une recette ou une dépense au nom d'un vendeur escale
+     * doit pouvoir l'envoyer au caissier. Les lignes dont l'auteur est le vendeur
+     * escale restent hors de cet arrêt.
+     *
+     * @param string $nomColumn
+     * @param string $idColumn
+     * @param int $auteur
+     * @return string
+     */
+    function recette_role_hors_escale_sauf_saisie_sql($nomColumn, $idColumn, $auteur)
+    {
+        $nomOk = preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $nomColumn);
+        $idOk = preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $idColumn);
+        $auteur = (int) $auteur;
+        if (!$nomOk || !$idOk || $auteur <= 0) {
+            return function_exists('recette_role_hors_escale_sql')
+                ? recette_role_hors_escale_sql($nomColumn, $idOk ? $idColumn : '')
+                : '';
+        }
+        $CI =& get_instance();
+        if (!$CI->db->field_exists('vente_escale_value', 'attributions_role')) {
+            return '';
+        }
+        $noms = "SELECT UPPER(TRIM(CONCAT(TRIM(IFNULL(u.first_name, '')), ' ', TRIM(IFNULL(u.last_name, '')))))
+            FROM attributions_role arn
+            JOIN user_login uln ON arn.idgestcompte = uln.uid_login
+            JOIN compte_user cun ON uln.uid_usercpte = cun.cpuser_id
+            JOIN utilisateurs u ON cun.userlog_id = u.uid
+            WHERE arn.userole = 17
+            AND arn.vente_escale_value IS NOT NULL
+            AND TRIM(arn.vente_escale_value) <> ''";
+        $ids = "SELECT arn.roleattribut
+            FROM attributions_role arn
+            WHERE arn.userole = 17
+            AND arn.vente_escale_value IS NOT NULL
+            AND TRIM(arn.vente_escale_value) <> ''";
+        $sql = ' AND NOT ((UPPER(TRIM(' . $nomColumn . ")) IN ({$noms}) AND {$idColumn} <> {$auteur})";
+        $sql .= " OR {$idColumn} IN ({$ids})";
+        if ($nomColumn === 'r.nom') {
+            $sql .= " OR r.commentaire_recet LIKE '%[[escale:%]]%'";
+        }
+        $sql .= ')';
+
+        return $sql;
+    }
+}
+
 if (!function_exists('recette_role_ops_ou_nom_sql')) {
     /**
      * Opérateur de l'escale, ou ligne portée par le chef au nom de cet agent.
@@ -321,6 +371,111 @@ if (!function_exists('recette_role_ops_ou_nom_sql')) {
         $id_sql = preg_replace('/^AND\s+/', '', $id_sql);
 
         return 'AND (' . $id_sql . ' OR ' . $nom_sql . ')';
+    }
+}
+
+if (!function_exists('recette_role_porteur_sql')) {
+    /**
+     * Même sur une escale, la ligne reste dans le compte de celui qui l'a faite ou validée.
+     *
+     * @param string $author_col
+     * @param string $chef_col vide s'il n'y a pas de colonne chef
+     * @param int $porteur
+     * @return string
+     */
+    function recette_role_porteur_sql($author_col, $chef_col, $porteur)
+    {
+        $porteur = (int) $porteur;
+        if ($porteur <= 0) {
+            return 'AND 1=0';
+        }
+        $author_col = trim((string) $author_col);
+        $chef_col = trim((string) $chef_col);
+        if ($chef_col === '') {
+            return 'AND ' . $author_col . ' = ' . $porteur;
+        }
+
+        return 'AND (' . $author_col . ' = ' . $porteur . ' OR IFNULL(' . $chef_col . ', 0) = ' . $porteur . ')';
+    }
+}
+
+if (!function_exists('recette_role_ids_meme_personne')) {
+    /**
+     * Tous les rôles du même utilisateur. Le chef Dissin et le chef Bobo
+     * d'une même personne restent un seul compte.
+     *
+     * @param int $roleattribut
+     * @return int[]
+     */
+    function recette_role_ids_meme_personne($roleattribut)
+    {
+        static $cache = array();
+        $roleattribut = (int) $roleattribut;
+        if ($roleattribut <= 0) {
+            return array();
+        }
+        if (isset($cache[$roleattribut])) {
+            return $cache[$roleattribut];
+        }
+        $CI =& get_instance();
+        $rows = $CI->db->query(
+            'SELECT DISTINCT ar2.roleattribut
+             FROM attributions_role ar0
+             JOIN user_login ul0 ON ar0.idgestcompte = ul0.uid_login
+             JOIN compte_user cu0 ON ul0.uid_usercpte = cu0.cpuser_id
+             JOIN compte_user cu2 ON cu2.userlog_id = cu0.userlog_id
+             JOIN user_login ul2 ON ul2.uid_usercpte = cu2.cpuser_id
+             JOIN attributions_role ar2 ON ar2.idgestcompte = ul2.uid_login
+             WHERE ar0.roleattribut = ?',
+            array($roleattribut)
+        );
+        $ids = array();
+        if ($rows) {
+            foreach ($rows->result() as $row) {
+                $id = (int) $row->roleattribut;
+                if ($id > 0) {
+                    $ids[$id] = $id;
+                }
+            }
+        }
+        if (!$ids) {
+            $ids[$roleattribut] = $roleattribut;
+        }
+        $cache[$roleattribut] = array_values($ids);
+
+        return $cache[$roleattribut];
+    }
+}
+
+if (!function_exists('recette_role_porteur_personne_sql')) {
+    /**
+     * Ligne visible pour la personne, quel que soit le rôle de gare ouvert.
+     *
+     * @param string $author_col
+     * @param string $chef_col
+     * @param int $porteur
+     * @return string
+     */
+    function recette_role_porteur_personne_sql($author_col, $chef_col, $porteur)
+    {
+        $author_col = trim((string) $author_col);
+        $chef_col = trim((string) $chef_col);
+        if (!preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', $author_col)) {
+            return 'AND 1=0';
+        }
+        if ($chef_col !== '' && !preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', $chef_col)) {
+            return 'AND 1=0';
+        }
+        $ids = recette_role_ids_meme_personne($porteur);
+        if (!$ids) {
+            return 'AND 1=0';
+        }
+        $in = implode(',', $ids);
+        if ($chef_col === '') {
+            return 'AND ' . $author_col . ' IN (' . $in . ')';
+        }
+
+        return 'AND (' . $author_col . ' IN (' . $in . ') OR IFNULL(' . $chef_col . ', 0) IN (' . $in . '))';
     }
 }
 

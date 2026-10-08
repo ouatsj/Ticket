@@ -2590,6 +2590,48 @@ if (!function_exists('caissier_escale_commentaire_visible')) {
     }
 }
 
+if (!function_exists('caissier_escale_roles_chefs_lieu')) {
+    /**
+     * Tous les rôles des chefs de guichet actifs de cette gare (même personne, autre gare comprise).
+     *
+     * @param string $gid
+     * @return int[]
+     */
+    function caissier_escale_roles_chefs_lieu($gid)
+    {
+        $CI =& get_instance();
+        $gid = trim((string) $gid);
+        if ($gid === '') {
+            return array();
+        }
+        $rows = $CI->db->query(
+            'SELECT DISTINCT ar2.roleattribut
+             FROM attributions_role ar0
+             JOIN user_login ul0 ON ar0.idgestcompte = ul0.uid_login
+             JOIN compte_user cu0 ON ul0.uid_usercpte = cu0.cpuser_id
+             JOIN compte_user cu2 ON cu2.userlog_id = cu0.userlog_id
+             JOIN user_login ul2 ON ul2.uid_usercpte = cu2.cpuser_id
+             JOIN attributions_role ar2 ON ar2.idgestcompte = ul2.uid_login
+             WHERE ul0.guser = ?
+             AND ar0.userole IN (5, 16)
+             AND IFNULL(ar0.activer_role, 0) = 0',
+            array($gid)
+        );
+        if (!$rows) {
+            return array();
+        }
+        $ids = array();
+        foreach ($rows->result() as $row) {
+            $id = (int) $row->roleattribut;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+
+        return array_values($ids);
+    }
+}
+
 if (!function_exists('caissier_escale_validateur_sql')) {
     /**
      * Limite au caissier connecté, comme la carte. L'admin et le superviseur voient tout le niveau.
@@ -2991,6 +3033,147 @@ if (!function_exists('caissier_arret_scope_sql')) {
     }
 }
 
+if (!function_exists('caissier_escale_page_active')) {
+    /**
+     * Vrai quand l'écran ouvert est une escale (pas la gare entière).
+     */
+    function caissier_escale_page_active()
+    {
+        $CI =& get_instance();
+        if (trim((string) $CI->input->get_post('escale')) !== '') {
+            return true;
+        }
+        if (trim((string) $CI->input->get_post('escale_nom')) !== '') {
+            return true;
+        }
+        $ops = function_exists('caissier_escale_ops_from_request') ? caissier_escale_ops_from_request() : null;
+
+        return !empty($ops);
+    }
+}
+
+if (!function_exists('caissier_validation_personne_where')) {
+    /**
+     * Le chef Dissin et le chef Bobo de la même personne valident les mêmes lignes.
+     *
+     * @param string $authorCol
+     * @param string $chefCol
+     * @param int $roleattribut
+     * @return string
+     */
+    function caissier_validation_personne_where($authorCol, $chefCol, $roleattribut)
+    {
+        $authorCol = trim((string) $authorCol);
+        $chefCol = trim((string) $chefCol);
+        if (!preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', $authorCol)) {
+            return '1=0';
+        }
+        if ($chefCol !== '' && !preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', $chefCol)) {
+            return '1=0';
+        }
+        $ids = function_exists('recette_role_ids_meme_personne')
+            ? recette_role_ids_meme_personne($roleattribut)
+            : array((int) $roleattribut);
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (!$ids) {
+            return '1=0';
+        }
+        $in = implode(',', $ids);
+        if ($chefCol === '') {
+            return $authorCol . ' IN (' . $in . ')';
+        }
+
+        return '(' . $authorCol . ' IN (' . $in . ') OR IFNULL(' . $chefCol . ', 0) IN (' . $in . '))';
+    }
+}
+
+if (!function_exists('caissier_arret_pending_reporter_personne')) {
+    /**
+     * Reporte l'arrêt d'un rôle Bobo sur le rôle Dissin de la même personne,
+     * pour la carte caissier de l'escale.
+     *
+     * @param array<int,object> $map
+     * @param string $gid
+     * @return array<int,object>
+     */
+    function caissier_arret_pending_reporter_personne(array $map, $gid, array $useroles = array(5, 16))
+    {
+        $CI =& get_instance();
+        $gid = trim((string) $gid);
+        $roles = array();
+        foreach ($useroles as $role) {
+            $role = (int) $role;
+            if ($role > 0) {
+                $roles[$role] = $role;
+            }
+        }
+        if ($gid === '' || !$map || !$roles) {
+            return $map;
+        }
+        $in_roles = implode(',', $roles);
+        $champs = array(
+            'total_recettes', 'total_depenses', 'total_depots', 'total_versements',
+            'nb_recettes', 'nb_depenses', 'nb_depots', 'nb_versements',
+        );
+        $ajouts = array();
+        foreach ($map as $ra => $row) {
+            $freres = $CI->db->query(
+                "SELECT DISTINCT ar2.roleattribut
+                 FROM attributions_role ar0
+                 JOIN user_login ul0 ON ar0.idgestcompte = ul0.uid_login
+                 JOIN compte_user cu0 ON ul0.uid_usercpte = cu0.cpuser_id
+                 JOIN compte_user cu2 ON cu2.userlog_id = cu0.userlog_id
+                 JOIN user_login ul2 ON ul2.uid_usercpte = cu2.cpuser_id
+                 JOIN attributions_role ar2 ON ar2.idgestcompte = ul2.uid_login
+                 WHERE ar0.roleattribut = ?
+                 AND ul2.guser = ?
+                 AND ar2.userole IN ({$in_roles})
+                 AND IFNULL(ar2.activer_role, 0) = 0
+                 AND ar2.roleattribut <> ?",
+                array((int) $ra, $gid, (int) $ra)
+            );
+            if (!$freres) {
+                continue;
+            }
+            foreach ($freres->result() as $frere) {
+                $id = (int) $frere->roleattribut;
+                if ($id <= 0) {
+                    continue;
+                }
+                if (!isset($ajouts[$id])) {
+                    $ajouts[$id] = array();
+                    foreach ($champs as $champ) {
+                        $ajouts[$id][$champ] = 0;
+                    }
+                }
+                foreach ($champs as $champ) {
+                    $ajouts[$id][$champ] += isset($row->$champ) ? $row->$champ : 0;
+                }
+            }
+        }
+        foreach ($ajouts as $id => $add) {
+            if (!isset($map[$id])) {
+                $map[$id] = (object) array(
+                    'roleattribut' => $id,
+                    'total_recettes' => 0.0,
+                    'total_depenses' => 0.0,
+                    'total_depots' => 0.0,
+                    'total_versements' => 0.0,
+                    'nb_recettes' => 0,
+                    'nb_depenses' => 0,
+                    'nb_depots' => 0,
+                    'nb_versements' => 0,
+                );
+            }
+            foreach ($champs as $champ) {
+                $map[$id]->$champ = (isset($map[$id]->$champ) ? $map[$id]->$champ : 0) + $add[$champ];
+            }
+        }
+
+        return $map;
+    }
+}
+
 if (!function_exists('caissier_arret_pending_map')) {
     /**
      * Totaux recettes/dépenses/dépôts en attente de validation caissier, par chef guichet.
@@ -3069,6 +3252,13 @@ if (!function_exists('caissier_arret_pending_map')) {
         $hors_dep = $gare_seule ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
         $hors_depo = $gare_seule ? recette_role_hors_escale_sql('d.nom_pre', 'd.idop_depot') : '';
         $hors_ver = $gare_seule ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
+        $auteur_gare_sql = 'AND ul.guser = ?';
+        $bind_gare = array($ekey, $gid);
+        if (!$gare_seule) {
+            $auteur_gare_sql = '';
+            $caisse_sql = '';
+            $bind_gare = array($ekey);
+        }
         $rec_rows = $CI->db->query(
             "SELECT {$holder_rec} AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total
             FROM recette r
@@ -3079,7 +3269,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
-            AND ul.guser = ?
+            {$auteur_gare_sql}
             {$role_chef_sql}
             AND r.is_actifrecet = 0
             AND (r.is_actifrecetad = 0 OR r.is_actifrecetad IS NULL)
@@ -3092,7 +3282,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             {$scope_rec_sql}
             {$hors_rec}
             GROUP BY {$holder_rec}",
-            array_merge(array($ekey, $gid), $scope_rec_bind)
+            array_merge($bind_gare, $scope_rec_bind)
         )->result();
 
         foreach ($rec_rows as $row) {
@@ -3111,7 +3301,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
-            AND ul.guser = ?
+            {$auteur_gare_sql}
             {$role_chef_sql}
             AND d.is_actifdep = 0
             AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
@@ -3125,7 +3315,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             {$scope_dep_sql}
             {$hors_dep}
             GROUP BY {$holder_dep}",
-            array_merge(array($ekey, $gid), $scope_dep_bind)
+            array_merge($bind_gare, $scope_dep_bind)
         )->result();
 
         foreach ($dep_rows as $row) {
@@ -3144,7 +3334,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
-            AND ul.guser = ?
+            {$auteur_gare_sql}
             {$role_chef_sql}
             AND d.arret_caisdepo = 0
             AND d.is_actifdepo = 0
@@ -3157,7 +3347,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             {$scope_depo_sql}
             {$hors_depo}
             GROUP BY {$holder_depo}",
-            array_merge(array($ekey, $gid), $scope_depo_bind)
+            array_merge($bind_gare, $scope_depo_bind)
         )->result();
 
         foreach ($depo_rows as $row) {
@@ -3176,7 +3366,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             JOIN compagnies c ON v.compkey_vers = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
-            AND ul.guser = ?
+            {$auteur_gare_sql}
             {$role_chef_sql}
             AND IFNULL(v.active_verse, 0) = 1
             AND IFNULL(v.is_actifverserad, 0) = 0
@@ -3190,13 +3380,17 @@ if (!function_exists('caissier_arret_pending_map')) {
             {$scope_ver_sql}
             {$hors_ver}
             GROUP BY v.idop_versement",
-            array_merge(array($ekey, $gid), $scope_ver_bind)
+            array_merge($bind_gare, $scope_ver_bind)
         )->result();
 
         foreach ($ver_rows as $row) {
             $init($row->roleattribut);
             $map[(int) $row->roleattribut]->total_versements = (float) $row->total;
             $map[(int) $row->roleattribut]->nb_versements = (int) $row->nb;
+        }
+
+        if (!$gare_seule) {
+            $map = caissier_arret_pending_reporter_personne($map, $gid);
         }
 
         return $map;
@@ -3339,6 +3533,13 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
         $hors_dep = $gare_seule ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
         $hors_depo = $gare_seule ? recette_role_hors_escale_sql('d.nom_pre', 'd.idop_depot') : '';
         $hors_ver = $gare_seule ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
+        $auteur_gare_sql = 'AND ul.guser = ?';
+        $bind_tete = array($ekey, $gid, $today);
+        if (!$gare_seule) {
+            $auteur_gare_sql = '';
+            $caisse_sql = '';
+            $bind_tete = array($ekey, $today);
+        }
         $rec_rows = $CI->db->query(
             "SELECT r.operavalidad AS roleattribut, COUNT(*) AS nb, COALESCE(SUM(r.montant_recet), 0) AS total,
                 MIN(r.date_recet) AS date_min, MAX(r.date_recet) AS date_max
@@ -3350,7 +3551,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
-            AND ul.guser = ?
+            {$auteur_gare_sql}
             AND ar.userole = 18
             AND r.is_actifrecetad = 1
             AND r.is_actifrecet = 0
@@ -3363,7 +3564,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             {$scope_rec_sql}
             {$hors_rec}
             GROUP BY r.operavalidad",
-            array_merge(array($ekey, $gid, $today), $scope_rec_bind)
+            array_merge($bind_tete, $scope_rec_bind)
         )->result();
 
         foreach ($rec_rows as $row) {
@@ -3384,7 +3585,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
-            AND ul.guser = ?
+            {$auteur_gare_sql}
             AND ar.userole = 18
             AND d.is_actifdepad = 1
             AND d.is_actifdep = 0
@@ -3397,7 +3598,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             {$scope_dep_sql}
             {$hors_dep}
             GROUP BY d.opevalidad",
-            array_merge(array($ekey, $gid, $today), $scope_dep_bind)
+            array_merge($bind_tete, $scope_dep_bind)
         )->result();
 
         foreach ($dep_rows as $row) {
@@ -3418,7 +3619,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
-            AND ul.guser = ?
+            {$auteur_gare_sql}
             AND ar.userole = 18
             AND d.is_actifdepoad = 1
             AND d.is_actifdepo = 0
@@ -3431,7 +3632,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             {$scope_depo_sql}
             {$hors_depo}
             GROUP BY d.opvalidad",
-            array_merge(array($ekey, $gid, $today), $scope_depo_bind)
+            array_merge($bind_tete, $scope_depo_bind)
         )->result();
 
         foreach ($depo_rows as $row) {
@@ -3452,7 +3653,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             JOIN compagnies c ON v.compkey_vers = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = ?
-            AND ul.guser = ?
+            {$auteur_gare_sql}
             AND ar.userole = 18
             AND IFNULL(v.is_actifverserad, 0) = 1
             AND IFNULL(v.is_actifverser, 0) = 0
@@ -3466,7 +3667,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             {$scope_ver_sql}
             {$hors_ver}
             GROUP BY v.validopad",
-            array_merge(array($ekey, $gid, $today), $scope_ver_bind)
+            array_merge($bind_tete, $scope_ver_bind)
         )->result();
 
         foreach ($ver_rows as $row) {
@@ -3474,6 +3675,10 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             $map[(int) $row->roleattribut]->total_versements = (float) $row->total;
             $map[(int) $row->roleattribut]->nb_versements = (int) $row->nb;
             $mergeDates($row->roleattribut, $row->date_min, $row->date_max);
+        }
+
+        if (!$gare_seule) {
+            $map = caissier_arret_pending_reporter_personne($map, $gid, array(18));
         }
 
         return $map;

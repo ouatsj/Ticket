@@ -12,6 +12,7 @@
 <div class="row" id="accueil-panel-gares">        
         
     <? foreach($gares as $item): ?>
+        <? if (in_array((string) $item->idengare, array('BOR26', 'KOM24', 'DIS10'), true)) { continue; } ?>
 
         <div class="col-lg-4">
 
@@ -135,7 +136,7 @@
             }
         }
     }
-    if (onglet === 'escale') show('escale');
+    if (onglet === 'escale' || !gares.querySelector('.card')) show('escale');
 })();
 </script>
 <?php endif; ?>
