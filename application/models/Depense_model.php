@@ -1339,7 +1339,8 @@
          */
         public function ad_getdepen_escale($cid, $idg, array $ops)
         {
-            $op_sql = recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $ops);
+            $lieu = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep') : '';
+            $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $ops);
             $open_sql = recette_role_rd_open_depense_sql('5', true, 'd');
 
             return $this->db->query(
@@ -1374,7 +1375,8 @@
          */
         public function liste_caisse_escale($cid, $idg, array $ops, $niveau)
         {
-            $op_sql = recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $ops);
+            $lieu = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep') : '';
+            $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $ops);
             $etat = ($niveau === 'adjoint')
                 ? 'AND d.ferme_caisdep = 0 AND d.is_actifdepad = 1'
                 : 'AND d.ferme_caisdep = 0 AND d.is_actifdep = 1';
@@ -1415,6 +1417,7 @@
             }
             $date_sql = recette_role_rd_date_sql($after_pending, $userole, $gare_scope, 'd.date_depens');
             $op_sql = recette_role_op_sql_depense_list($cx, $userole, $gare_scope);
+            $lieu_sql = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep') : '';
             $pending_sql = recette_role_pending_depense_sql($userole);
             $active_sql = recette_role_rd_active_depense_sql($userole, $gare_scope);
             $caisse_sql = $gare_scope ? '' : "AND cs.id_caiss = '$idcais'";
@@ -1439,6 +1442,7 @@
                 {$caisse_sql}
                 {$op_sql}
                 {$sg_sql}
+                {$lieu_sql}
                 AND d.type_depense <> 'Courrier'
                 ORDER BY d.date_depens DESC, d.id_depense DESC")->result();
             }
@@ -1461,6 +1465,7 @@
                 {$caisse_sql}
                 {$op_sql}
                 {$sg_sql}
+                {$lieu_sql}
                 AND d.id_depense = '$pk'
                 AND d.type_depense <> 'Courrier'
                 ORDER BY d.date_depens DESC, d.id_depense DESC")->row();

@@ -114,7 +114,8 @@
          */
         public function adgetdepot_escale($cid, $gid, array $ops)
         {
-            $op_sql = recette_role_ops_ou_nom_sql(array('pt.idop_depot'), 'pt.nom_pre', $ops);
+            $lieu = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('pt.nom_pre', 'pt.idop_depot') : '';
+            $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql(array('pt.idop_depot'), 'pt.nom_pre', $ops);
 
             return $this->db->query(
                 "SELECT * FROM depot pt
@@ -149,7 +150,8 @@
          */
         public function liste_caisse_escale($cid, $gid, array $ops, $niveau, $genre = 'bancaire')
         {
-            $op_sql = recette_role_ops_ou_nom_sql(array('pt.idop_depot'), 'pt.nom_pre', $ops);
+            $lieu = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('pt.nom_pre', 'pt.idop_depot') : '';
+            $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql(array('pt.idop_depot'), 'pt.nom_pre', $ops);
             $etat = ($niveau === 'adjoint')
                 ? 'AND pt.ferme_caisdepo = 0 AND pt.is_validdepo = 1 AND pt.is_actifdepoad = 1'
                 : 'AND pt.ferme_caisdepo = 0 AND pt.is_validdepo = 1';

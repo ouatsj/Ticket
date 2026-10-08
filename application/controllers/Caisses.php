@@ -309,10 +309,22 @@
                     $gid_sql = $this->db->escape($cdg);
                     $cpr_sql = (int) $cpr;
                     $cid_sql = (int) $cid;
-                    $fr = recette_role_ops_ou_nom_sql(array('r.idopera'), 'r.nom', $escale_ops_arret);
-                    $fd = recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $escale_ops_arret);
-                    $fp = recette_role_ops_ou_nom_sql(array('d.idop_depot'), 'd.nom_pre', $escale_ops_arret);
-                    $fv = recette_role_ops_ou_nom_sql(array('v.idop_versement'), 'v.nom_beneficiaire', $escale_ops_arret);
+                    $fr = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet') : '';
+                    $fd = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep') : '';
+                    $fp = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_pre', 'd.idop_depot') : '';
+                    $fv = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
+                    if ($fr === '') {
+                        $fr = recette_role_ops_ou_nom_sql(array('r.idopera'), 'r.nom', $escale_ops_arret);
+                    }
+                    if ($fd === '') {
+                        $fd = recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $escale_ops_arret);
+                    }
+                    if ($fp === '') {
+                        $fp = recette_role_ops_ou_nom_sql(array('d.idop_depot'), 'd.nom_pre', $escale_ops_arret);
+                    }
+                    if ($fv === '') {
+                        $fv = recette_role_ops_ou_nom_sql(array('v.idop_versement'), 'v.nom_beneficiaire', $escale_ops_arret);
+                    }
                     $this->property['recettescaisse'] = $this->db->query(
                         "SELECT SUM(r.montant_recet) AS total FROM recette r
                         JOIN caisse cs ON r.idcaisse = cs.id_caiss
@@ -417,7 +429,14 @@
                         $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                         $this->property['caisseident'] = $caisseident;
                         $escale_ops = $this->_escale_ops_ids();
-                        if ($escale_ops) {
+                        if ($escale_ops && recette_role_is_saisie($this->session->agent->userole)) {
+                            $this->property['recettes'] = $this->m_recette->ad_getrecet($this->company->ekey, $cdg, $idsg, $cid, $cpr, FALSE, $userole, true);
+                            if (empty($this->property['recettes'])) {
+                                $this->property['recettes'] = array();
+                            }
+                            $this->property['sommerecettes'] = $this->m_recette->ad_getmontant($this->company->ekey, $cdg, $cid, $cpr, $userole, true);
+                            $this->property['totalrecettes'] = $this->property['sommerecettes'];
+                        } elseif ($escale_ops) {
                             $this->property['recettes'] = $this->m_recette->liste_caisse_escale(
                                 $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse()
                             );
@@ -500,7 +519,7 @@
                             $this->property['sommesdepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg, $idsg);
                     }
                     $escale_ops = $this->_escale_ops_ids();
-                    if ($escale_ops) {
+                    if ($escale_ops && !recette_role_is_saisie($this->session->agent->userole)) {
                         $this->property['depenses'] = $this->m_depense->liste_caisse_escale(
                             $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse()
                         );
@@ -775,7 +794,7 @@
                         $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
                     }
                     $escale_ops = $this->_escale_ops_ids();
-                    if ($escale_ops) {
+                    if ($escale_ops && !recette_role_is_saisie($this->session->agent->userole)) {
                         $this->property['depots'] = $this->m_depot->liste_caisse_escale(
                             $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse(), 'bancaire'
                         );

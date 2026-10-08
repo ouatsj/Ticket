@@ -2456,16 +2456,90 @@ if (!function_exists('caissier_escale_hidden_inputs')) {
     }
 }
 
+if (!function_exists('escale_ligne_lieu_sql')) {
+    /**
+     * Ligne de cette escale : vendeurs du lieu, y compris les anciens, ou le repère d'escale.
+     * Vide hors d'une page escale.
+     *
+     * @param string $nomColumn
+     * @param string $idColumn
+     * @param string $commentColumn
+     * @return string
+     */
+    function escale_ligne_lieu_sql($nomColumn, $idColumn = '', $commentColumn = '')
+    {
+        $CI =& get_instance();
+        $nom = trim((string) $CI->input->get_post('escale_nom'));
+        $escale = trim((string) $CI->input->get_post('escale'));
+        $ops = function_exists('caissier_escale_ops_from_request') ? caissier_escale_ops_from_request() : null;
+        if ($nom === '' && $escale === '' && !$ops) {
+            return '';
+        }
+        if (!function_exists('escale_lieu_sql_requete')) {
+            $CI->load->helper('role17_context');
+        }
+        if (!function_exists('escale_lieu_sql_requete')) {
+            return '';
+        }
+        $lieu = trim((string) preg_replace('/^\s*AND\s+/i', '', escale_lieu_sql_requete('arx')));
+        $parts = array();
+        $colOk = function ($column) {
+            return $column !== '' && (bool) preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $column);
+        };
+        if ($lieu !== '') {
+            if ($colOk($idColumn)) {
+                $parts[] = $idColumn . ' IN (SELECT arx.roleattribut FROM attributions_role arx WHERE ' . $lieu . ')';
+            }
+            if ($colOk($nomColumn)) {
+                $parts[] = 'UPPER(TRIM(' . $nomColumn . ")) IN (
+                    SELECT UPPER(TRIM(CONCAT(TRIM(IFNULL(u.first_name, '')), ' ', TRIM(IFNULL(u.last_name, '')))))
+                    FROM attributions_role arx
+                    JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login
+                    JOIN compte_user cux ON ulx.uid_usercpte = cux.cpuser_id
+                    JOIN utilisateurs u ON cux.userlog_id = u.uid
+                    WHERE " . $lieu . '
+                )';
+            }
+        }
+        if ($commentColumn === 'r.commentaire_recet' && function_exists('caissier_escale_marqueur')) {
+            $mark = caissier_escale_marqueur($escale);
+            if ($mark !== '') {
+                $parts[] = 'r.commentaire_recet LIKE ' . $CI->db->escape('%' . $mark . '%');
+            }
+        }
+        if (!$parts) {
+            return '';
+        }
+
+        return ' AND (' . implode(' OR ', $parts) . ') ';
+    }
+}
+
 if (!function_exists('caissier_escale_nom_filtre_sql')) {
     /**
-     * Limite une validation ouverte depuis l'escale aux lignes au nom de ses vendeurs.
-     * Vide hors contexte escale : la validation de sous-gare reste inchangée.
+     * Sur une escale : les vendeurs de ce lieu. Hors escale : la sous-gare reste inchangée.
      *
      * @param string $column
      * @return string
      */
     function caissier_escale_nom_filtre_sql($column)
     {
+        $ids = array(
+            'r.nom' => array('r.idopera', 'r.commentaire_recet'),
+            'd.nom_perso' => array('d.idop_dep', ''),
+            'd.nom_pre' => array('d.idop_depot', ''),
+            'dp.nom_pre' => array('dp.idop_depot', ''),
+            'pt.nom_pre' => array('pt.idop_depot', ''),
+            'v.nom_beneficiaire' => array('v.idop_versement', ''),
+        );
+        $idCol = isset($ids[$column]) ? $ids[$column][0] : '';
+        $comCol = isset($ids[$column]) ? $ids[$column][1] : '';
+        if (function_exists('escale_ligne_lieu_sql')) {
+            $lieu = escale_ligne_lieu_sql($column, $idCol, $comCol);
+            if ($lieu !== '') {
+                return $lieu;
+            }
+        }
         $ops = caissier_escale_ops_from_request();
         if ($ops && function_exists('recette_role_nom_agents_sql')) {
             $frag = recette_role_nom_agents_sql($column, $ops);
@@ -2953,20 +3027,36 @@ if (!function_exists('caissier_arret_pending_map')) {
         // Les saisies encore ouvertes (active_*=0) restent chez le chef jusqu'à son arrêt.
         // Exclure les lignes déjà validées par un adjoint (is_actif*ad=1) : elles
         // passent dans la file « confirmation principal » (caissier_arret_pending_map_adjoint).
-        // Escale : les opérateurs sont des vendeurs (rôle 17), pas des chefs 5/16.
+        // La fiche affichée est celle du chef qui a validé, à la gare comme à l'escale.
         $role_chef_sql = 'AND ar.userole IN (5, 16)';
-        if (is_array($scope_ops) && $scope_ops) {
-            $role_chef_sql = '';
-        }
         list($scope_rec_sql, $scope_rec_bind) = caissier_arret_scope_sql('r.idopera', 'r.nom', $scope_ops);
         list($scope_dep_sql, $scope_dep_bind) = caissier_arret_scope_sql('d.idop_dep', 'd.nom_perso', $scope_ops);
         list($scope_depo_sql, $scope_depo_bind) = caissier_arret_scope_sql('d.idop_depot', 'd.nom_pre', $scope_ops);
         list($scope_ver_sql, $scope_ver_bind) = caissier_arret_scope_sql('v.idop_versement', 'v.nom_beneficiaire', $scope_ops);
         $gare_seule = !(is_array($scope_ops) && $scope_ops);
-        $detenteur = function ($author, $chef) use ($gare_seule) {
-            if (!$gare_seule) {
-                return $author;
+        if (!$gare_seule && function_exists('escale_ligne_lieu_sql')) {
+            $lieu_rec = escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet');
+            $lieu_dep = escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep');
+            $lieu_depo = escale_ligne_lieu_sql('d.nom_pre', 'd.idop_depot');
+            $lieu_ver = escale_ligne_lieu_sql('v.nom_beneficiaire', 'v.idop_versement');
+            if ($lieu_rec !== '') {
+                $scope_rec_sql = $lieu_rec;
+                $scope_rec_bind = array();
             }
+            if ($lieu_dep !== '') {
+                $scope_dep_sql = $lieu_dep;
+                $scope_dep_bind = array();
+            }
+            if ($lieu_depo !== '') {
+                $scope_depo_sql = $lieu_depo;
+                $scope_depo_bind = array();
+            }
+            if ($lieu_ver !== '') {
+                $scope_ver_sql = $lieu_ver;
+                $scope_ver_bind = array();
+            }
+        }
+        $detenteur = function ($author, $chef) {
             if (function_exists('caisse_validation_detenteur_sql')) {
                 return caisse_validation_detenteur_sql($author, $chef);
             }
@@ -3223,6 +3313,28 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
         list($scope_depo_sql, $scope_depo_bind) = caissier_arret_scope_sql('d.idop_depot', 'd.nom_pre', $scope_ops);
         list($scope_ver_sql, $scope_ver_bind) = caissier_arret_scope_sql('v.idop_versement', 'v.nom_beneficiaire', $scope_ops);
         $gare_seule = !(is_array($scope_ops) && $scope_ops);
+        if (!$gare_seule && function_exists('escale_ligne_lieu_sql')) {
+            $lieu_rec = escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet');
+            $lieu_dep = escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep');
+            $lieu_depo = escale_ligne_lieu_sql('d.nom_pre', 'd.idop_depot');
+            $lieu_ver = escale_ligne_lieu_sql('v.nom_beneficiaire', 'v.idop_versement');
+            if ($lieu_rec !== '') {
+                $scope_rec_sql = $lieu_rec;
+                $scope_rec_bind = array();
+            }
+            if ($lieu_dep !== '') {
+                $scope_dep_sql = $lieu_dep;
+                $scope_dep_bind = array();
+            }
+            if ($lieu_depo !== '') {
+                $scope_depo_sql = $lieu_depo;
+                $scope_depo_bind = array();
+            }
+            if ($lieu_ver !== '') {
+                $scope_ver_sql = $lieu_ver;
+                $scope_ver_bind = array();
+            }
+        }
         $hors_rec = $gare_seule ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
         $hors_dep = $gare_seule ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
         $hors_depo = $gare_seule ? recette_role_hors_escale_sql('d.nom_pre', 'd.idop_depot') : '';

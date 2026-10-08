@@ -1495,6 +1495,9 @@
             $op_sql = recette_role_op_sql_recette_list($cx, $userole, $gare_scope);
             $pending_sql = recette_role_pending_recette_sql($userole);
             $active_sql = recette_role_rd_active_recette_sql($userole, $gare_scope);
+            $lieu_sql = function_exists('escale_ligne_lieu_sql')
+                ? escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet')
+                : '';
             $caisse_sql = $gare_scope ? '' : "AND cs.id_caiss = '$idcais'";
             $sg_sql = $gare_scope ? '' : "AND r.recetsgid = '$sg'";
             if ($pk === FALSE) {
@@ -1516,6 +1519,7 @@
                 {$caisse_sql}
                 {$op_sql}
                 {$sg_sql}
+                {$lieu_sql}
                 AND r.type_recet <> 'Courrier'
                 {$pending_sql}
                 ORDER BY r.date_recet DESC, r.id_recette DESC")->result();
@@ -1538,6 +1542,7 @@
                 {$caisse_sql}
                 {$op_sql}
                 {$sg_sql}
+                {$lieu_sql}
                 {$pending_sql}
                 AND r.id_recette = '$pk'
                 AND r.type_recet <> 'Courrier'
@@ -1558,7 +1563,10 @@
             if ($this->db->field_exists('iduseescal', 'recette')) {
                 $cols[] = 'r.iduseescal';
             }
-            $op_sql = recette_role_ops_ou_nom_sql($cols, 'r.nom', $ops);
+            $lieu = function_exists('escale_ligne_lieu_sql')
+                ? escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet')
+                : '';
+            $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql($cols, 'r.nom', $ops);
             $open_sql = recette_role_rd_open_recette_sql('5', true, 'r');
 
             return $this->db->query(
@@ -1598,10 +1606,13 @@
             if ($this->db->field_exists('iduseescal', 'recette')) {
                 $cols[] = 'r.iduseescal';
             }
-            $op_sql = recette_role_ops_ou_nom_sql($cols, 'r.nom', $ops);
+            $lieu = function_exists('escale_ligne_lieu_sql')
+                ? escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet')
+                : '';
+            $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql($cols, 'r.nom', $ops);
             $label_escale = trim((string) get_instance()->input->get_post('escale'));
             $marqueur = function_exists('caissier_escale_marqueur') ? caissier_escale_marqueur($label_escale) : '';
-            if ($marqueur !== '' && $op_sql !== 'AND 1=0') {
+            if ($lieu === '' && $marqueur !== '' && $op_sql !== 'AND 1=0') {
                 $op_sql = 'AND (' . preg_replace('/^AND\s+/', '', $op_sql)
                     . ' OR r.commentaire_recet LIKE ' . $this->db->escape('%' . $marqueur . '%') . ')';
             }
@@ -1647,6 +1658,9 @@
             $op_sql = recette_role_op_sql_recette_list($cx, $userole, $gare_scope);
             $pending_sql = recette_role_pending_recette_sql($userole);
             $active_sql = recette_role_rd_active_recette_sql($userole, $gare_scope);
+            $lieu_sql = function_exists('escale_ligne_lieu_sql')
+                ? escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet')
+                : '';
             $caisse_sql = $gare_scope ? '' : "AND cs.id_caiss = '$idcais'";
 
             return $this->db->query(
@@ -1665,6 +1679,7 @@
                 AND cs.gexp_caiss = '$idg'
                 {$caisse_sql}
                 {$op_sql}
+                {$lieu_sql}
                 AND r.type_recet <> 'Courrier'
                 {$pending_sql}")->row();
         }
