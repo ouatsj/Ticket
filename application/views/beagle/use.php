@@ -21,6 +21,16 @@ $this->load->view('_layouts/head', $head_extra);
 	.be-navbar-header,
 	.navbar { display: none !important; }
 }
+/* Le défilement interne mettait la zone de contenu à hauteur nulle (page blanche). */
+.be-content {
+	height: auto !important;
+	max-height: none !important;
+	overflow: visible !important;
+}
+.be-content .ps__rail-x,
+.be-content .ps__rail-y {
+	display: none !important;
+}
 <?php if (!empty($layout_minimal)): ?>
 .be-minimal-chrome .be-content { margin-left: 0 !important; }
 .be-minimal-chrome .be-content .main-content.container-fluid {

@@ -45,20 +45,6 @@ $bundle_datatables = !empty($bundle_datatables);
         if (<?= $bundle_datatables ? 'true' : 'false'; ?> && $.fn.dataTable && typeof App.dataTables === 'function') {
             App.dataTables();
         }
-        if (typeof PerfectScrollbar !== 'undefined'
-            && !<?= !empty($layout_minimal) ? 'true' : 'false'; ?>
-            && !document.body.classList.contains('be-minimal-chrome')
-            && !document.querySelector('.be-minimal-chrome')
-        ) {
-            try {
-                new PerfectScrollbar('.be-content', {
-                    wheelSpeed: 2,
-                    wheelPropagation: true,
-                    minScrollbarLength: 20
-                });
-            } catch (ePs) {}
-        }
-
         // Message d'échec vente (redirect silencieux addpassager)
         (function () {
             var msg = null;
