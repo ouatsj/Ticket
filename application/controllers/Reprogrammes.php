@@ -27,18 +27,6 @@
         }
 
         /**
-         * Gare session (code_gaexp typique agent.guser).
-         */
-        protected function _reprog_session_gare_code()
-        {
-            if (isset($this->session->agent->guser) && trim((string) $this->session->agent->guser) !== '') {
-                return trim((string) $this->session->agent->guser);
-            }
-            $post = $this->input->post('gareconnect');
-            return ($post !== false && $post !== null) ? trim((string) $post) : '';
-        }
-
-        /**
          * Codes gare liés à la vente / départ du ticket (pour contrôle d’accès).
          *
          * @param object $row
@@ -72,24 +60,148 @@
         }
 
         /**
-         * Accès reprogrammation ticket.
-         * Temporaire : toutes gares / tous rôles (restriction gare de vente désactivée).
+         * Code gare d’origine du ticket (1ʳᵉ jambe si transit).
          *
          * @param object $row
-         * @param string|null $sessionGareOverride ex. gareconnect POST
+         * @return string
+         */
+        protected function _reprog_ticket_origine_code($row)
+        {
+            if (!$row || !is_object($row)) {
+                return '';
+            }
+            if (!empty($row->gaexp_od)) {
+                return trim((string) $row->gaexp_od);
+            }
+            if (!empty($row->jambes) && is_array($row->jambes)) {
+                $first = $row->jambes[0];
+                if (is_array($first) && !empty($first['gaexp_lg'])) {
+                    return trim((string) $first['gaexp_lg']);
+                }
+            }
+            if (!empty($row->gaexp_lg)) {
+                return trim((string) $row->gaexp_lg);
+            }
+            return '';
+        }
+
+        /**
+         * Code + lieu (nom sans suffixe compagnie) d’une gare de session ou d’un départ.
+         *
+         * @param string $gare code_gaexp ou idengare
+         * @return array{code:string,lieu:string}
+         */
+        protected function _reprog_lieu_cle($gare)
+        {
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+            $code = $this->m_programme->normalize_gareidentif($gare);
+            if ($code === '') {
+                return array('code' => '', 'lieu' => '');
+            }
+            $row = $this->db->query(
+                'SELECT code_gaexp, nom_gaep FROM gare_exp WHERE code_gaexp = ? LIMIT 1',
+                array($code)
+            )->row();
+            $outCode = ($row && !empty($row->code_gaexp)) ? trim((string) $row->code_gaexp) : $code;
+            $nom = ($row && !empty($row->nom_gaep)) ? (string) $row->nom_gaep : '';
+            $lieu = strtoupper(trim($this->m_programme->strip_cie_suffix_php($nom)));
+            return array('code' => strtoupper($outCode), 'lieu' => $lieu);
+        }
+
+        /**
+         * Même origine : code identique, ou même lieu (BOB1 et BOB_VIP = Bobo).
+         *
+         * @param string $ticketGare
+         * @param string $sessionGare
+         * @return bool
+         */
+        protected function _reprog_meme_origine($ticketGare, $sessionGare)
+        {
+            $a = $this->_reprog_lieu_cle($ticketGare);
+            $b = $this->_reprog_lieu_cle($sessionGare);
+            if ($a['code'] !== '' && $b['code'] !== '' && $a['code'] === $b['code']) {
+                return true;
+            }
+            return $a['lieu'] !== '' && $b['lieu'] !== '' && $a['lieu'] === $b['lieu'];
+        }
+
+        /**
+         * Gare de la page ouverte (session guichet).
+         *
+         * @param string|null $override
+         * @return string
+         */
+        protected function _reprog_session_gare_code($override = null)
+        {
+            $posted = trim((string) $this->input->get_post('gareconnect_code'));
+            if ($posted !== '') {
+                return $posted;
+            }
+            $gare = trim((string) $this->input->get_post('gare'));
+            if ($gare !== '') {
+                return $gare;
+            }
+            $over = trim((string) $override);
+            if ($over !== '') {
+                return $over;
+            }
+            $connect = trim((string) $this->input->get_post('gareconnect'));
+            if ($connect !== '') {
+                return $connect;
+            }
+            if (isset($this->session->agent->guser) && trim((string) $this->session->agent->guser) !== '') {
+                return trim((string) $this->session->agent->guser);
+            }
+            return '';
+        }
+
+        /**
+         * La gare de session doit être l’origine du ticket.
+         *
+         * @param object $row
+         * @param string|null $sessionGareOverride
          * @return bool
          */
         protected function _reprog_may_reprog_ticket($row, $sessionGareOverride = null)
         {
-            return (bool) $row;
+            if (!$row) {
+                return false;
+            }
+            $session = $this->_reprog_session_gare_code($sessionGareOverride);
+            $origin = $this->_reprog_ticket_origine_code($row);
+            return $this->_reprog_meme_origine($origin, $session);
         }
 
         /**
-         * Garde commit gare — temporairement désactivée (toutes gares autorisées).
+         * Refuse l’enregistrement si la gare ouverte n’est pas l’origine du ticket.
          */
         protected function _reprog_guard_gare_commit_or_refuse($gidc, $iduser, $sgid)
         {
-            return true;
+            $session = $this->_reprog_session_gare_code($gidc);
+            $ticket = trim((string) $this->input->post('codeclienttransit'));
+            $row = null;
+            if ($ticket !== '' && isset($this->m_tamponcode)) {
+                $row = $this->m_tamponcode->verifireptra($this->session->company->ekey, $ticket);
+                if (!$row) {
+                    $row = $this->m_tamponcode->verifirepadmin($this->session->company->ekey, $ticket);
+                }
+            }
+            if ($row) {
+                $row = $this->_reprog_enrich_transit_meta($row);
+                $row = $this->_reprog_normalize_escale_od($row);
+            }
+            if ($row && $this->_reprog_may_reprog_ticket($row, $session)) {
+                return true;
+            }
+            $this->_reprog_refuse_redirect(
+                $gidc,
+                $iduser,
+                $sgid,
+                'La reprogrammation se fait dans la gare d\'origine du ticket.'
+            );
+            return false;
         }
 
         /**
@@ -941,13 +1053,13 @@
         /**
          * Refuse une 2ᵉ reprogrammation et renvoie à l’accueil sous-gare.
          */
-        protected function _reprog_refuse_redirect($gidc, $iduser, $sgid)
+        protected function _reprog_refuse_redirect($gidc, $iduser, $sgid, $message = null)
         {
+            if ($message === null || $message === '') {
+                $message = 'Ce ticket a déjà été reprogrammé (une seule reprogrammation autorisée).';
+            }
             if (isset($this->session) && method_exists($this->session, 'set_flashdata')) {
-                $this->session->set_flashdata(
-                    'reprog_error',
-                    'Ce ticket a déjà été reprogrammé (une seule reprogrammation autorisée).'
-                );
+                $this->session->set_flashdata('reprog_error', $message);
             }
             redirect(
                 'gares/' . $this->session->company->ekey
@@ -1843,15 +1955,6 @@
             if (!$out) {
                 return $this->load->view('beagle/pages/_programme/json', array('json' => null));
             }
-            if (!$this->_reprog_may_reprog_ticket($out)) {
-                return $this->load->view('beagle/pages/_programme/json', array(
-                    'json' => array(
-                        'ok' => false,
-                        'error' => 'gare_refuse',
-                        'reason' => 'Reprogrammation possible uniquement dans la gare ayant effectué la vente. Admin / chef guichet : toutes gares.',
-                    ),
-                ));
-            }
             if (is_object($out)) {
                 $out->ok = true;
                 $out = $this->_reprog_normalize_escale_od($out);
@@ -1872,6 +1975,15 @@
                 if (!empty($out->hub_cas_e)) {
                     $out = $this->_reprog_ensure_nom_ligne($out);
                 }
+            }
+            if (is_object($out) && !$this->_reprog_may_reprog_ticket($out)) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array(
+                        'ok' => false,
+                        'error' => 'gare_refuse',
+                        'reason' => 'La reprogrammation se fait dans la gare d\'origine du ticket.',
+                    ),
+                ));
             }
 
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));

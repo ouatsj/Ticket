@@ -938,7 +938,8 @@ document.addEventListener('DOMContentLoaded', () => {
         __reprogXhrGet(
             window.location.origin + APP_ROOT
                 + '/reprogrammes/lookup_unifie?mode=' + encodeURIComponent(__reprogLookupMode())
-                + '&code=' + encodeURIComponent(cocl),
+                + '&code=' + encodeURIComponent(cocl)
+                + __reprogSessionGareParam(),
             function (d2) {
                 if (__reprogLookupRefused(d2, legNum + 'ᵉ code invalide ou non reprogrammable.')) {
                     return;
@@ -1251,8 +1252,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function __reprogSessionGareParam() {
+        var g = __reprogResolveGareReport();
+        return g ? ('&gare=' + encodeURIComponent(g)) : '';
+    }
+
     function __reprogResolveGareReport() {
-        // Gare qui effectue le report = session (code_gaexp), pas l’OD ticket.
+        // Gare de session = origine du ticket (contrôle serveur).
         var gCodeEl = document.querySelector('input[name="gareconnect_code"]');
         if (gCodeEl && gCodeEl.value) {
             return String(gCodeEl.value).trim();
@@ -4215,7 +4221,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 __reprogXhrGet(
                     window.location.origin + APP_ROOT
                         + '/reprogrammes/lookup_unifie?mode=' + encodeURIComponent(mode)
-                        + '&code=' + encodeURIComponent(cocl),
+                        + '&code=' + encodeURIComponent(cocl)
+                        + __reprogSessionGareParam(),
                     function (donnees) {
                         if (__reprogLookupRefused(donnees, 'Cet ticket ne peut pas être reprogrammé ici.')) {
                             return;
