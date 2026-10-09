@@ -1279,7 +1279,7 @@
                 }
 
                 $arrayrecette = array(
-                    'idcaisse' => $this->input->post('idgar'),
+                    'idcaisse' => sous_caisse_id_ecriture($this->input->post('idgar'), $this->input->post('interne')),
                     'id_genre_recet' => $this->input->post('genre'),
                     'compkey_recet' => $this->input->post('idcompa'),
                     'recetsgid' => $idsoug,
@@ -2910,7 +2910,7 @@
                 }
 
                     $arrayrecettecr = array(
-                        'idcaisse' => $this->input->post('idgar'),
+                        'idcaisse' => sous_caisse_id_ecriture($this->input->post('idgar'), $this->input->post('interne')),
                         'id_genre_recet' => $this->input->post('genre'),
                         'compkey_recet' => $this->input->post('idcompa'),
                         'recetsgid' => $idsoug,
@@ -3001,7 +3001,7 @@
                 }
                 
                 $arrayrecette = array(
-                    'idcaisse' => $this->input->post('idgar'),
+                    'idcaisse' => sous_caisse_id_ecriture($this->input->post('idgar'), $this->input->post('interne')),
                     'id_genre_recet' => $this->input->post('genre'),
                     'compkey_recet' => $this->input->post('idcompa'),
                     'recetsgid' => $idsoug,

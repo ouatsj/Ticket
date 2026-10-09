@@ -68,7 +68,7 @@
 
                 $this->company = $this->m_entreprises->get_key($ckey);
                 $identifiant_gare = $this->input->post('idgarecode');
-                $identifiant_caisse = $this->input->post('idcaisse'); 
+                $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
                 $gid = $this->input->post('gareconnect');
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
@@ -131,7 +131,7 @@
 
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse'); 
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -190,7 +190,7 @@
 
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse'); 
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -252,7 +252,7 @@
 
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse'); 
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
@@ -421,7 +421,7 @@
 
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse'); 
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
@@ -484,7 +484,7 @@
 
                 $this->company = $this->m_entreprises->get_key($ckey);
                 $identifiant_gare = $this->input->post('idgarecode');
-                $identifiant_caisse = $this->input->post('idcaisse'); 
+                $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
@@ -524,7 +524,7 @@
 
                 $this->company = $this->m_entreprises->get_key($ckey);
                 $identifiant_gare = $this->input->post('idgarecode');
-                $identifiant_caisse = $this->input->post('idcaisse'); 
+                $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
                 $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
@@ -565,7 +565,7 @@
 
                 $this->company = $this->m_entreprises->get_key($ckey);
                 $identifiant_gare = $this->input->post('idgarecode');
-                $identifiant_caisse = $this->input->post('idcaisse'); 
+                $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
                 $gid = $this->input->post('gareconnect');
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
@@ -634,7 +634,7 @@
 
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
@@ -675,7 +675,7 @@
 
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -712,7 +712,7 @@
 
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);

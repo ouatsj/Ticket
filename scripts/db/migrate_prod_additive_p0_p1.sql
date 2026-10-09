@@ -455,3 +455,33 @@ SET @sql := IF(@exists = 0,
   'ALTER TABLE depot ADD COLUMN opvalidchef INT(11) NULL DEFAULT NULL',
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- -----------------------------------------------------------------------------
+-- Sous-caisse d'escale : enfant de la caisse d'affiliation, même code gare
+-- -----------------------------------------------------------------------------
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'caisse' AND COLUMN_NAME = 'parent_caiss'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE caisse ADD COLUMN parent_caiss INT(10) NULL DEFAULT NULL',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'caisse' AND COLUMN_NAME = 'escale_cle'
+);
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE caisse ADD COLUMN escale_cle VARCHAR(160) NULL DEFAULT NULL',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'caisse' AND INDEX_NAME = 'idx_caisse_parent_escale'
+);
+SET @sql := IF(@exists = 0,
+  'CREATE UNIQUE INDEX idx_caisse_parent_escale ON caisse (parent_caiss, escale_cle)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

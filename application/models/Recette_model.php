@@ -83,7 +83,7 @@
                     AND r.active_recet = 1
                     AND r.arret_caisrecet = 0
                     AND r.actif_rect = 0
-                    AND cs.id_caiss = '$idcais'
+                    AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                     AND cs.gexp_caiss = '$gid'
                     AND r.date_recet = '$today'
                     AND r.type_recet <> 'Courrier'
@@ -99,7 +99,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 1
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$gid'
                 AND r.arret_caisrecet = 0
                 AND r.id_recette = '$pk'
@@ -124,7 +124,7 @@
                     AND r.active_recet = 1
                     AND r.arret_caisrecet = 0
                     AND r.actif_rect = 0
-                    AND cs.id_caiss = '$idcais'
+                    AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                     AND cs.gexp_caiss = '$gid'
                     AND r.recetsgid = '$sg'
                     AND r.date_recet = '$today'
@@ -142,7 +142,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 1
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$gid'
                 AND r.recetsgid = '$sg'
                 AND r.arret_caisrecet = 0
@@ -171,7 +171,7 @@
                     AND r.active_recet = 1
                     AND r.arret_caisrecet = 0
                     AND r.actif_rect = 0
-                    AND cs.id_caiss = '$idcais'
+                    AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                     AND cs.gexp_caiss = '$gid'
                     AND r.recetsgid = '$sg'
                     AND r.date_recet = '$today'
@@ -189,7 +189,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 1
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$gid'
                 AND r.recetsgid = '$sg'
                 AND r.arret_caisrecet = 0
@@ -217,7 +217,7 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
-                AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'
                 AND r.type_recet <> 'Courrier'
                 AND r.date_recet BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
@@ -238,7 +238,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 1
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalidad = '$conect'
                 AND cs.gexp_caiss = '$gid'
@@ -256,7 +256,7 @@
                 WHERE e.ekey = '$cid'
                 AND r.compkey_recet = '$co'
                 AND r.active_recet = 1
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.type_recet <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
                 AND r.operavalidad = '$conect'
@@ -279,7 +279,7 @@
                 AND r.active_recet = 1
                 AND r.arret_caisrecet = 0
                 AND r.actif_rect = 0
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.type_recet <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
                 AND r.date_recet BETWEEN '$ddbut' AND '$dfin' 
@@ -299,7 +299,7 @@
                 AND r.active_recet = 1
                 AND r.arret_caisrecet = 0
                 AND r.actif_rect = 0
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.type_recet <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
                 AND r.date_recet BETWEEN '$ddbut' AND '$dfin' 
@@ -318,7 +318,7 @@
                 AND r.active_recet = 1
                 AND r.arret_caisrecet = 0
                 AND r.actif_rect = 0
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.type_recet <> 'Courrier'
                 AND cs.gexp_caiss = '$gid'
                 AND r.recetsgid = '$sg'
@@ -342,7 +342,7 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
-                AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'
                 AND r.type_recet <> 'Courrier'
                 AND r.date_recet BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
@@ -364,7 +364,7 @@
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 1
                 AND r.actif_rect = 0
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$gid'
                 AND (r.idopera = {$use} OR r.operavalidchef = {$use})
                 AND r.type_recet <> 'Courrier'
@@ -383,7 +383,7 @@
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 1
                 AND r.actif_rect = 0
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$gid'
                 AND (r.idopera = {$use} OR r.operavalidchef = {$use})
                 AND r.type_recet <> 'Courrier'
@@ -1060,7 +1060,7 @@
                 AND r.actif_rect = 0
                 AND r.ferme_caisrecet = 0
                 AND cs.gexp_caiss = '$gid'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalid = '$conect'
                 GROUP BY cs.id_caiss")->row();
@@ -1083,7 +1083,7 @@
                 AND r.actif_rect = 0
                 AND r.ferme_caisrecet = 0
                 AND cs.gexp_caiss = '$gid'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalidad = '$conect'
                 GROUP BY cs.id_caiss")->row();
@@ -1105,7 +1105,7 @@
                 AND r.actif_rect = 0
                 AND r.ferme_caisrecet = 0
                 AND cs.gexp_caiss = '$gid'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.recetsgid = '$sgid'
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalid = '$conect'
@@ -1128,7 +1128,7 @@
                 AND r.actif_rect = 0
                 AND r.ferme_caisrecet = 0
                 AND cs.gexp_caiss = '$gid'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.recetsgid = '$sgid'
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalidad = '$conect'
@@ -1177,7 +1177,7 @@
                 AND r.active_recet = 0
                 AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')
                 AND r.date_recet <= '$today'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cu.is_conect = 1
                 AND cs.gexp_caiss = '$gid'
                 AND r.type_recet <> 'Courrier'
@@ -1200,7 +1200,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 1
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$gid'
                 AND (r.idopera = {$use} OR r.operavalidchef = {$use})
                 AND r.is_validerecet = 0
@@ -1232,7 +1232,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND r.active_recet = 1
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$gid'
                 AND {$pending}
                 AND r.actif_rect = 0
@@ -1283,7 +1283,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = ?
                 AND r.active_recet = 1
-                AND cs.id_caiss = ?
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = ?
                 AND {$pending}
                 AND r.actif_rect = 0
@@ -1292,7 +1292,7 @@
                 {$dateSql}
                 " . caissier_escale_nom_filtre_sql('r.nom') . "
                 ORDER BY r.date_recet ASC, r.date_insertrecet ASC, r.id_recette ASC",
-                array($cid, $idcais, $gid, $today)
+                array($cid, $gid, $today)
             )->result();
         }
 
@@ -1313,7 +1313,7 @@
                 WHERE e.ekey = '$cid'
                 AND ul.guser = '$gid'
                 AND r.active_recet = 0
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$gid'
                 AND r.idopera = '$use'
                 AND r.is_validerecet = 0
@@ -1418,7 +1418,7 @@
                 AND r.actif_rect = 0
                 AND r.active_recet = 1
                 AND r.date_recet <= '$today'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$gid'
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalid = $conect
@@ -1442,7 +1442,7 @@
                 AND r.actif_rect = 0
                 AND r.date_recet <= '$today'
                 AND cs.gexp_caiss = '$gid'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalid = $conect
                 " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '') . "
@@ -1468,7 +1468,7 @@
                 AND r.arret_caisrecet = 1
                 AND r.is_validerecet = 1
                 AND r.date_recet <= '$today'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND r.idopera = '$conect'
                 AND cs.gexp_caiss = '$g'
                 AND r.actif_rect = 0
@@ -1498,7 +1498,7 @@
             $lieu_sql = function_exists('escale_ligne_lieu_sql')
                 ? escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet')
                 : '';
-            $caisse_sql = $gare_scope ? '' : "AND cs.id_caiss = '$idcais'";
+            $caisse_sql = $gare_scope ? '' : "AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "";
             $sg_sql = $gare_scope ? '' : "AND r.recetsgid = '$sg'";
             if ($pk === FALSE) {
                 return $this->db->query(
@@ -1661,7 +1661,7 @@
             $lieu_sql = function_exists('escale_ligne_lieu_sql')
                 ? escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet')
                 : '';
-            $caisse_sql = $gare_scope ? '' : "AND cs.id_caiss = '$idcais'";
+            $caisse_sql = $gare_scope ? '' : "AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "";
 
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total FROM recette r
@@ -1714,7 +1714,7 @@
                 {$active_sql}
                 {$date_sql}
                 AND cs.gexp_caiss = '$idg'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 {$op_sql}
                 AND r.recetsgid = '$sg'
                 AND r.type_recet <> 'Courrier'
@@ -1983,7 +1983,7 @@
                 WHERE e.ekey = '$cid'
                 {$op_sql}
                 AND r.date_recet <= '$today'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$g'
                 AND r.type_recet <> 'Courrier'
                 AND r.actif_rect = 0
@@ -2015,7 +2015,7 @@
                 AND r.arret_caisrecet = 0
                 {$op_sql}
                 AND r.date_recet <= '$today'
-                AND cs.id_caiss = '$idcais'
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '$g'
                 AND r.type_recet <> 'Courrier'
                 AND r.actif_rect = 0
@@ -2672,6 +2672,18 @@
                 $gareSql = ($escaleOu !== '')
                     ? ' AND (' . $caisseGare . ' OR ' . $escaleOu . ')'
                     : ' AND ' . $caisseGare;
+                if ($this->db->field_exists('escale_cle', 'caisse') && function_exists('sous_caisse_cle_page')) {
+                    if ($escaleDemande) {
+                        $cleEscale = sous_caisse_cle_page();
+                        if ($cleEscale !== '') {
+                            $gareSql = ($escaleOu !== '')
+                                ? ' AND (' . $caisseGare . ' OR ' . $escaleOu . ' OR cs.escale_cle = ' . $this->db->escape($cleEscale) . ')'
+                                : ' AND (' . $caisseGare . ' OR cs.escale_cle = ' . $this->db->escape($cleEscale) . ')';
+                        }
+                    } elseif ($this->db->field_exists('parent_caiss', 'caisse')) {
+                        $gareSql .= ' AND (cs.parent_caiss IS NULL OR cs.parent_caiss = 0) ';
+                    }
+                }
             }
             if (!empty($noms) && $this->db->field_exists('iduseescal', 'recette')) {
                 $idsEscale = $this->_ids_vendeurs_escale_par_noms($cid, $noms);

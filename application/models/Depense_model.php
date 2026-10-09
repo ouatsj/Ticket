@@ -882,7 +882,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.active_dep = 1
-                AND d.idcaisse_depens ='$idcais'
+                AND " . sous_caisse_predicat('d.idcaisse_depens', $idcais) . "
                 AND (d.idop_dep = {$use} OR d.opevalidchef = {$use})
                 AND cs.gexp_caiss = '$gid'
                 AND d.is_validedep = 0
@@ -912,7 +912,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.active_dep = 1
-                AND d.idcaisse_depens ='$idcais'
+                AND " . sous_caisse_predicat('d.idcaisse_depens', $idcais) . "
                 AND cs.gexp_caiss = '$gid'
                 AND {$pending}
                 AND d.actif_deps = 0
@@ -956,7 +956,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = ?
                 AND d.active_dep = 1
-                AND d.idcaisse_depens = ?
+                AND " . sous_caisse_predicat('d.idcaisse_depens', $idcais) . "
                 AND cs.gexp_caiss = ?
                 AND {$pending}
                 AND d.actif_deps = 0
@@ -965,7 +965,7 @@
                 {$dateSql}
                 " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
                 ORDER BY d.date_depens ASC, d.date_insert ASC, d.id_depense ASC",
-                array($cid, $idcais, $gid, $today)
+                array($cid, $gid, $today)
             )->result();
         }
 
@@ -985,7 +985,7 @@
                 WHERE e.ekey = '$cid'
                 AND ul.guser = '$gid'
                 AND d.active_dep = 0
-                AND d.idcaisse_depens ='$idcais'
+                AND " . sous_caisse_predicat('d.idcaisse_depens', $idcais) . "
                 AND d.idop_dep = '$use'
                 AND cs.gexp_caiss = '$gid'
                 AND d.is_validedep = 0
@@ -1420,7 +1420,7 @@
             $lieu_sql = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep') : '';
             $pending_sql = recette_role_pending_depense_sql($userole);
             $active_sql = recette_role_rd_active_depense_sql($userole, $gare_scope);
-            $caisse_sql = $gare_scope ? '' : "AND cs.id_caiss = '$idcais'";
+            $caisse_sql = $gare_scope ? '' : ('AND ' . sous_caisse_predicat('cs.id_caiss', $idcais));
             $sg_sql = $gare_scope ? '' : "AND d.sousgidepens = '$sg'";
             if ($pk === FALSE) {
                 return $this->db->query(

@@ -793,7 +793,7 @@
             $op_sql = recette_role_op_sql_depense_list($cx, $userole, $gare_scope);
             $pending_sql = recette_role_pending_depense_sql($userole);
             $active_sql = recette_role_rd_active_depense_sql($userole, $gare_scope);
-            $caisse_sql = $gare_scope ? '' : "AND cs.id_caiss = '$idcais'";
+            $caisse_sql = $gare_scope ? '' : ('AND ' . sous_caisse_predicat('cs.id_caiss', $idcais));
 
             return $this->db->query("SELECT SUM(montant_depens) AS montant_depens FROM depense d
                 JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
@@ -1390,7 +1390,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = " . $this->db->escape($cid) . "
                     AND cs.gexp_caiss = " . $this->db->escape($gid) . "
-                    AND cs.id_caiss = " . (int) $idcais . "
+                    AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                     AND {$pending}
                     AND v.date_versement <= " . $this->db->escape($today) . "
                     {$peri}
@@ -1406,7 +1406,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = " . $this->db->escape($cid) . "
                 AND cs.gexp_caiss = " . $this->db->escape($gid) . "
-                AND cs.id_caiss = " . (int) $idcais . "
+                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND v.idop_versement = {$use}
                 AND {$arrete}
                 AND v.date_versement <= " . $this->db->escape($today) . "

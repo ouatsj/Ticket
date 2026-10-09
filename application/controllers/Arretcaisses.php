@@ -92,18 +92,18 @@
                         AND r.is_actifrecet = 0
                         AND IFNULL(r.arret_caisrecet, 0) = 0
                         AND IFNULL(r.ferme_caisrecet, 0) = 0
-                        AND r.idcaisse = ?
+                        AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                         {$fr}",
-                        array($idcpt, (int) $idc)
+                        array($idcpt)
                     )->result();
                 } else {
                     $cfrecet = $this->db->query(
                         "SELECT r.id_recette, r.active_recet, r.idopera FROM recette r
                         WHERE (r.idopera = ? OR r.operavalidchef = ?)
                         AND r.active_recet = 0
-                        AND r.idcaisse = ?
+                        AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                         {$fr}",
-                        array($idcpt, $idcpt, (int) $idc)
+                        array($idcpt, $idcpt)
                     )->result();
                 }
 
@@ -129,18 +129,18 @@
                         AND d.is_actifdep = 0
                         AND IFNULL(d.arret_caisdep, 0) = 0
                         AND IFNULL(d.ferme_caisdep, 0) = 0
-                        AND d.idcaisse_depens = ?
+                        AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                         {$fd}",
-                        array($idcpt, (int) $idc)
+                        array($idcpt)
                     )->result();
                 } else {
                     $cfdepe = $this->db->query(
                         "SELECT d.id_depense, d.active_dep, d.idop_dep FROM depense d
                         WHERE (d.idop_dep = ? OR d.opevalidchef = ?)
                         AND d.active_dep = 0
-                        AND d.idcaisse_depens = ?
+                        AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                         {$fd}",
-                        array($idcpt, $idcpt, (int) $idc)
+                        array($idcpt, $idcpt)
                     )->result();
                 }
 
@@ -162,27 +162,27 @@
                     $cfdepo = $this->db->query(
                         "SELECT d.id_depot FROM depot d
                         WHERE d.opvalidad = ?
-                        AND d.idcaisse_depot = ?
+                        AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
                         AND d.arret_caisdepo = 0
                         AND IFNULL(d.ferme_caisdepo, 0) = 0
                         AND d.is_actifdepoad = 1
                         AND d.is_actifdepo = 0
                         AND d.actif_depo = 0
                         {$fp}",
-                        array($idcpt, (int) $idc)
+                        array($idcpt)
                     )->result();
                 } else {
                     $cfdepo = $this->db->query(
                         "SELECT d.id_depot FROM depot d
                         WHERE (d.idop_depot = ? OR d.opvalidchef = ?)
-                        AND d.idcaisse_depot = ?
+                        AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
                         AND d.arret_caisdepo = 0
                         AND d.is_validdepo = 0
                         AND d.is_actifdepo = 0
                         AND d.actif_depo = 0
                         AND COALESCE(d.valid_depo, '') <> 'valid'
                         {$fp}",
-                        array($idcpt, $idcpt, (int) $idc)
+                        array($idcpt, $idcpt)
                     )->result();
                 }
 
@@ -207,11 +207,11 @@
                         AND IFNULL(v.is_actifverser, 0) = 0
                         AND IFNULL(v.arret_caisvers, 0) = 0
                         AND IFNULL(v.ferme_caisvers, 0) = 0
-                        AND v.idcaisse_versement = ?
+                        AND " . sous_caisse_predicat('v.idcaisse_versement', $idc) . "
                         AND IFNULL(v.type_versement, '') <> 'Courrier'
                         AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
                         {$fv}",
-                        array($idcpt, (int) $idc)
+                        array($idcpt)
                     )->result();
                 } else {
                     $cfvers = $this->db->query(
@@ -223,11 +223,11 @@
                         AND IFNULL(v.is_actifverserad, 0) = 0
                         AND IFNULL(v.arret_caisvers, 0) = 0
                         AND IFNULL(v.ferme_caisvers, 0) = 0
-                        AND v.idcaisse_versement = ?
+                        AND " . sous_caisse_predicat('v.idcaisse_versement', $idc) . "
                         AND IFNULL(v.type_versement, '') <> 'Courrier'
                         AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
                         {$fv}",
-                        array($idcpt, (int) $idc)
+                        array($idcpt)
                     )->result();
                 }
                 foreach ($cfvers as $itemv) {
@@ -278,7 +278,7 @@
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse FROM recette r
                     WHERE r.idopera = '$idcpt'
                     AND r.active_recet = 1
-                    AND r.idcaisse ='$idc'
+                    AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                     AND r.is_validerecet = 0")->result();
 
                     foreach ($cfrecet as $item9) {
@@ -304,7 +304,7 @@
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse, r.valid_recet FROM recette r
                     WHERE r.idopera = '$idcpt'
                     AND r.active_recet = 1
-                    AND r.idcaisse ='$idc'
+                    AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                     AND r.is_validerecet = 0
                     AND r.valid_recet = 'valid'")->result();
 
@@ -331,7 +331,7 @@
                 $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens FROM depense d
                     WHERE d.idop_dep = '$idcpt'
                     AND d.active_dep = 1
-                    AND d.idcaisse_depens = '$idc'
+                    AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                     AND d.is_validedep = 0")->result();
 
                     foreach ($cfdepes as $cfdep) {
@@ -355,7 +355,7 @@
                 $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.idop_dep, d.idcaisse_depens FROM depense d
                     WHERE d.idop_dep = '$idcpt'
                     AND d.active_dep = 1
-                    AND d.idcaisse_depens = '$idc'
+                    AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                     AND d.is_validedep = 0
                     AND d.valid_depens = 'valid'")->result();
 
@@ -379,7 +379,7 @@
            
                 $cfdepo = $this->db->query("SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot FROM depot d
                     WHERE d.idop_depot = '$idcpt'
-                    AND d.idcaisse_depot = '$idc'
+                    AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
                     AND d.is_validdepo = 0")->result();
 
                     foreach ($cfdepo as $tems) {
@@ -401,7 +401,7 @@
 
                 $cfdepo = $this->db->query("SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot FROM depot d
                     WHERE d.idop_depot = '$idcpt'
-                    AND d.idcaisse_depot = '$idc'
+                    AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
                     AND d.is_validdepo = 0
                     AND d.valid_depo = 'valid'")->result();
 
@@ -427,7 +427,6 @@
         
                         $plarray = array(
                             'commentaire_recet'=> $this->input->post('comment'),
-                            'idcaisse' => $idc,
                             'is_actifrecet' => 1,
                             'is_validerecet' => 1,
                             'operavalid' => $iduser,
@@ -448,7 +447,6 @@
             $idcmpt = $this->input->post('compconnected');
                 $plarray = array(
                     'commentaire_recet'=> $this->input->post('comment'),
-                    'idcaisse' => $idc,
                     'active_recet' => 0,
                     'is_actifrecet' => 0,
                     'is_validerecet' => 0,
@@ -471,7 +469,6 @@
                 
                         $dplarray = array(
                             'commentaire'=> $this->input->post('comment'),
-                            'idcaisse_depens' => $idc,
                             'is_actifdep' => 1,
                             'is_validedep' => 1,
                             'opevalid' => $iduser,
@@ -494,7 +491,6 @@
                 
                         $dplarray = array(
                             'commentaire'=> $this->input->post('comment'),
-                            'idcaisse_depens' => $idc,
                             'active_dep' => 0,
                             'is_actifdep' => 0,
                             'is_validedep' => 0,
@@ -516,7 +512,6 @@
             $idcmpt = $this->input->post('compconnected');
                         $dpolarray = array(
                             'commentaire_depot'=> $this->input->post('comment'),
-                            'idcaisse_depot' => $idc,
                             'is_actifdepo' => 1,
                             'is_validdepo' => 1,
                             'opvalid' => $iduser,
@@ -538,7 +533,6 @@
                 
                         $dpolarray = array(
                             'commentaire_depot'=> $this->input->post('comment'),
-                            'idcaisse_depot' => $idc,
                             'is_actifdepo' => 0,
                             'is_validdepo' => 0,
                             'valid_depo' => 'rejet',
@@ -565,10 +559,10 @@
                 "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse
                 FROM recette r
                 WHERE (r.idopera = ? OR r.operavalidchef = ?)
-                AND r.idcaisse = ?
+                AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, $idcpt, (int) $idc)
+                array($idcpt, $idcpt)
             )->result();
 
                     foreach ($cfrecet as $item9) {
@@ -611,10 +605,10 @@
                     "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse, r.valid_recet
                     FROM recette r
                     WHERE (r.idopera = ? OR r.operavalidchef = ?)
-                    AND r.idcaisse = ?
+                    AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                     AND {$arrete}
                     {$escale_sql}",
-                    array($idcpt, $idcpt, (int) $idc)
+                    array($idcpt, $idcpt)
                 )->result();
 
                     foreach ($cfrecet as $item10) {
@@ -667,10 +661,10 @@
                 "SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens
                 FROM depense d
                 WHERE (d.idop_dep = ? OR d.opevalidchef = ?)
-                AND d.idcaisse_depens = ?
+                AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, $idcpt, (int) $idc)
+                array($idcpt, $idcpt)
             )->result();
 
                     foreach ($cfdepes as $cfdep) {
@@ -710,10 +704,10 @@
                     "SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.idop_dep, d.idcaisse_depens
                     FROM depense d
                     WHERE (d.idop_dep = ? OR d.opevalidchef = ?)
-                    AND d.idcaisse_depens = ?
+                    AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                     AND {$arrete}
                     {$escale_sql}",
-                    array($idcpt, $idcpt, (int) $idc)
+                    array($idcpt, $idcpt)
                 )->result();
 
                     foreach ($cfdepe as $teme1) {
@@ -763,10 +757,10 @@
                 "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot
                 FROM depot d
                 WHERE (d.idop_depot = ? OR d.opvalidchef = ?)
-                AND d.idcaisse_depot = ?
+                AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, $idcpt, (int) $idc)
+                array($idcpt, $idcpt)
             )->result();
 
                     foreach ($cfdepo as $tems) {
@@ -805,10 +799,10 @@
                 "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot
                 FROM depot d
                 WHERE (d.idop_depot = ? OR d.opvalidchef = ?)
-                AND d.idcaisse_depot = ?
+                AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, $idcpt, (int) $idc)
+                array($idcpt, $idcpt)
             )->result();
 
                     foreach ($cfdepo as $tem) {
@@ -874,10 +868,10 @@
             $rows = $this->db->query(
                 "SELECT v.id_versements FROM versements v
                 WHERE v.idop_versement = ?
-                AND v.idcaisse_versement = ?
+                AND " . sous_caisse_predicat('v.idcaisse_versement', $idc) . "
                 AND {$arrete}
                 {$escale_sql}",
-                array($idcpt, (int) $idc)
+                array($idcpt)
             )->result();
             foreach ($rows as $row) {
                 if ($rejet) {
@@ -915,9 +909,9 @@
             $rows = $this->db->query(
                 "SELECT v.id_versements FROM versements v
                 WHERE {$pending}
-                AND v.idcaisse_versement = ?
+                AND " . sous_caisse_predicat('v.idcaisse_versement', $idc) . "
                 {$escale_sql}",
-                array((int) $idc)
+                array()
             )->result();
             foreach ($rows as $row) {
                 if ($rejet) {
@@ -959,11 +953,11 @@
                 "SELECT r.id_recette FROM recette r
                 WHERE r.id_recette = ?
                 AND (r.idopera = ? OR r.operavalidchef = ?)
-                AND r.idcaisse = ?
+                AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                 AND {$arrete}
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $recet, $idcpt, $idcpt, (int) $idc)
+                array((int) $recet, $idcpt, $idcpt)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -1025,10 +1019,10 @@
                 "SELECT r.id_recette FROM recette r
                 WHERE r.id_recette = ?
                 AND (r.idopera = ? OR r.operavalidchef = ?)
-                AND r.idcaisse = ?
+                AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $recet, $idcpt, $idcpt, (int) $idc)
+                array((int) $recet, $idcpt, $idcpt)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -1051,7 +1045,6 @@
                 {
                     $plarray = array(
                         'commentaire_recet'=> $this->input->post('comment'),
-                        'idcaisse' => $idc,
                         'active_recet' => 0,
                         'is_actifrecet' => 0,
                         'is_actifrecetad' => 0,
@@ -1063,7 +1056,6 @@
                 {
                     $plarray = array(
                         'commentaire_recet'=> $this->input->post('comment'),
-                        'idcaisse' => $idc,
                         'active_recet' => 0,
                         'is_actifrecet' => 0,
                         'is_actifrecetad' => 0,
@@ -1107,11 +1099,11 @@
                 "SELECT d.id_depense FROM depense d
                 WHERE d.id_depense = ?
                 AND (d.idop_dep = ? OR d.opevalidchef = ?)
-                AND d.idcaisse_depens = ?
+                AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                 AND {$arrete}
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $idp, $idcpt, $idcpt, (int) $idc)
+                array((int) $idp, $idcpt, $idcpt)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -1174,10 +1166,10 @@
                 "SELECT d.id_depense FROM depense d
                 WHERE d.id_depense = ?
                 AND (d.idop_dep = ? OR d.opevalidchef = ?)
-                AND d.idcaisse_depens = ?
+                AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $idp, $idcpt, $idcpt, (int) $idc)
+                array((int) $idp, $idcpt, $idcpt)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -1199,7 +1191,6 @@
                 {
                     $dplarray = array(
                         'commentaire'=> $this->input->post('comment'),
-                        'idcaisse_depens' => $idc,
                         'active_dep' => 0,
                         'is_actifdep' => 0,
                         'is_actifdepad' => 0,
@@ -1212,7 +1203,6 @@
                 {
                     $dplarray = array(
                         'commentaire'=> $this->input->post('comment'),
-                        'idcaisse_depens' => $idc,
                         'active_dep' => 0,
                         'is_actifdep' => 0,
                         'is_validedep' => 0,
@@ -1253,11 +1243,11 @@
                 "SELECT d.id_depot FROM depot d
                 WHERE d.id_depot = ?
                 AND (d.idop_depot = ? OR d.opvalidchef = ?)
-                AND d.idcaisse_depot = ?
+                AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
                 AND {$arrete}
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $idpo, $idcpt, $idcpt, (int) $idc)
+                array((int) $idpo, $idcpt, $idcpt)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -1320,10 +1310,10 @@
                 "SELECT d.id_depot FROM depot d
                 WHERE d.id_depot = ?
                 AND (d.idop_depot = ? OR d.opvalidchef = ?)
-                AND d.idcaisse_depot = ?
+                AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
                 {$escale_sql}
                 LIMIT 1",
-                array((int) $idpo, $idcpt, $idcpt, (int) $idc)
+                array((int) $idpo, $idcpt, $idcpt)
             )->row();
             if (!$row) {
                 $this->session->set_flashdata(
@@ -1345,7 +1335,6 @@
                 {
                     $dpolarray = array(
                         'commentaire_depot'=> $this->input->post('comment'),
-                        'idcaisse_depot' => $idc,
                         'is_actifdepo' => 0,
                         'is_actifdepoad' => 0,
                         'is_validdepo' => 0,
@@ -1356,7 +1345,6 @@
                 else{
                     $dpolarray = array(
                         'commentaire_depot'=> $this->input->post('comment'),
-                        'idcaisse_depot' => $idc,
                         'is_actifdepo' => 0,
                         'is_validdepo' => 0,
                         'valid_depo' => 'rejet',
@@ -1389,7 +1377,7 @@
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idopera, r.idcaisse FROM recette r
                     WHERE {$pending}
                     AND r.active_recet = 1
-                    AND r.idcaisse ='$idc'
+                    AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                     {$dateSql}
                     {$escale_sql}")->result();
                     
@@ -1423,7 +1411,7 @@
                 $cfrecet = $this->db->query("SELECT r.id_recette, r.active_recet, r.is_validerecet, r.operavalidad, r.idopera, r.idcaisse, r.valid_recet FROM recette r
                     WHERE {$pending}
                     AND r.active_recet = 1
-                    AND r.idcaisse ='$idc'
+                    AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                     {$dateSql}
                     {$escale_sql}")->result();
 
@@ -1452,7 +1440,7 @@
                 $cfdepes = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.opevalidad, d.idop_dep, d.idcaisse_depens FROM depense d
                     WHERE {$pending}
                     AND d.active_dep = 1
-                    AND d.idcaisse_depens = '$idc'
+                    AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                     {$dateSql}
                     {$escale_sql}")->result();
 
@@ -1483,7 +1471,7 @@
                 $cfdepe = $this->db->query("SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.opevalidad, d.idop_dep, d.idcaisse_depens FROM depense d
                     WHERE {$pending}
                     AND d.active_dep = 1
-                    AND d.idcaisse_depens = '$idc'
+                    AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                     {$dateSql}
                     {$escale_sql}")->result();
 
@@ -1576,7 +1564,7 @@
             $cfrecet = $rows(
                 "SELECT r.id_recette FROM recette r
                 WHERE r.is_validerecet = 1
-                AND r.idcaisse = '{$idc}'
+                AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                 AND r.operavalid = '{$iduser}'
                 AND r.arret_caisrecet = 1
                 AND r.date_recet BETWEEN '{$db}' AND '{$df}'
@@ -1597,7 +1585,7 @@
             $cfrecetbis = $rows(
                 "SELECT r.id_recette FROM recette r
                 WHERE r.is_validerecet = 1
-                AND r.idcaisse = '{$idc}'
+                AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                 AND r.idopera = '{$iduser}'
                 AND r.operavalid = '{$iduser}'
                 AND r.date_recet BETWEEN '{$db}' AND '{$df}'
@@ -1616,7 +1604,7 @@
             $cfrecetbisr = $rows(
                 "SELECT r.id_recette FROM recette r
                 WHERE r.is_validerecet = 1
-                AND r.idcaisse = '{$idc}'
+                AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
                 AND r.operavalid = '{$iduser}'
                 AND r.arret_caisrecet = 0
                 AND r.date_recet BETWEEN '{$db}' AND '{$df}'
@@ -1634,7 +1622,7 @@
             $cfdepe = $rows(
                 "SELECT d.id_depense FROM depense d
                 WHERE d.is_validedep = 1
-                AND d.idcaisse_depens = '{$idc}'
+                AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                 AND d.opevalid = '{$iduser}'
                 AND d.arret_caisdep = 1
                 AND d.date_depens BETWEEN '{$db}' AND '{$df}'
@@ -1652,7 +1640,7 @@
             $cfdepebis = $rows(
                 "SELECT d.id_depense FROM depense d
                 WHERE d.is_validedep = 1
-                AND d.idcaisse_depens = '{$idc}'
+                AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                 AND d.idop_dep = '{$iduser}'
                 AND d.opevalid = '{$iduser}'
                 AND d.date_depens BETWEEN '{$db}' AND '{$df}'
@@ -1671,7 +1659,7 @@
             $cfdepeb = $rows(
                 "SELECT d.id_depense FROM depense d
                 WHERE d.is_validedep = 1
-                AND d.idcaisse_depens = '{$idc}'
+                AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                 AND d.opevalid = '{$iduser}'
                 AND d.arret_caisdep = 0
                 AND d.date_depens BETWEEN '{$db}' AND '{$df}'
@@ -1689,7 +1677,7 @@
             $cfdepo = $rows(
                 "SELECT d.id_depot FROM depot d
                 WHERE d.is_validdepo = 1
-                AND d.idcaisse_depot = '{$idc}'
+                AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
                 AND d.opvalid = '{$iduser}'
                 AND d.datedepot BETWEEN '{$db}' AND '{$df}'
                 {$fp}"
@@ -1707,7 +1695,7 @@
             $cfvers = $rows(
                 "SELECT v.id_versements FROM versements v
                 WHERE v.valider_vers = 1
-                AND v.idcaisse_versement = '{$idc}'
+                AND " . sous_caisse_predicat('v.idcaisse_versement', $idc) . "
                 AND v.validop = '{$iduser}'
                 AND v.date_versement BETWEEN '{$db}' AND '{$df}'
                 {$fv}"
@@ -1770,13 +1758,13 @@
                 }
             };
 
-            $b = array($idc, $du, $au);
+            $b = array($du, $au);
             $det_rec = caisse_validation_detenteur_sql('r.idopera', 'r.operavalidchef');
             $det_dep = caisse_validation_detenteur_sql('d.idop_dep', 'd.opevalidchef');
             $det_depo = caisse_validation_detenteur_sql('d.idop_depot', 'd.opvalidchef');
             $run(
                 "SELECT {$det_rec} AS ra, COUNT(*) AS nb FROM recette r
-                WHERE r.idcaisse = ? AND r.date_recet BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('r.idcaisse', $idc) . " AND r.date_recet BETWEEN ? AND ?
                 AND IFNULL(r.ferme_caisrecet, 0) = 0
                 AND IFNULL(r.active_recet, 0) = 0
                 AND IFNULL(r.is_actifrecet, 0) = 0
@@ -1788,7 +1776,7 @@
             );
             $run(
                 "SELECT {$det_rec} AS ra, COUNT(*) AS nb FROM recette r
-                WHERE r.idcaisse = ? AND r.date_recet BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('r.idcaisse', $idc) . " AND r.date_recet BETWEEN ? AND ?
                 AND IFNULL(r.ferme_caisrecet, 0) = 0
                 AND IFNULL(r.active_recet, 0) = 1
                 AND IFNULL(r.is_actifrecetad, 0) = 0
@@ -1800,7 +1788,7 @@
             );
             $run(
                 "SELECT IFNULL(r.operavalidad, 0) AS ra, COUNT(*) AS nb FROM recette r
-                WHERE r.idcaisse = ? AND r.date_recet BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('r.idcaisse', $idc) . " AND r.date_recet BETWEEN ? AND ?
                 AND IFNULL(r.ferme_caisrecet, 0) = 0
                 AND IFNULL(r.is_actifrecetad, 0) = 1
                 AND IFNULL(r.is_actifrecet, 0) = 0
@@ -1811,7 +1799,7 @@
             );
             $run(
                 "SELECT IFNULL(r.operavalid, 0) AS ra, COUNT(*) AS nb FROM recette r
-                WHERE r.idcaisse = ? AND r.date_recet BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('r.idcaisse', $idc) . " AND r.date_recet BETWEEN ? AND ?
                 AND IFNULL(r.ferme_caisrecet, 0) = 0
                 AND IFNULL(r.is_actifrecetad, 0) = 1
                 AND IFNULL(r.is_actifrecet, 0) = 0
@@ -1823,7 +1811,7 @@
 
             $run(
                 "SELECT {$det_dep} AS ra, COUNT(*) AS nb FROM depense d
-                WHERE d.idcaisse_depens = ? AND d.date_depens BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('d.idcaisse_depens', $idc) . " AND d.date_depens BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdep, 0) = 0
                 AND IFNULL(d.active_dep, 0) = 0
                 AND IFNULL(d.is_actifdep, 0) = 0
@@ -1835,7 +1823,7 @@
             );
             $run(
                 "SELECT {$det_dep} AS ra, COUNT(*) AS nb FROM depense d
-                WHERE d.idcaisse_depens = ? AND d.date_depens BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('d.idcaisse_depens', $idc) . " AND d.date_depens BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdep, 0) = 0
                 AND IFNULL(d.active_dep, 0) = 1
                 AND IFNULL(d.is_actifdepad, 0) = 0
@@ -1847,7 +1835,7 @@
             );
             $run(
                 "SELECT IFNULL(d.opevalidad, 0) AS ra, COUNT(*) AS nb FROM depense d
-                WHERE d.idcaisse_depens = ? AND d.date_depens BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('d.idcaisse_depens', $idc) . " AND d.date_depens BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdep, 0) = 0
                 AND IFNULL(d.is_actifdepad, 0) = 1
                 AND IFNULL(d.is_actifdep, 0) = 0
@@ -1858,7 +1846,7 @@
             );
             $run(
                 "SELECT IFNULL(d.opevalid, 0) AS ra, COUNT(*) AS nb FROM depense d
-                WHERE d.idcaisse_depens = ? AND d.date_depens BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('d.idcaisse_depens', $idc) . " AND d.date_depens BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdep, 0) = 0
                 AND IFNULL(d.is_actifdepad, 0) = 1
                 AND IFNULL(d.is_actifdep, 0) = 0
@@ -1870,7 +1858,7 @@
 
             $run(
                 "SELECT {$det_depo} AS ra, COUNT(*) AS nb FROM depot d
-                WHERE d.idcaisse_depot = ? AND d.datedepot BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('d.idcaisse_depot', $idc) . " AND d.datedepot BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdepo, 0) = 0
                 AND IFNULL(d.is_actifdepo, 0) = 0
                 AND IFNULL(d.is_actifdepoad, 0) = 0
@@ -1883,7 +1871,7 @@
             );
             $run(
                 "SELECT {$det_depo} AS ra, COUNT(*) AS nb FROM depot d
-                WHERE d.idcaisse_depot = ? AND d.datedepot BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('d.idcaisse_depot', $idc) . " AND d.datedepot BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdepo, 0) = 0
                 AND IFNULL(d.is_actifdepo, 0) = 0
                 AND IFNULL(d.is_actifdepoad, 0) = 0
@@ -1896,7 +1884,7 @@
             );
             $run(
                 "SELECT IFNULL(d.opvalidad, 0) AS ra, COUNT(*) AS nb FROM depot d
-                WHERE d.idcaisse_depot = ? AND d.datedepot BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('d.idcaisse_depot', $idc) . " AND d.datedepot BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdepo, 0) = 0
                 AND IFNULL(d.is_actifdepoad, 0) = 1
                 AND IFNULL(d.is_actifdepo, 0) = 0
@@ -1907,7 +1895,7 @@
             );
             $run(
                 "SELECT IFNULL(d.opvalid, 0) AS ra, COUNT(*) AS nb FROM depot d
-                WHERE d.idcaisse_depot = ? AND d.datedepot BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('d.idcaisse_depot', $idc) . " AND d.datedepot BETWEEN ? AND ?
                 AND IFNULL(d.ferme_caisdepo, 0) = 0
                 AND IFNULL(d.is_actifdepoad, 0) = 1
                 AND IFNULL(d.is_actifdepo, 0) = 0
@@ -1921,7 +1909,7 @@
                 AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier' ";
             $run(
                 "SELECT v.idop_versement AS ra, COUNT(*) AS nb FROM versements v
-                WHERE v.idcaisse_versement = ? AND v.date_versement BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('v.idcaisse_versement', $idc) . " AND v.date_versement BETWEEN ? AND ?
                 AND IFNULL(v.ferme_caisvers, 0) = 0
                 AND IFNULL(v.is_actifverser, 0) = 0
                 AND IFNULL(v.is_actifverserad, 0) = 0
@@ -1934,7 +1922,7 @@
             );
             $run(
                 "SELECT v.idop_versement AS ra, COUNT(*) AS nb FROM versements v
-                WHERE v.idcaisse_versement = ? AND v.date_versement BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('v.idcaisse_versement', $idc) . " AND v.date_versement BETWEEN ? AND ?
                 AND IFNULL(v.ferme_caisvers, 0) = 0
                 AND IFNULL(v.active_verse, 0) = 1
                 AND IFNULL(v.is_actifverser, 0) = 0
@@ -1947,7 +1935,7 @@
             );
             $run(
                 "SELECT IFNULL(v.validopad, 0) AS ra, COUNT(*) AS nb FROM versements v
-                WHERE v.idcaisse_versement = ? AND v.date_versement BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('v.idcaisse_versement', $idc) . " AND v.date_versement BETWEEN ? AND ?
                 AND IFNULL(v.ferme_caisvers, 0) = 0
                 AND IFNULL(v.is_actifverser, 0) = 0
                 AND IFNULL(v.is_actifverserad, 0) = 1
@@ -1958,7 +1946,7 @@
             );
             $run(
                 "SELECT IFNULL(v.validop, 0) AS ra, COUNT(*) AS nb FROM versements v
-                WHERE v.idcaisse_versement = ? AND v.date_versement BETWEEN ? AND ?
+                WHERE " . sous_caisse_predicat('v.idcaisse_versement', $idc) . " AND v.date_versement BETWEEN ? AND ?
                 AND IFNULL(v.ferme_caisvers, 0) = 0
                 AND IFNULL(v.is_actifverserad, 0) = 1
                 AND IFNULL(v.is_actifverser, 0) = 0

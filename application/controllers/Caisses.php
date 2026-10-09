@@ -1,4 +1,4 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed');
+é<?php defined('BASEPATH') OR exit('No direct script access allowed');
     
     class Caisses extends MY_Controller
     {
@@ -309,6 +309,7 @@
                     $gid_sql = $this->db->escape($cdg);
                     $cpr_sql = (int) $cpr;
                     $cid_sql = (int) $cid;
+                    $caisse_pred = sous_caisse_predicat('cs.id_caiss', $cid_sql);
                     $fr = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet') : '';
                     $fd = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep') : '';
                     $fp = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_pre', 'd.idop_depot') : '';
@@ -328,7 +329,7 @@
                     $this->property['recettescaisse'] = $this->db->query(
                         "SELECT SUM(r.montant_recet) AS total FROM recette r
                         JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                        WHERE cs.id_caiss = {$cid_sql} AND cs.gexp_caiss = {$gid_sql}
+                        WHERE {$caisse_pred} AND cs.gexp_caiss = {$gid_sql}
                         AND r.is_actifrecet = 1 AND r.ferme_caisrecet = 0 AND r.actif_rect = 0
                         AND r.date_recet <= '{$today_arret}' AND r.type_recet <> 'Courrier'
                         AND r.operavalid = {$cpr_sql} {$fr}"
@@ -337,7 +338,7 @@
                     $this->property['depensescaisse'] = $this->db->query(
                         "SELECT SUM(d.montant_depens) AS total FROM depense d
                         JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                        WHERE cs.id_caiss = {$cid_sql} AND cs.gexp_caiss = {$gid_sql}
+                        WHERE {$caisse_pred} AND cs.gexp_caiss = {$gid_sql}
                         AND d.is_actifdep = 1 AND d.actif_deps = 0 AND d.ferme_caisdep = 0
                         AND d.date_depens <= '{$today_arret}' AND d.type_depense <> 'Courrier'
                         AND d.opevalid = {$cpr_sql} {$fd}"
@@ -346,7 +347,7 @@
                     $this->property['depots'] = $this->db->query(
                         "SELECT SUM(d.montant_depot) AS total FROM depot d
                         JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
-                        WHERE cs.id_caiss = {$cid_sql} AND cs.gexp_caiss = {$gid_sql}
+                        WHERE {$caisse_pred} AND cs.gexp_caiss = {$gid_sql}
                         AND d.is_validdepo = 1 AND d.ferme_caisdepo = 0 AND d.actif_depo = 0
                         AND d.datedepot <= '{$today_arret}' AND d.type_depot <> 'Courrier'
                         AND d.opvalid = {$cpr_sql} {$fp}"
@@ -354,7 +355,7 @@
                     $this->property['montanttotal'] = $this->db->query(
                         "SELECT SUM(v.montant_verser) AS montant_solde FROM versements v
                         JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
-                        WHERE cs.id_caiss = {$cid_sql} AND cs.gexp_caiss = {$gid_sql}
+                        WHERE {$caisse_pred} AND cs.gexp_caiss = {$gid_sql}
                         AND v.is_actifverser = 1 AND v.ferme_caisvers = 0 AND v.actifvers = 0
                         AND v.date_versement <= '{$today_arret}'
                         AND v.type_versement <> 'Bordereau_bancairecourrier'
@@ -1087,7 +1088,7 @@
 
             $this->company = $this->m_entreprises->get_key($ckey); 
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
@@ -1096,7 +1097,7 @@
             if($this->input->post('daterecep')!= '')
             {
                 $arrayrecette = array(
-                    'idcaisse' => $this->input->post('idcaisse'),
+                    'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                     'idopera' => $iduser,
                     'recetsgid' => $sgid,
                     'id_genre_recet' => $this->input->post('genre'),
@@ -1150,7 +1151,7 @@
 
             $this->company = $this->m_entreprises->get_key($ckey); 
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -1165,7 +1166,7 @@
             if($this->input->post('daterecep')!= '')
             {
                 $arrayrecette = array(
-                'idcaisse' => $this->input->post('idcaisse'),
+                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                 'id_genre_recet' => $this->input->post('genre'),
                 'compkey_recet' => $this->input->post('_compag'),
                 'type_recet' => $this->input->post('interne'),
@@ -1194,7 +1195,7 @@
 
             $this->company = $this->m_entreprises->get_key($ckey); 
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
@@ -1208,7 +1209,7 @@
             if($this->input->post('daterecep')!= '')
             {
                 $arrayrecette = array(
-                    'idcaisse' => $this->input->post('idcaisse'),
+                    'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                     'id_genre_recet' => $this->input->post('genre'),
                     'compkey_recet' => $this->input->post('_compag'),
                     'type_recet' => $this->input->post('interne'),
@@ -1369,7 +1370,7 @@
         {
                 $this->company = $this->m_entreprises->get_key($ckey);
                 $identifiant_gare = $this->input->post('idgarecode');
-                $identifiant_caisse = $this->input->post('idcaisse');
+                $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
                 $gid = $this->input->post('gareconnect');
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
@@ -6329,7 +6330,7 @@
                                 $this->m_comptes_guichet->create($arraycompt);
 
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -6410,7 +6411,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -6425,7 +6426,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -6542,7 +6543,7 @@
                             $this->m_comptes_guichet->create($arraycompt3);
 
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -6557,7 +6558,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -6572,7 +6573,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -6710,7 +6711,7 @@
                             $this->m_comptes_guichet->create($arraycompt3);
 
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -6725,7 +6726,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -6740,7 +6741,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -6755,7 +6756,7 @@
                             $recette3 = $this->m_recette->create($arrayrecette3);
 
                             $arrayrecette4 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde4,
                                 'type_recet' => 'Ticket',
@@ -6814,7 +6815,7 @@
                             $this->m_comptes_guichet->create($arraycompt);
 
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -6891,7 +6892,7 @@
 
                             
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -6906,7 +6907,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -7003,7 +7004,7 @@
 
                             
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -7018,7 +7019,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -7033,7 +7034,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -7281,7 +7282,7 @@
                                 $this->m_comptes_guichet->create($arraycompt);
 
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -7362,7 +7363,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -7377,7 +7378,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -7494,7 +7495,7 @@
                             $this->m_comptes_guichet->create($arraycompt3);
 
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -7509,7 +7510,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -7524,7 +7525,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -7662,7 +7663,7 @@
                             $this->m_comptes_guichet->create($arraycompt3);
 
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -7677,7 +7678,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -7692,7 +7693,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -7707,7 +7708,7 @@
                             $recette3 = $this->m_recette->create($arrayrecette3);
 
                             $arrayrecette4 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde4,
                                 'type_recet' => 'Ticket',
@@ -7817,7 +7818,7 @@
                             $this->m_comptes_guichet->create($arraycompt);
 
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -7932,7 +7933,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt2);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -7947,7 +7948,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -8210,7 +8211,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt3);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -8225,7 +8226,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -8240,7 +8241,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -8529,7 +8530,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt4);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -8544,7 +8545,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -8559,7 +8560,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -8574,7 +8575,7 @@
                             $recette3 = $this->m_recette->create($arrayrecette3);
 
                             $arrayrecette4 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde4,
                                 'type_recet' => 'Ticket',
@@ -8703,7 +8704,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -8842,7 +8843,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt2);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -8857,7 +8858,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -9074,7 +9075,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt3);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -9089,7 +9090,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -9104,7 +9105,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -9473,7 +9474,7 @@
                             $this->m_comptes_guichet->create($arraycompt4);
 
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -9488,7 +9489,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -9503,7 +9504,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -9518,7 +9519,7 @@
                             $recette3 = $this->m_recette->create($arrayrecette3);
 
                             $arrayrecette4 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde4,
                                 'type_recet' => 'Ticket',
@@ -9941,7 +9942,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -10371,7 +10372,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt2);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -10386,7 +10387,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -10831,7 +10832,7 @@
                             );
                             $this->m_comptes_guichet->create($arraycompt3);
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -10846,7 +10847,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -10861,7 +10862,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -11321,7 +11322,7 @@
                             $this->m_comptes_guichet->create($arraycompt4);
                     
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -11336,7 +11337,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -11351,7 +11352,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -11366,7 +11367,7 @@
                             $recette3 = $this->m_recette->create($arrayrecette3);
 
                             $arrayrecette4 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde4,
                                 'type_recet' => 'Ticket',
@@ -11425,7 +11426,7 @@
                             $this->m_comptes_guichet->create($arraycompt);
 
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -11502,7 +11503,7 @@
 
                             
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -11517,7 +11518,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -11614,7 +11615,7 @@
 
                             
                             $arrayrecette = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde1,
                                 'type_recet' => 'Ticket',
@@ -11629,7 +11630,7 @@
                             $recette = $this->m_recette->create($arrayrecette);
 
                             $arrayrecette2 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde2,
                                 'type_recet' => 'Ticket',
@@ -11644,7 +11645,7 @@
                             $recette2 = $this->m_recette->create($arrayrecette2);
 
                             $arrayrecette3 = array(
-                                'idcaisse' => $this->input->post('idcaisse'),
+                                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                                 'id_genre_recet' => $this->input->post('genre'),
                                 'compkey_recet' => $cde3,
                                 'type_recet' => 'Ticket',
@@ -11688,7 +11689,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -11727,7 +11728,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -11763,7 +11764,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -11830,7 +11831,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
 
                 $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -11895,7 +11896,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -11935,7 +11936,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -11974,7 +11975,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
@@ -12037,7 +12038,7 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);

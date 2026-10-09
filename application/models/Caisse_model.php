@@ -12,6 +12,15 @@
          */
         
         
+        protected function _sans_sous_caisse_sql()
+        {
+            if (!$this->db->field_exists('parent_caiss', 'caisse')) {
+                return '';
+            }
+
+            return ' AND (ce.parent_caiss IS NULL OR ce.parent_caiss = 0) ';
+        }
+
         public function get($cid, $gid, $pk = FALSE)
         {
             $today = mdate('%Y-%m-%d', now());
@@ -24,7 +33,7 @@
                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.id_entreprise = '$cid'
-                AND ce.gexp_caiss = '$gid'")->result();
+                AND ce.gexp_caiss = '$gid'" . $this->_sans_sous_caisse_sql())->result();
             }
             return $this->db->query(
                 "SELECT * FROM caisse ce
@@ -48,7 +57,7 @@
                 JOIN type_caisse t ON ce.type_caisse = t.id_typecaisse
                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cid'")->result();
+                WHERE e.ekey = '$cid'" . $this->_sans_sous_caisse_sql())->result();
             }
             return $this->db->query(
                 "SELECT * FROM caisse ce
@@ -72,7 +81,7 @@
                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.id_entreprise = '$cid'
-                AND ce.gexp_caiss = '$gid'")->result();
+                AND ce.gexp_caiss = '$gid'" . $this->_sans_sous_caisse_sql())->result();
             }
             return $this->db->query(
                 "SELECT * FROM caisse ce

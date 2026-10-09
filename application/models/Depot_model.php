@@ -632,7 +632,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
-                AND d.idcaisse_depot = '$idcais'
+                AND " . sous_caisse_predicat('d.idcaisse_depot', $idcais) . "
                 AND (d.idop_depot = {$use} OR d.opvalidchef = {$use})
                 AND d.is_validdepo = 0
                 AND COALESCE(d.valid_depo, '') = 'valid'
@@ -662,7 +662,7 @@
                 JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND d.idcaisse_depot = '$idcais'
+                AND " . sous_caisse_predicat('d.idcaisse_depot', $idcais) . "
                 AND {$pending}
                 AND d.datedepot <= '$today'
                 AND d.actif_depo = 0
@@ -705,7 +705,7 @@
                 JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = ?
-                AND d.idcaisse_depot = ?
+                AND " . sous_caisse_predicat('d.idcaisse_depot', $idcais) . "
                 AND {$pending}
                 AND d.datedepot <= ?
                 AND d.actif_depo = 0
@@ -714,7 +714,7 @@
                 {$dateSql}
                 " . caissier_escale_nom_filtre_sql('d.nom_pre') . "
                 ORDER BY d.datedepot ASC, d.createddepot_at ASC, d.id_depot ASC",
-                array($cid, $idcais, $today, $gid)
+                array($cid, $today, $gid)
             )->result();
         }
 
@@ -734,7 +734,7 @@
                 WHERE e.ekey = '$cid'
                 AND ul.guser = '$gid'
                 AND d.arret_caisdepo = 0
-                AND d.idcaisse_depot = '$idcais'
+                AND " . sous_caisse_predicat('d.idcaisse_depot', $idcais) . "
                 AND d.idop_depot = '$use'
                 AND d.is_validdepo = 0
                 AND d.is_actifdepo = 0

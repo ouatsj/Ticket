@@ -3003,7 +3003,9 @@ if (!function_exists('caissier_arret_pending_map')) {
         $CI =& get_instance();
         $gid = roleattribut_guard_normalize_gare_id($ekey, $gid);
         $idcais = ($idcais !== null && (int) $idcais > 0) ? (int) $idcais : null;
-        $caisse_sql = $idcais !== null ? ' AND cs.id_caiss = ' . $idcais : '';
+        $caisse_sql = $idcais !== null
+            ? ' AND ' . sous_caisse_predicat('cs.id_caiss', $idcais)
+            : '';
         $map = array();
 
         $init = function ($ra) use (&$map) {
@@ -3274,7 +3276,9 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
         $gid = roleattribut_guard_normalize_gare_id($ekey, $gid);
         $idcais = ($idcais !== null && (int) $idcais > 0) ? (int) $idcais : null;
         $today = mdate('%Y-%m-%d', now());
-        $caisse_sql = $idcais !== null ? ' AND cs.id_caiss = ' . $idcais : '';
+        $caisse_sql = $idcais !== null
+            ? ' AND ' . sous_caisse_predicat('cs.id_caiss', $idcais)
+            : '';
         $map = array();
 
         $init = function ($ra) use (&$map) {
