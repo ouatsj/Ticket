@@ -12547,36 +12547,47 @@
                 $fp_arret = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_pre') : '';
                 $fv_arret = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('v.nom_beneficiaire') : '';
                 $today_compte = mdate('%Y-%m-%d', now());
+                $escale_arret_page = function_exists('caissier_escale_ops_from_request')
+                    && caissier_escale_ops_from_request();
                 if ($ad_arret) {
-                    $op_depot = 'AND d.opvalidad = ' . (int) $icx
-                        . ' AND d.is_actifdepoad = 1 AND d.is_actifdepo = 0 AND IFNULL(d.arret_caisdepo, 0) = 0';
-                    $op_vers = 'AND v.validopad = ' . (int) $icx
-                        . ' AND IFNULL(v.is_actifverserad, 0) = 1 AND IFNULL(v.is_actifverser, 0) = 0'
+                    $op_depot = $escale_arret_page && function_exists('caissier_validation_personne_where')
+                        ? 'AND ' . caissier_validation_personne_where('d.opvalidad', '', (int) $icx)
+                        : 'AND d.opvalidad = ' . (int) $icx;
+                    $op_depot .= ' AND d.is_actifdepoad = 1 AND d.is_actifdepo = 0 AND IFNULL(d.arret_caisdepo, 0) = 0';
+                    $op_vers = $escale_arret_page && function_exists('caissier_validation_personne_where')
+                        ? 'AND ' . caissier_validation_personne_where('v.validopad', '', (int) $icx)
+                        : 'AND v.validopad = ' . (int) $icx;
+                    $op_vers .= ' AND IFNULL(v.is_actifverserad, 0) = 1 AND IFNULL(v.is_actifverser, 0) = 0'
                         . ' AND IFNULL(v.arret_caisvers, 0) = 0';
                 } else {
-                    $op_depot = 'AND d.idop_depot = ' . (int) $icx
-                        . " AND IFNULL(d.is_validdepo, 0) = 0 AND COALESCE(d.valid_depo, '') <> 'valid'"
+                    $op_depot = $escale_arret_page && function_exists('caissier_validation_personne_where')
+                        ? 'AND ' . caissier_validation_personne_where('d.idop_depot', 'd.opvalidchef', (int) $icx)
+                        : 'AND d.idop_depot = ' . (int) $icx;
+                    $op_depot .= " AND IFNULL(d.is_validdepo, 0) = 0 AND COALESCE(d.valid_depo, '') <> 'valid'"
                         . ' AND IFNULL(d.arret_caisdepo, 0) = 0';
-                    $op_vers = 'AND v.idop_versement = ' . (int) $icx
-                        . ' AND IFNULL(v.active_verse, 0) = 0 AND IFNULL(v.valider_vers, 0) = 0'
+                    $op_vers = $escale_arret_page && function_exists('caissier_validation_personne_where')
+                        ? 'AND ' . caissier_validation_personne_where('v.idop_versement', '', (int) $icx)
+                        : 'AND v.idop_versement = ' . (int) $icx;
+                    $op_vers .= ' AND IFNULL(v.active_verse, 0) = 0 AND IFNULL(v.valider_vers, 0) = 0'
                         . ' AND IFNULL(v.is_actifverser, 0) = 0 AND IFNULL(v.is_actifverserad, 0) = 0'
                         . ' AND IFNULL(v.arret_caisvers, 0) = 0';
                 }
+                $caisse_arret_sql = $escale_arret_page
+                    ? ''
+                    : ('cs.id_caiss = ' . (int) $cid . ' AND cs.gexp_caiss = ' . $this->db->escape($cdg) . ' AND ');
                 $this->property['depots_compte'] = $this->db->query(
                     "SELECT SUM(d.montant_depot) AS total FROM depot d
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
-                    WHERE cs.id_caiss = " . (int) $cid . "
-                    AND cs.gexp_caiss = " . $this->db->escape($cdg) . "
-                    AND d.actif_depo = 0 AND d.type_depot <> 'Courrier'
+                    WHERE {$caisse_arret_sql}
+                    d.actif_depo = 0 AND d.type_depot <> 'Courrier'
                     AND d.datedepot <= " . $this->db->escape($today_compte) . "
                     {$op_depot} {$fp_arret}"
                 )->row();
                 $this->property['versements_compte'] = $this->db->query(
                     "SELECT SUM(v.montant_verser) AS total FROM versements v
                     JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
-                    WHERE cs.id_caiss = " . (int) $cid . "
-                    AND cs.gexp_caiss = " . $this->db->escape($cdg) . "
-                    AND IFNULL(v.type_versement, '') <> 'Courrier'
+                    WHERE {$caisse_arret_sql}
+                    IFNULL(v.type_versement, '') <> 'Courrier'
                     AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
                     AND v.date_versement <= " . $this->db->escape($today_compte) . "
                     {$op_vers} {$fv_arret}"

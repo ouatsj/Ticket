@@ -43,7 +43,9 @@ $bundle_datatables = !empty($bundle_datatables);
         App.init();
         App.uiSweetalert2();
         if (<?= $bundle_datatables ? 'true' : 'false'; ?> && $.fn.dataTable && typeof App.dataTables === 'function') {
-            App.dataTables();
+            try {
+                App.dataTables();
+            } catch (eDt) {}
         }
         // Message d'échec vente (redirect silencieux addpassager)
         (function () {

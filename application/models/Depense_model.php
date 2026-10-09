@@ -1520,11 +1520,24 @@
             $today = mdate('%Y-%m-%d', now());
             $conect = (int) $conect;
             $userole = recette_role_userole_for_attribut($conect);
-            $op_sql = recette_role_is_validateur_adjoint($userole)
-                ? "AND d.opevalidad = {$conect} AND d.is_actifdepad = 1 AND d.is_actifdep = 0 AND IFNULL(d.arret_caisdep, 0) = 0"
-                : "AND (d.idop_dep = {$conect} OR d.opevalidchef = {$conect}) AND d.active_dep = 0";
+            $escale_page = function_exists('caissier_escale_ops_from_request') && caissier_escale_ops_from_request();
+            if ($escale_page && function_exists('caissier_validation_personne_where')) {
+                $op_sql = recette_role_is_validateur_adjoint($userole)
+                    ? 'AND ' . caissier_validation_personne_where('d.opevalidad', '', $conect)
+                        . ' AND d.is_actifdepad = 1 AND d.is_actifdep = 0 AND IFNULL(d.arret_caisdep, 0) = 0'
+                    : 'AND ' . caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $conect)
+                        . ' AND d.active_dep = 0';
+            } else {
+                $op_sql = recette_role_is_validateur_adjoint($userole)
+                    ? "AND d.opevalidad = {$conect} AND d.is_actifdepad = 1 AND d.is_actifdep = 0 AND IFNULL(d.arret_caisdep, 0) = 0"
+                    : "AND (d.idop_dep = {$conect} OR d.opevalidchef = {$conect}) AND d.active_dep = 0";
+            }
+            $caisse_sql = $escale_page
+                ? ''
+                : ("AND cs.gexp_caiss = '$g' AND cs.id_caiss = '$idcais'");
+            $group_sql = $escale_page ? '' : 'GROUP BY cs.id_caiss';
             $peri = '';
-            if (function_exists('caissier_escale_ops_from_request') && caissier_escale_ops_from_request()) {
+            if ($escale_page) {
                 $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_perso') : '';
             } elseif (recette_role_is_validateur_adjoint($userole)) {
                 $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_perso') : '';
@@ -1547,11 +1560,10 @@
                 {$op_sql}
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
-                AND cs.gexp_caiss = '$g'
+                {$caisse_sql}
                 AND d.type_depense <> 'Courrier'
-                AND cs.id_caiss = '$idcais'
                 {$peri}
-                GROUP BY cs.id_caiss")->row();
+                {$group_sql}")->row();
         }
 
         // Dépenses de la caisse (stock arrêté chef, jusqu'à l'arrêt caisse).

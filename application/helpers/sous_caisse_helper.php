@@ -63,6 +63,21 @@ if (!function_exists('sous_caisse_libelle')) {
     {
         $CI =& get_instance();
         $nom = trim((string) $CI->input->get_post('escale_nom'));
+        if ($nom === '' && $cle !== '') {
+            $row = $CI->db->query(
+                "SELECT vente_escale_label
+                 FROM attributions_role
+                 WHERE REPLACE(TRIM(vente_escale_value), '|', '~') = ?
+                   AND vente_escale_label IS NOT NULL
+                   AND TRIM(vente_escale_label) <> ''
+                 ORDER BY IFNULL(activer_role, 0) ASC, roleattribut ASC
+                 LIMIT 1",
+                array($cle)
+            )->row();
+            if ($row && trim((string) $row->vente_escale_label) !== '') {
+                $nom = trim((string) $row->vente_escale_label);
+            }
+        }
         if ($nom === '') {
             $nom = (string) $cle;
         }
@@ -83,13 +98,17 @@ if (!function_exists('sous_caisse_enfant_id')) {
      * @param int $parentId
      * @return int
      */
-    function sous_caisse_enfant_id($parentId)
+    function sous_caisse_enfant_id($parentId, $cle = null)
     {
         $parentId = (int) $parentId;
         if ($parentId <= 0 || !sous_caisse_colonnes_ok()) {
             return 0;
         }
-        $cle = sous_caisse_cle_page();
+        if ($cle === null) {
+            $cle = sous_caisse_cle_page();
+        } else {
+            $cle = str_replace('|', '~', trim((string) $cle));
+        }
         if ($cle === '') {
             return 0;
         }
@@ -111,13 +130,17 @@ if (!function_exists('sous_caisse_assurer')) {
      * @param int|string $parentId
      * @return int
      */
-    function sous_caisse_assurer($parentId)
+    function sous_caisse_assurer($parentId, $cle = null)
     {
         $parentId = (int) $parentId;
         if ($parentId <= 0 || !sous_caisse_colonnes_ok()) {
             return $parentId;
         }
-        $cle = sous_caisse_cle_page();
+        if ($cle === null) {
+            $cle = sous_caisse_cle_page();
+        } else {
+            $cle = str_replace('|', '~', trim((string) $cle));
+        }
         if ($cle === '') {
             return $parentId;
         }
@@ -133,7 +156,7 @@ if (!function_exists('sous_caisse_assurer')) {
         if ((int) $parent->parent_caiss > 0) {
             return $parentId;
         }
-        $existant = sous_caisse_enfant_id($parentId);
+        $existant = sous_caisse_enfant_id($parentId, $cle);
         if ($existant > 0) {
             return $existant;
         }
@@ -149,7 +172,7 @@ if (!function_exists('sous_caisse_assurer')) {
         if ($id > 0) {
             return $id;
         }
-        $encore = sous_caisse_enfant_id($parentId);
+        $encore = sous_caisse_enfant_id($parentId, $cle);
 
         return $encore > 0 ? $encore : $parentId;
     }
@@ -214,5 +237,50 @@ if (!function_exists('sous_caisse_predicat')) {
         }
 
         return $column . ' IN (' . implode(',', $ids) . ')';
+    }
+}
+
+if (!function_exists('sous_caisse_id_agent')) {
+    /**
+     * Sous-caisse de l'agent vente-escale, sous la caisse mère de sa gare de rattachement.
+     * 0 si l'agent n'est pas une escale.
+     *
+     * @param int|string $agentId roleattribut
+     * @return int
+     */
+    function sous_caisse_id_agent($agentId)
+    {
+        $agentId = (int) $agentId;
+        if ($agentId <= 0 || !sous_caisse_colonnes_ok()) {
+            return 0;
+        }
+        $CI =& get_instance();
+        $agent = $CI->db->query(
+            "SELECT REPLACE(TRIM(ar.vente_escale_value), '|', '~') AS cle, ul.guser
+             FROM attributions_role ar
+             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+             WHERE ar.roleattribut = ?
+               AND ar.userole = 17
+               AND ar.vente_escale_value IS NOT NULL
+               AND TRIM(ar.vente_escale_value) <> ''
+             LIMIT 1",
+            array($agentId)
+        )->row();
+        if (!$agent || trim((string) $agent->cle) === '' || trim((string) $agent->guser) === '') {
+            return 0;
+        }
+        $mere = $CI->db->query(
+            "SELECT id_caiss FROM caisse
+             WHERE gexp_caiss = ?
+               AND (parent_caiss IS NULL OR parent_caiss = 0)
+             ORDER BY id_caiss ASC
+             LIMIT 1",
+            array(trim((string) $agent->guser))
+        )->row();
+        if (!$mere || (int) $mere->id_caiss <= 0) {
+            return 0;
+        }
+
+        return sous_caisse_assurer((int) $mere->id_caiss, $agent->cle);
     }
 }

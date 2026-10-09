@@ -2007,11 +2007,24 @@
             $today = mdate('%Y-%m-%d', now());
             $conect = (int) $conect;
             $userole = recette_role_userole_for_attribut($conect);
-            $op_sql = recette_role_is_validateur_adjoint($userole)
-                ? "AND r.operavalidad = {$conect} AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0 AND IFNULL(r.arret_caisrecet, 0) = 0"
-                : "AND (r.idopera = {$conect} OR r.operavalidchef = {$conect}) AND r.active_recet = 0";
+            $escale_page = function_exists('caissier_escale_ops_from_request') && caissier_escale_ops_from_request();
+            if ($escale_page && function_exists('caissier_validation_personne_where')) {
+                $op_sql = recette_role_is_validateur_adjoint($userole)
+                    ? 'AND ' . caissier_validation_personne_where('r.operavalidad', '', $conect)
+                        . ' AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0 AND IFNULL(r.arret_caisrecet, 0) = 0'
+                    : 'AND ' . caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $conect)
+                        . ' AND r.active_recet = 0';
+            } else {
+                $op_sql = recette_role_is_validateur_adjoint($userole)
+                    ? "AND r.operavalidad = {$conect} AND r.is_actifrecetad = 1 AND r.is_actifrecet = 0 AND IFNULL(r.arret_caisrecet, 0) = 0"
+                    : "AND (r.idopera = {$conect} OR r.operavalidchef = {$conect}) AND r.active_recet = 0";
+            }
+            $caisse_sql = $escale_page
+                ? ''
+                : ("AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . " AND cs.gexp_caiss = '$g'");
+            $group_sql = $escale_page ? '' : 'GROUP BY cs.id_caiss';
             $peri = '';
-            if (function_exists('caissier_escale_ops_from_request') && caissier_escale_ops_from_request()) {
+            if ($escale_page) {
                 $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('r.nom') : '';
             } elseif (recette_role_is_validateur_adjoint($userole)) {
                 $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('r.nom') : '';
@@ -2034,12 +2047,11 @@
                 WHERE e.ekey = '$cid'
                 {$op_sql}
                 AND r.date_recet <= '$today'
-                AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
-                AND cs.gexp_caiss = '$g'
+                {$caisse_sql}
                 AND r.type_recet <> 'Courrier'
                 AND r.actif_rect = 0
                 {$peri}
-                GROUP BY cs.id_caiss")->row();
+                {$group_sql}")->row();
         }
         //recette de la caisse pour arret caisse
         public function ad_recetcais($cid, $g, $idcais, $conect)
