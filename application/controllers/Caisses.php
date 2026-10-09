@@ -12279,7 +12279,7 @@
                     $this->_bind_compte_recettes_depenses_pending($icx, $cdg, $conex);
                     $escale_ops = $this->_escale_ops_ids();
                     if ($escale_ops) {
-                        $this->property['recettes'] = $this->m_recette->ad_getrecet_escale($this->company->ekey, $cdg, $escale_ops);
+                        $this->property['recettes'] = $this->m_recette->ad_getrecet_escale($this->company->ekey, $cdg, $escale_ops, $icx);
                     } else {
                         $this->property['recettes'] = $this->m_recette->ad_getrecet($this->company->ekey, $cdg, $idsg, $cid, $icx, FALSE, $userole, true);
                     }
@@ -12310,7 +12310,7 @@
                 $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                 $escale_ops = $this->_escale_ops_ids();
                 if ($escale_ops) {
-                    $this->property['versements'] = $this->m_versements->ad_get_escale($this->company->ekey, $cdg, $escale_ops);
+                    $this->property['versements'] = $this->m_versements->ad_get_escale($this->company->ekey, $cdg, $escale_ops, $icx);
                     $total_verse = 0.0;
                     foreach ($this->property['versements'] as $ligne_escale) {
                         $total_verse += isset($ligne_escale->montant_verser) ? (float) $ligne_escale->montant_verser : 0;
@@ -12385,7 +12385,7 @@
                 $this->_bind_compte_recettes_depenses_pending($icx, $cdg, $conex);
                 $escale_ops = $this->_escale_ops_ids();
                 if ($escale_ops) {
-                    $this->property['depenses'] = $this->m_depense->ad_getdepen_escale($this->company->ekey, $cdg, $escale_ops);
+                    $this->property['depenses'] = $this->m_depense->ad_getdepen_escale($this->company->ekey, $cdg, $escale_ops, $icx);
                 } else {
                     $this->property['depenses'] = $this->m_depense->ad_getdepen($this->company->ekey, $cdg, $idsg, $cid, $icx, FALSE, $userole, true);
                 }
@@ -12425,7 +12425,7 @@
                 $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                 $escale_ops = $this->_escale_ops_ids();
                 if ($escale_ops) {
-                    $this->property['depots'] = $this->m_depot->adgetdepot_escale($this->company->ekey, $cdg, $escale_ops);
+                    $this->property['depots'] = $this->m_depot->adgetdepot_escale($this->company->ekey, $cdg, $escale_ops, $icx);
                     $total_depo = 0.0;
                     foreach ($this->property['depots'] as $ligne_escale) {
                         $total_depo += isset($ligne_escale->montant_depot) ? (float) $ligne_escale->montant_depot : 0;

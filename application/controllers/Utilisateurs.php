@@ -37,6 +37,236 @@
             );
         }
 
+        /**
+         * Caisse de la gare. Le formulaire escale envoie parfois un identifiant vide.
+         */
+        protected function _caisse_id_gare($gare_id, $posted = null)
+        {
+            $id = (int) $posted;
+            if ($id > 0) {
+                return $id;
+            }
+            $row = $this->db->query(
+                "SELECT id_caiss FROM caisse WHERE gexp_caiss = ? ORDER BY id_caiss ASC LIMIT 1",
+                array((string) $gare_id)
+            )->row();
+
+            return ($row && !empty($row->id_caiss)) ? (int) $row->id_caiss : 0;
+        }
+
+        /**
+         * Gare, caisse et sous-gare du lieu de l'escale, plus le rôle du connecté sur cette gare.
+         *
+         * @return array|null
+         */
+        protected function _lieu_validation_escale($agent_id)
+        {
+            $agent_id = (int) $agent_id;
+            if ($agent_id <= 0 || !$this->db->table_exists('itineraire_escales')) {
+                return null;
+            }
+            $row = $this->db->query(
+                "SELECT ge.idengare AS gare_id,
+                        (SELECT c.id_caiss FROM caisse c
+                         WHERE c.gexp_caiss = ge.idengare
+                         ORDER BY c.id_caiss ASC LIMIT 1) AS caisse_id,
+                        (SELECT sg.idsousgare FROM sousgare sg
+                         WHERE sg.gareprinceid = ge.idengare
+                         ORDER BY sg.idsousgare ASC LIMIT 1) AS sousgare_id
+                 FROM attributions_role ar
+                 JOIN itineraire_escales ie
+                   ON REPLACE(TRIM(ar.vente_escale_value), '|', '~') = CONCAT('escale~', ie.id_escale)
+                 JOIN gares ge ON UPPER(TRIM(ge.garenom)) = UPPER(TRIM(ie.nom_escale))
+                 WHERE ar.roleattribut = ?
+                   AND ar.userole = 17
+                   AND IFNULL(ar.activer_role, 0) = 0
+                   AND ie.actif_escale = 1
+                 LIMIT 1",
+                array($agent_id)
+            )->row();
+            if (!$row || $row->gare_id === null || $row->gare_id === '') {
+                return null;
+            }
+
+            return array(
+                'gare_id' => (string) $row->gare_id,
+                'caisse_id' => (int) $row->caisse_id,
+                'sousgare_id' => (int) $row->sousgare_id,
+                'chef_role' => $this->_role_personne_sur_gare($row->gare_id, array(5, 16), true),
+                'caissier_role' => $this->_role_personne_sur_gare($row->gare_id, array(4), false),
+                'adjoint_role' => $this->_role_personne_sur_gare($row->gare_id, array(18), false),
+            );
+        }
+
+        protected function _est_agent_escale($agent_id)
+        {
+            $agent_id = (int) $agent_id;
+            if ($agent_id <= 0) {
+                return false;
+            }
+            $row = $this->db->query(
+                "SELECT roleattribut FROM attributions_role
+                 WHERE roleattribut = ? AND userole = 17 AND IFNULL(activer_role, 0) = 0
+                 LIMIT 1",
+                array($agent_id)
+            )->row();
+
+            return (bool) $row;
+        }
+
+        /**
+         * Un agent d'escale sans gare, caisse ou sous-gare de lieu ne doit rien écrire.
+         */
+        protected function _lieu_escale_valide($agent_id)
+        {
+            if (!$this->_est_agent_escale($agent_id)) {
+                return true;
+            }
+            $lieu = $this->_lieu_validation_escale($agent_id);
+            if (!$lieu || $lieu['caisse_id'] <= 0 || $lieu['sousgare_id'] <= 0) {
+                return false;
+            }
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            if (in_array($role, array('5', '16'), true) && $lieu['chef_role'] <= 0) {
+                return false;
+            }
+            if ($role === '4' && $lieu['caissier_role'] <= 0) {
+                return false;
+            }
+            if ($role === '18' && $lieu['adjoint_role'] <= 0) {
+                return false;
+            }
+
+            return true;
+        }
+
+        protected function _refuser_escale_sans_lieu($agent_id, $identifiant_gare, $idsoug, $iduser)
+        {
+            if ($this->_lieu_escale_valide($agent_id)) {
+                return false;
+            }
+            $this->session->set_flashdata('error', "Cette escale n'est pas rattachée à une gare : validation refusée.");
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $idsoug.'/'. mdate("%d/%m/%Y", now('UTC')));
+
+            return true;
+        }
+
+        /**
+         * Caisse et sous-gare à écrire : celles du lieu, jamais la gare de connexion de l'agent.
+         *
+         * @return array{caisse_id:int,sousgare_id:int}
+         */
+        protected function _ligne_escale($agent_id, $caisse_fallback, $sousgare_fallback)
+        {
+            $caisse = (int) $caisse_fallback;
+            $sousgare = (int) $sousgare_fallback;
+            $lieu = $this->_lieu_validation_escale($agent_id);
+            if ($lieu) {
+                if ($lieu['caisse_id'] > 0) {
+                    $caisse = $lieu['caisse_id'];
+                }
+                if ($lieu['sousgare_id'] > 0) {
+                    $sousgare = $lieu['sousgare_id'];
+                }
+            }
+
+            return array(
+                'caisse_id' => $caisse,
+                'sousgare_id' => $sousgare,
+            );
+        }
+
+        /**
+         * Le valideur est enregistré avec son rôle sur la gare de l'escale.
+         */
+        protected function _ajuster_depense_escale($depense_id, $agent_id)
+        {
+            $lieu = $this->_lieu_validation_escale($agent_id);
+            if (!$lieu || (int) $depense_id <= 0) {
+                return;
+            }
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            $patch = array(
+                'idop_guichet' => (int) $agent_id,
+            );
+            if ($lieu['caisse_id'] > 0) {
+                $patch['idcaisse_depens'] = sous_caisse_id_ecriture((int) $lieu['caisse_id']);
+            }
+            if ($lieu['sousgare_id'] > 0) {
+                $patch['sousgidepens'] = $lieu['sousgare_id'];
+            }
+            if (in_array($role, array('5', '16'), true) && $lieu['chef_role'] > 0) {
+                $patch['opevalidchef'] = $lieu['chef_role'];
+            }
+            if ($role === '4' && $lieu['caissier_role'] > 0) {
+                $patch['opevalid'] = $lieu['caissier_role'];
+            }
+            if ($patch) {
+                $this->m_depense->update((int) $depense_id, $patch);
+            }
+        }
+
+        protected function _ajuster_valideur_escale($recette_id, $agent_id)
+        {
+            $lieu = $this->_lieu_validation_escale($agent_id);
+            if (!$lieu || (int) $recette_id <= 0) {
+                return;
+            }
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            $patch = array(
+                'idop_guichet' => (int) $agent_id,
+            );
+            if ($lieu['caisse_id'] > 0) {
+                $patch['idcaisse'] = sous_caisse_id_ecriture((int) $lieu['caisse_id']);
+            }
+            if ($lieu['sousgare_id'] > 0) {
+                $patch['recetsgid'] = $lieu['sousgare_id'];
+            }
+            if (in_array($role, array('5', '16'), true) && $lieu['chef_role'] > 0) {
+                $patch['operavalidchef'] = $lieu['chef_role'];
+            }
+            if ($role === '4' && $lieu['caissier_role'] > 0) {
+                $patch['operavalid'] = $lieu['caissier_role'];
+            }
+            if ($role === '18' && !empty($lieu['adjoint_role'])) {
+                $patch['operavalidad'] = $lieu['adjoint_role'];
+            }
+            $this->m_recette->update((int) $recette_id, $patch);
+        }
+
+        protected function _role_personne_sur_gare($gare_id, array $roles, $fallback_chef)
+        {
+            $cp = 0;
+            if ($this->session->userdata('agent') && !empty($this->session->agent->cpuser_id)) {
+                $cp = (int) $this->session->agent->cpuser_id;
+            }
+            $in = implode(',', array_map('intval', $roles));
+            if ($cp > 0 && $in !== '') {
+                $row = $this->db->query(
+                    "SELECT ar.roleattribut
+                     FROM attributions_role ar
+                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                     WHERE ul.uid_usercpte = ?
+                       AND ul.guser = ?
+                       AND ar.userole IN ({$in})
+                       AND IFNULL(ar.activer_role, 0) = 0
+                       AND IFNULL(ul.comptactif, 0) = 0
+                     ORDER BY ar.activeattrib DESC, ar.roleattribut ASC
+                     LIMIT 1",
+                    array($cp, (string) $gare_id)
+                )->row();
+                if ($row && !empty($row->roleattribut)) {
+                    return (int) $row->roleattribut;
+                }
+            }
+            if ($fallback_chef && function_exists('validerecette_chef_roleattribut_on_gare')) {
+                $chef = validerecette_chef_roleattribut_on_gare($gare_id);
+                return $chef ? (int) $chef : 0;
+            }
+
+            return 0;
+        }
+
         /** Vendeur cible + appelant chef pour validation arrêt compte. */
         protected function _bind_validerecette_vendeur($gare_id, $compt_id)
         {
@@ -1033,6 +1263,9 @@
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');           
             $caisi= $this->input->post('idgar');
+            if ($this->_refuser_escale_sans_lieu($compt_id, $identifiant_gare, $idsoug, $iduser)) {
+                return;
+            }
             
             if($this->input->post('daterecep')!= '')
             {
@@ -1215,12 +1448,15 @@
                     );
                         $this->m_recette->update($recette, $array);
 
+                        $this->_ajuster_valideur_escale($recette, $compt_id);
                         $this->property['UPDATE_SUCCESS'] = TRUE;
                         redirect('utilisateurs/'.$this->session->company->ekey.'/profils/'.$identifiant_gare.'/'.$idsoug.'/'.$compt_id.'/'. $caisi.'/'.$iduser.'/' . mdate("%d/%m/%Y", now('UTC')));
 
                 }
-                else 
+                else {
+                $this->_ajuster_valideur_escale($recette, $compt_id);
                 redirect('utilisateurs/'.$this->session->company->ekey. '/profils/'. $identifiant_gare. '/'. $idsoug. '/'. $compt_id.'/'. $caisi.'/'.$iduser. '/' . mdate("%d/%m/%Y", now('UTC')));
+                }
             }
             else
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $idsoug.'/'. mdate("%d/%m/%Y", now('UTC')));
@@ -1238,9 +1474,14 @@
             $iduser = $validOps['iduser_nav'];
             $idopera_recette = $validOps['idopera'];
             $sgid = $this->input->post('sousgareconnect');
-            $idcmpt = $this->input->post('compconnected');           
-            $caisi= $this->input->post('idgar');
-            
+            $idcmpt = $this->input->post('compconnected');
+            $ligneEsc = $this->_ligne_escale($compt_id, $this->input->post('idgar'), $idsoug);
+            $caisi = $ligneEsc['caisse_id'];
+            $sousgare_lieu = $ligneEsc['sousgare_id'];
+            if ($this->_refuser_escale_sans_lieu($compt_id, $identifiant_gare, $idsoug, $iduser)) {
+                return;
+            }
+
             if($this->input->post('daterecep')!= '')
             {
 
@@ -1282,9 +1523,10 @@
                     'idcaisse' => sous_caisse_id_ecriture($this->input->post('idgar'), $this->input->post('interne')),
                     'id_genre_recet' => $this->input->post('genre'),
                     'compkey_recet' => $this->input->post('idcompa'),
-                    'recetsgid' => $idsoug,
+                    'recetsgid' => $sousgare_lieu,
                     'type_recet' => $this->input->post('interne'),
                     'idopera' => $idopera_recette,
+                    'idop_guichet' => (int) $compt_id,
                     'nom' => $this->input->post('nom'),
                     'montant_recet' => $resolvedEsc['montant'],
                     'commentaire_recet' => $resolvedEsc['commentaire'],
@@ -1313,13 +1555,16 @@
                     );
                         $this->m_recette->update($recette, $array);
 
+                        $this->_ajuster_valideur_escale($recette, $compt_id);
                         $this->property['UPDATE_SUCCESS'] = TRUE;
                         
                         redirect('utilisateurs/'.$this->session->company->ekey.'/profilsesc/'.$identifiant_gare.'/'.$idsoug.'/'.$compt_id.'/'. $caisi.'/'.$iduser.'/' . mdate("%d/%m/%Y", now('UTC')));
 
                 }
-                else 
+                else {
+                $this->_ajuster_valideur_escale($recette, $compt_id);
                 redirect('utilisateurs/'.$this->session->company->ekey. '/profilsesc/'. $identifiant_gare. '/'. $idsoug. '/'. $compt_id.'/'. $caisi.'/'.$iduser. '/' . mdate("%d/%m/%Y", now('UTC')));
+                }
             }
             else
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $idsoug.'/'. mdate("%d/%m/%Y", now('UTC')));
@@ -1335,6 +1580,9 @@
             $compt_id = $this->_bind_validerecette_vendeur($identifiant_gare, $compt_id);
             $validOps = $this->_validerecette_resolve_operators($identifiant_gare, $compt_id);
             $iduser = $validOps['iduser_nav'];
+            if ($this->_refuser_escale_sans_lieu($compt_id, $identifiant_gare, $idsoug, $iduser)) {
+                return;
+            }
             $idopera_recette = $validOps['idopera'];
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');           
@@ -1410,12 +1658,15 @@
                     );
                         $this->m_recette->update($recette, $array);
 
+                        $this->_ajuster_valideur_escale($recette, $compt_id);
                         $this->property['UPDATE_SUCCESS'] = TRUE;
                         redirect('utilisateurs/'.$this->session->company->ekey.'/profils/'.$identifiant_gare.'/'.$idsoug.'/'.$compt_id.'/'. $caisi.'/'.$iduser.'/' . mdate("%d/%m/%Y", now('UTC')));
 
                 }
-                else 
+                else {
+                $this->_ajuster_valideur_escale($recette, $compt_id);
                 redirect('utilisateurs/'.$this->session->company->ekey. '/profils/'. $identifiant_gare. '/'. $idsoug. '/'. $compt_id.'/'. $caisi.'/'.$iduser. '/' . mdate("%d/%m/%Y", now('UTC')));
+                }
             }
             else
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $idsoug.'/'. mdate("%d/%m/%Y", now('UTC')));
@@ -1430,6 +1681,9 @@
             $compt_id = $this->_bind_validerecette_vendeur($identifiant_gare, $compt_id);
             $validOps = $this->_validerecette_resolve_operators($identifiant_gare, $compt_id);
             $iduser = $validOps['iduser_nav'];
+            if ($this->_refuser_escale_sans_lieu($compt_id, $identifiant_gare, $idsoug, $iduser)) {
+                return;
+            }
             $idopera_recette = $validOps['idopera'];
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');           
@@ -1505,12 +1759,15 @@
                     );
                         $this->m_recette->update($recette, $array);
 
+                        $this->_ajuster_valideur_escale($recette, $compt_id);
                         $this->property['UPDATE_SUCCESS'] = TRUE;
                         redirect('utilisateurs/'.$this->session->company->ekey.'/profilsbagage/'.$identifiant_gare.'/'.$idsoug.'/'.$compt_id.'/'. $caisi.'/'.$iduser.'/' . mdate("%d/%m/%Y", now('UTC')));
 
                 }
-                else 
+                else {
+                $this->_ajuster_valideur_escale($recette, $compt_id);
                 redirect('utilisateurs/'.$this->session->company->ekey. '/profilsbagage/'. $identifiant_gare. '/'. $idsoug. '/'. $compt_id.'/'. $caisi.'/'.$iduser. '/' . mdate("%d/%m/%Y", now('UTC')));
+                }
             }
             else
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $idsoug.'/'. mdate("%d/%m/%Y", now('UTC')));
@@ -1554,6 +1811,12 @@
                     $conex = $this->m_compte_user->getusergare($this->company->ekey, $gid, $iop);
                     $this->property['conex'] = $conex;
                     $caisseident = $this->m_caisse->get($this->company->id_entreprise, $gid, $cdid);
+                    if (empty($caisseident) || empty($caisseident->id_caiss)) {
+                        $cid = $this->_caisse_id_gare($gid, $cdid);
+                        if ($cid > 0) {
+                            $caisseident = $this->m_caisse->get($this->company->id_entreprise, $gid, $cid);
+                        }
+                    }
                     $this->property['caisseident'] = $caisseident;
                     
                         $this->property['montantversers'] = $this->m_comptes_guichet->getcompte_gare($this->company->ekey, $gid, $ad);
@@ -1629,6 +1892,9 @@
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');           
                 $caisi= $this->input->post('idgar');
+            if ($this->_refuser_escale_sans_lieu($compt_id, $identifiant_gare, $idsoug, $iduser)) {
+                return;
+            }
 
             if($this->input->post('daterecep')!= '')
             {
@@ -1828,12 +2094,15 @@
                     );
                         $this->m_recette->update($recette, $array);
 
+                        $this->_ajuster_valideur_escale($recette, $compt_id);
                         $this->property['UPDATE_SUCCESS'] = TRUE;
                         redirect('utilisateurs/'.$this->session->company->ekey. '/profils/'. $identifiant_gare. '/'. $idsoug. '/'. $compt_id. '/'. $caisi.'/'.$iduser.'/' . mdate("%d/%m/%Y", now('UTC')));
 
                 }
-                else 
+                else {
+                $this->_ajuster_valideur_escale($recette, $compt_id);
                 redirect('utilisateurs/'.$this->session->company->ekey. '/profils/'. $identifiant_gare. '/'. $idsoug. '/'. $compt_id.'/'. $caisi.'/'.$iduser. '/' . mdate("%d/%m/%Y", now('UTC')));
+                }
             }
             else
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $idsoug.'/'. mdate("%d/%m/%Y", now('UTC')));
@@ -1848,7 +2117,12 @@
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');           
-                $caisi= $this->input->post('idgar');
+                $ligneEsc = $this->_ligne_escale($compt_id, $this->input->post('idgar'), $idsoug);
+                $caisi = $ligneEsc['caisse_id'];
+                $sousgare_lieu = $ligneEsc['sousgare_id'];
+            if ($this->_refuser_escale_sans_lieu($compt_id, $identifiant_gare, $idsoug, $iduser)) {
+                return;
+            }
                 
             if($this->input->post('daterecepdep')!= '')
             {
@@ -1885,10 +2159,11 @@
                     
                     }
                     $arraydep = array(
-                        'idcaisse_depens' => $caisi,
+                        'idcaisse_depens' => sous_caisse_id_ecriture((int) $caisi),
                         'id_genre_depense' => $this->input->post('genredep'),
                         'idop_dep' => (int) $compt_id,
-                        'sousgidepens' => $idsoug,
+                        'idop_guichet' => (int) $compt_id,
+                        'sousgidepens' => $sousgare_lieu,
                         'type_depense' => $this->input->post('internedep'),
                         'compkey_dep' => $this->input->post('_compagdep'),
                         'typpersonel' => 1,
@@ -1921,13 +2196,16 @@
                     );
                     $this->m_depense->update($depens, $updeps);
 
+                    $this->_ajuster_depense_escale($depens, $compt_id);
                     $this->property['UPDATE_SUCCESS'] = TRUE;
 
                     redirect('utilisateurs/'.$this->session->company->ekey. '/profilsdep/'. $identifiant_gare. '/'. $idsoug. '/'. $compt_id. '/'. $caisi.'/'.$iduser.'/' . mdate("%d/%m/%Y", now('UTC')));
 
                 }
-                else 
+                else {
+                $this->_ajuster_depense_escale($depens, $compt_id);
                 redirect('utilisateurs/'.$this->session->company->ekey. '/profilsdep/'. $identifiant_gare. '/'. $idsoug. '/'. $compt_id.'/'. $caisi.'/'.$iduser. '/' . mdate("%d/%m/%Y", now('UTC')));
+                }
             }
             else
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $idsoug.'/'. mdate("%d/%m/%Y", now('UTC')));
@@ -2872,7 +3150,12 @@
                 $idopera_recette = $validOps['idopera'];
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');           
-                $caisi= $this->input->post('idgar');
+                $ligneEsc = $this->_ligne_escale($compt_id, $this->input->post('idgar'), $idsoug);
+                $caisi = $ligneEsc['caisse_id'];
+                $sousgare_lieu = $ligneEsc['sousgare_id'];
+            if ($this->_refuser_escale_sans_lieu($compt_id, $identifiant_gare, $idsoug, $iduser)) {
+                return;
+            }
 
             if($this->input->post('daterecep')!= '')
             {
@@ -2913,9 +3196,10 @@
                         'idcaisse' => sous_caisse_id_ecriture($this->input->post('idgar'), $this->input->post('interne')),
                         'id_genre_recet' => $this->input->post('genre'),
                         'compkey_recet' => $this->input->post('idcompa'),
-                        'recetsgid' => $idsoug,
+                        'recetsgid' => $sousgare_lieu,
                         'type_recet' => $this->input->post('interne'),
                         'idopera' => $idopera_recette,
+                        'idop_guichet' => (int) $compt_id,
                         'nom' => $this->input->post('nom'),
                         'montant_recet' => $this->input->post('montantvers'),
                         'commentaire_recet' => $this->input->post('comment'),
@@ -2941,12 +3225,15 @@
                     );
                         $this->m_recette->update($recette, $array);
 
+                        $this->_ajuster_valideur_escale($recette, $compt_id);
                         $this->property['UPDATE_SUCCESS'] = TRUE;
                         
                     redirect('utilisateurs/'.$this->session->company->ekey. '/profilsesc/'. $identifiant_gare. '/'. $idsoug. '/'. $compt_id. '/'. $caisi.'/'.$iduser.'/' . mdate("%d/%m/%Y", now('UTC')));
                 }
-                else 
+                else {
+                $this->_ajuster_valideur_escale($recette, $compt_id);
                 redirect('utilisateurs/'.$this->session->company->ekey. '/profilsesc/'.$identifiant_gare.'/'.$idsoug. '/'. $compt_id.'/'.$caisi.'/'.$iduser.'/'.mdate("%d/%m/%Y", now('UTC')));
+                }
             }
             else
             redirect('gares/'.$this->session->company->ekey.'/gTv/'.$identifiant_gare.'/cais/'.$iduser.'/'.$idsoug.'/'. mdate("%d/%m/%Y", now('UTC')));
@@ -2964,7 +3251,12 @@
             $idopera_recette = $validOps['idopera'];
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');           
-            $caisi= $this->input->post('idgar');
+            $ligneEsc = $this->_ligne_escale($compt_id, $this->input->post('idgar'), $idsoug);
+            $caisi = $ligneEsc['caisse_id'];
+            $sousgare_lieu = $ligneEsc['sousgare_id'];
+            if ($this->_refuser_escale_sans_lieu($compt_id, $identifiant_gare, $idsoug, $iduser)) {
+                return;
+            }
             
             if($this->input->post('daterecep')!= '')
             {
@@ -3004,9 +3296,10 @@
                     'idcaisse' => sous_caisse_id_ecriture($this->input->post('idgar'), $this->input->post('interne')),
                     'id_genre_recet' => $this->input->post('genre'),
                     'compkey_recet' => $this->input->post('idcompa'),
-                    'recetsgid' => $idsoug,
+                    'recetsgid' => $sousgare_lieu,
                     'type_recet' => $this->input->post('interne'),
                     'idopera' => $idopera_recette,
+                    'idop_guichet' => (int) $compt_id,
                     'nom' => $this->input->post('nom'),
                     'montant_recet' => $this->input->post('montantverse'),
                     'commentaire_recet' => $this->input->post('comment'),
@@ -3035,12 +3328,15 @@
                     );
                         $this->m_recette->update($recette, $array);
 
+                        $this->_ajuster_valideur_escale($recette, $compt_id);
                         $this->property['UPDATE_SUCCESS'] = TRUE;
                         
                         redirect('utilisateurs/'.$this->session->company->ekey.'/profilsesc/'.$identifiant_gare.'/'.$idsoug.'/'.$compt_id.'/'. $caisi.'/'.$iduser.'/' . mdate("%d/%m/%Y", now('UTC')));
                 }
-                else 
+                else {
+                $this->_ajuster_valideur_escale($recette, $compt_id);
                 redirect('utilisateurs/'.$this->session->company->ekey. '/profilsesc/'. $identifiant_gare. '/'. $idsoug. '/'. $compt_id.'/'. $caisi.'/'.$iduser. '/' . mdate("%d/%m/%Y", now('UTC')));
+                }
             }
             else
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $idsoug.'/'. mdate("%d/%m/%Y", now('UTC')));

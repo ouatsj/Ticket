@@ -934,10 +934,14 @@
          * @param int[] $ops
          * @return array
          */
-        public function ad_get_escale($cid, $g, array $ops)
+        public function ad_get_escale($cid, $g, array $ops, $porteur = 0)
         {
             $lieu = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
             $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql(array('v.idop_versement'), 'v.nom_beneficiaire', $ops);
+            $qui = function_exists('recette_role_porteur_personne_sql')
+                ? recette_role_porteur_personne_sql('v.idop_versement', '', $porteur)
+                : recette_role_porteur_sql('v.idop_versement', '', $porteur);
+            $gare_sql = ($lieu !== '') ? '' : 'AND cs.gexp_caiss = ' . $this->db->escape($g);
 
             return $this->db->query(
                 "SELECT * FROM versements v
@@ -951,11 +955,14 @@
                 JOIN compagnies c ON v.compkey_vers = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND cs.gexp_caiss = '$g'
+                {$gare_sql}
                 AND v.active_verse = 0
-                AND v.actifvers = 0
+                AND IFNULL(v.is_actifverser, 0) = 0
+                AND IFNULL(v.is_actifverserad, 0) = 0
+                AND IFNULL(v.actifvers, 0) = 0
                 AND gr.genre_depot = 'Particulier'
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
+                {$qui}
                 {$op_sql}
                 ORDER BY v.id_versements DESC"
             )->result();

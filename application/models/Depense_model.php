@@ -871,8 +871,18 @@
         {
             $today = mdate('%Y-%m-%d', now());
             $use = (int) $use;
+            $idcais = (int) $idcais;
+            $escale = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            $qui = $escale && function_exists('caissier_validation_personne_where')
+                ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $use)
+                : "(d.idop_dep = {$use} OR d.opevalidchef = {$use})";
+            $caisse_sql = $escale ? '' : "AND d.idcaisse_depens = '{$idcais}' AND cs.gexp_caiss = " . $this->db->escape($gid);
+            $idcaisse_sel = $escale ? (string) $idcais : 'd.idcaisse_depens';
+            $gexp_sel = $escale ? $this->db->escape($gid) : 'cs.gexp_caiss';
+            $group = $escale ? 'cu.is_conect' : 'd.idcaisse_depens, cs.gexp_caiss, cu.is_conect';
+
             return $this->db->query(
-                "SELECT SUM(d.montant_depens) AS mont, {$use} AS idop_dep, cu.is_conect, d.idcaisse_depens, cs.gexp_caiss FROM depense d
+                "SELECT SUM(d.montant_depens) AS mont, {$use} AS idop_dep, cu.is_conect, {$idcaisse_sel} AS idcaisse_depens, {$gexp_sel} AS gexp_caiss FROM depense d
                 JOIN attributions_role ar ON ar.roleattribut = {$use}
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -882,16 +892,17 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.active_dep = 1
-                AND " . sous_caisse_predicat('d.idcaisse_depens', $idcais) . "
-                AND (d.idop_dep = {$use} OR d.opevalidchef = {$use})
-                AND cs.gexp_caiss = '$gid'
+                {$caisse_sql}
+                AND {$qui}
                 AND d.is_validedep = 0
+                AND d.is_actifdep = 0
+                AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
                 AND COALESCE(d.valid_depens, '') = 'valid'
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
                 AND d.type_depense <> 'Courrier'
                 " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
-                GROUP BY d.idcaisse_depens, cs.gexp_caiss, cu.is_conect")->result();
+                GROUP BY {$group}")->result();
         }
 
         public function validegead($cid, $gid, $idcais, $use)
@@ -1337,10 +1348,14 @@
          * @param int[] $ops
          * @return array
          */
-        public function ad_getdepen_escale($cid, $idg, array $ops)
+        public function ad_getdepen_escale($cid, $idg, array $ops, $porteur = 0)
         {
             $lieu = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep') : '';
             $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $ops);
+            $qui = function_exists('recette_role_porteur_personne_sql')
+                ? recette_role_porteur_personne_sql('d.idop_dep', 'd.opevalidchef', $porteur)
+                : recette_role_porteur_sql('d.idop_dep', 'd.opevalidchef', $porteur);
+            $gare_sql = ($lieu !== '') ? '' : "AND cs.gexp_caiss = " . $this->db->escape($idg);
             $open_sql = recette_role_rd_open_depense_sql('5', true, 'd');
 
             return $this->db->query(
@@ -1355,10 +1370,11 @@
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND cs.gexp_caiss = '$idg'
+                {$gare_sql}
                 AND d.type_depense <> 'Courrier'
                 {$open_sql}
-                AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
+                AND IFNULL(d.is_actifdepad, 0) = 0
+                {$qui}
                 {$op_sql}
                 ORDER BY d.date_depens DESC, d.id_depense DESC"
             )->result();
@@ -1383,6 +1399,32 @@
             $qui = function_exists('caissier_escale_validateur_sql')
                 ? caissier_escale_validateur_sql(($niveau === 'adjoint') ? 'd.opevalidad' : 'd.opevalid')
                 : '';
+            $gare_sql = 'AND cs.gexp_caiss = ' . $this->db->escape($idg);
+            if ($niveau !== 'adjoint'
+                && function_exists('caissier_escale_page_active')
+                && caissier_escale_page_active()
+                && function_exists('caissier_escale_roles_chefs_lieu')
+            ) {
+                $chefs = caissier_escale_roles_chefs_lieu($idg);
+                if ($chefs) {
+                    $in = implode(',', array_map('intval', $chefs));
+                    $gare_sql = '';
+                    $qui = '';
+                    $etat = 'AND (
+                        (cs.gexp_caiss = ' . $this->db->escape($idg) . ' AND d.ferme_caisdep = 0 AND d.is_actifdep = 1
+                         ' . (function_exists('caissier_escale_validateur_sql') ? caissier_escale_validateur_sql('d.opevalid') : '') . ')
+                        OR (
+                            d.active_dep = 1
+                            AND d.is_actifdep = 0
+                            AND d.is_validedep = 0
+                            AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
+                            AND IFNULL(d.ferme_caisdep, 0) = 0
+                            AND COALESCE(d.valid_depens, \'\') = \'valid\'
+                            AND COALESCE(NULLIF(d.opevalidchef, 0), d.idop_dep) IN (' . $in . ')
+                        )
+                    )';
+                }
+            }
 
             return $this->db->query(
                 "SELECT * FROM depense d
@@ -1393,7 +1435,7 @@
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND cs.gexp_caiss = '$idg'
+                {$gare_sql}
                 AND d.type_depense <> 'Courrier'
                 {$etat}
                 {$qui}
@@ -1481,7 +1523,16 @@
             $op_sql = recette_role_is_validateur_adjoint($userole)
                 ? "AND d.opevalidad = {$conect} AND d.is_actifdepad = 1 AND d.is_actifdep = 0 AND IFNULL(d.arret_caisdep, 0) = 0"
                 : "AND (d.idop_dep = {$conect} OR d.opevalidchef = {$conect}) AND d.active_dep = 0";
-            $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_perso') : '';
+            $peri = '';
+            if (function_exists('caissier_escale_ops_from_request') && caissier_escale_ops_from_request()) {
+                $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_perso') : '';
+            } elseif (recette_role_is_validateur_adjoint($userole)) {
+                $peri = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_perso') : '';
+            } elseif (function_exists('recette_role_hors_escale_sauf_saisie_sql')) {
+                $peri = recette_role_hors_escale_sauf_saisie_sql('d.nom_perso', 'd.idop_dep', $conect);
+            } elseif (function_exists('caissier_escale_nom_filtre_sql')) {
+                $peri = caissier_escale_nom_filtre_sql('d.nom_perso');
+            }
 
             return $this->db->query(
                 "SELECT SUM(montant_depens) AS total FROM depense d
