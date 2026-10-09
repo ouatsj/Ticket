@@ -37,12 +37,6 @@ $this->load->view('_layouts/head', $head_extra);
 	padding-left: 0.5rem !important;
 	padding-right: 0.5rem !important;
 }
-/* TPE Chrome 64 : éviter hauteur 0 / contenu « page blanche » avec PerfectScrollbar */
-.be-minimal-chrome .be-content {
-	height: auto !important;
-	max-height: none !important;
-	overflow: visible !important;
-}
 .be-minimal-chrome .be-content .ps__rail-x,
 .be-minimal-chrome .be-content .ps__rail-y {
 	display: none !important;

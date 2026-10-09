@@ -177,6 +177,27 @@
         }
 
         /**
+         * Caisse d'écriture d'une validation d'escale : la sous-caisse de l'agent.
+         * Hors escale, la caisse reçue est conservée.
+         *
+         * @param int|string $agent_id
+         * @param int|string $fallback_caisse
+         * @return int
+         */
+        protected function _caisse_sous_escale($agent_id, $fallback_caisse)
+        {
+            $agent_id = (int) $agent_id;
+            if ($agent_id > 0 && function_exists('sous_caisse_id_agent')) {
+                $sous = sous_caisse_id_agent($agent_id);
+                if ($sous > 0) {
+                    return $sous;
+                }
+            }
+
+            return sous_caisse_id_ecriture($fallback_caisse);
+        }
+
+        /**
          * Le valideur est enregistré avec son rôle sur la gare de l'escale.
          */
         protected function _ajuster_depense_escale($depense_id, $agent_id)
@@ -189,8 +210,9 @@
             $patch = array(
                 'idop_guichet' => (int) $agent_id,
             );
-            if ($lieu['caisse_id'] > 0) {
-                $patch['idcaisse_depens'] = sous_caisse_id_ecriture((int) $lieu['caisse_id']);
+            $sousAgent = $this->_caisse_sous_escale($agent_id, $lieu['caisse_id']);
+            if ($sousAgent > 0) {
+                $patch['idcaisse_depens'] = $sousAgent;
             }
             if ($lieu['sousgare_id'] > 0) {
                 $patch['sousgidepens'] = $lieu['sousgare_id'];
@@ -216,8 +238,9 @@
             $patch = array(
                 'idop_guichet' => (int) $agent_id,
             );
-            if ($lieu['caisse_id'] > 0) {
-                $patch['idcaisse'] = sous_caisse_id_ecriture((int) $lieu['caisse_id']);
+            $sousAgent = $this->_caisse_sous_escale($agent_id, $lieu['caisse_id']);
+            if ($sousAgent > 0) {
+                $patch['idcaisse'] = $sousAgent;
             }
             if ($lieu['sousgare_id'] > 0) {
                 $patch['recetsgid'] = $lieu['sousgare_id'];
@@ -1520,7 +1543,7 @@
                 }
 
                 $arrayrecette = array(
-                    'idcaisse' => sous_caisse_id_ecriture($this->input->post('idgar'), $this->input->post('interne')),
+                    'idcaisse' => $this->_caisse_sous_escale($compt_id, $this->input->post('idgar')),
                     'id_genre_recet' => $this->input->post('genre'),
                     'compkey_recet' => $this->input->post('idcompa'),
                     'recetsgid' => $sousgare_lieu,
@@ -2159,7 +2182,7 @@
                     
                     }
                     $arraydep = array(
-                        'idcaisse_depens' => sous_caisse_id_ecriture((int) $caisi),
+                        'idcaisse_depens' => $this->_caisse_sous_escale($compt_id, $caisi),
                         'id_genre_depense' => $this->input->post('genredep'),
                         'idop_dep' => (int) $compt_id,
                         'idop_guichet' => (int) $compt_id,
@@ -3193,7 +3216,7 @@
                 }
 
                     $arrayrecettecr = array(
-                        'idcaisse' => sous_caisse_id_ecriture($this->input->post('idgar'), $this->input->post('interne')),
+                        'idcaisse' => $this->_caisse_sous_escale($compt_id, $this->input->post('idgar')),
                         'id_genre_recet' => $this->input->post('genre'),
                         'compkey_recet' => $this->input->post('idcompa'),
                         'recetsgid' => $sousgare_lieu,
@@ -3293,7 +3316,7 @@
                 }
                 
                 $arrayrecette = array(
-                    'idcaisse' => sous_caisse_id_ecriture($this->input->post('idgar'), $this->input->post('interne')),
+                    'idcaisse' => $this->_caisse_sous_escale($compt_id, $this->input->post('idgar')),
                     'id_genre_recet' => $this->input->post('genre'),
                     'compkey_recet' => $this->input->post('idcompa'),
                     'recetsgid' => $sousgare_lieu,
