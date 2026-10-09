@@ -222,9 +222,8 @@ $allow_prix_diff_unifie = true;
                         <option value="">Choisissez l'heure</option>
                     </select>
                     <p class="small text-muted mb-0 mt-1">
-                        Direct : date → heure → siège (pas d’itinéraire).
-                        « Multi / correspondances » charge les heures de transit ;
-                        l’itinéraire apparaît après le choix de l’heure.
+                        Direct : date → heure → siège.
+                        Sans direct, l’heure affiche l’itinéraire de correspondance à choisir.
                     </p>
                 </div>
                 <!-- Compagnie / « départ » retiré : le choix se fait dans Heure (1 programme = 1 option). -->
@@ -251,16 +250,16 @@ $allow_prix_diff_unifie = true;
             </div>
 
             <div id="corr_unifie_wrap" style="display:none">
-                <div class="reprog-section-title">Itinéraires possibles</div>
+                <div class="reprog-section-title">Itinéraire de correspondance</div>
                 <p class="small text-muted mb-2" id="corr_unifie_hint">
-                    Un transit proposé depuis la gare de report vers la destination
-                    affichée après vérification du code. Le bouton « + » charge d’autres
-                    itinéraires avec plus de segments (même programme de départ).
+                    Pas de direct à cette heure : choisissez l’itinéraire
+                    (2, 3 jambes ou plus). Sur chaque correspondance, la compagnie
+                    se choisit avant la ligne.
                 </p>
                 <p class="text-warning small mb-2" id="corr_unifie_msg"></p>
                 <div class="form-group mb-3">
                     <div class="d-flex align-items-center justify-content-between flex-wrap mb-1">
-                        <label class="small mb-0" for="corr_unifie_select">Choisir l’itinéraire</label>
+                        <label class="small mb-0" for="corr_unifie_select">Itinéraire de correspondance</label>
                         <button type="button"
                                 class="btn btn-primary btn-sm py-0 px-2 font-weight-bold"
                                 id="corr_unifie_plus"
@@ -269,7 +268,7 @@ $allow_prix_diff_unifie = true;
                                 aria-label="Autres itinéraires avec plus de segments">+</button>
                     </div>
                     <select class="form-control form-control-sm" id="corr_unifie_select">
-                        <option value="">Choisissez un itinéraire</option>
+                        <option value="">Choisissez l'itinéraire de correspondance</option>
                     </select>
                     <p class="small text-muted mb-0 mt-1" id="corr_unifie_plus_hint" style="display:none">
                         « + » : cherche d’autres heures à la 1ʳᵉ gare de correspondance
