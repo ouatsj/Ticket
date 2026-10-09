@@ -326,40 +326,52 @@
                     if ($fv === '') {
                         $fv = recette_role_ops_ou_nom_sql(array('v.idop_versement'), 'v.nom_beneficiaire', $escale_ops_arret);
                     }
+                    $qui_recette = function_exists('caissier_escale_validateur_sql')
+                        ? caissier_escale_validateur_sql('r.operavalid')
+                        : "AND r.operavalid = {$cpr_sql}";
+                    $qui_depense = function_exists('caissier_escale_validateur_sql')
+                        ? caissier_escale_validateur_sql('d.opevalid')
+                        : "AND d.opevalid = {$cpr_sql}";
+                    $qui_depot = function_exists('caissier_escale_validateur_sql')
+                        ? caissier_escale_validateur_sql('d.opvalid')
+                        : "AND d.opvalid = {$cpr_sql}";
+                    $qui_vers = function_exists('caissier_escale_validateur_sql')
+                        ? caissier_escale_validateur_sql('v.validop')
+                        : "AND v.validop = {$cpr_sql}";
                     $this->property['recettescaisse'] = $this->db->query(
                         "SELECT SUM(r.montant_recet) AS total FROM recette r
                         JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                        WHERE {$caisse_pred} AND cs.gexp_caiss = {$gid_sql}
+                        WHERE {$caisse_pred}
                         AND r.is_actifrecet = 1 AND r.ferme_caisrecet = 0 AND r.actif_rect = 0
-                        AND r.date_recet <= '{$today_arret}' AND r.type_recet <> 'Courrier'
-                        AND r.operavalid = {$cpr_sql} {$fr}"
+                        AND r.date_recet <= '{$today_arret}'
+                        {$qui_recette} {$fr}"
                     )->row();
                     $this->property['recettes'] = $this->property['recettescaisse'];
                     $this->property['depensescaisse'] = $this->db->query(
                         "SELECT SUM(d.montant_depens) AS total FROM depense d
                         JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                        WHERE {$caisse_pred} AND cs.gexp_caiss = {$gid_sql}
+                        WHERE {$caisse_pred}
                         AND d.is_actifdep = 1 AND d.actif_deps = 0 AND d.ferme_caisdep = 0
-                        AND d.date_depens <= '{$today_arret}' AND d.type_depense <> 'Courrier'
-                        AND d.opevalid = {$cpr_sql} {$fd}"
+                        AND d.date_depens <= '{$today_arret}'
+                        {$qui_depense} {$fd}"
                     )->row();
                     $this->property['depenses'] = $this->property['depensescaisse'];
                     $this->property['depots'] = $this->db->query(
                         "SELECT SUM(d.montant_depot) AS total FROM depot d
                         JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
-                        WHERE {$caisse_pred} AND cs.gexp_caiss = {$gid_sql}
+                        WHERE {$caisse_pred}
                         AND d.is_validdepo = 1 AND d.ferme_caisdepo = 0 AND d.actif_depo = 0
-                        AND d.datedepot <= '{$today_arret}' AND d.type_depot <> 'Courrier'
-                        AND d.opvalid = {$cpr_sql} {$fp}"
+                        AND d.datedepot <= '{$today_arret}'
+                        {$qui_depot} {$fp}"
                     )->row();
                     $this->property['montanttotal'] = $this->db->query(
                         "SELECT SUM(v.montant_verser) AS montant_solde FROM versements v
                         JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
-                        WHERE {$caisse_pred} AND cs.gexp_caiss = {$gid_sql}
+                        WHERE {$caisse_pred}
                         AND v.is_actifverser = 1 AND v.ferme_caisvers = 0 AND v.actifvers = 0
                         AND v.date_versement <= '{$today_arret}'
                         AND v.type_versement <> 'Bordereau_bancairecourrier'
-                        AND v.validop = {$cpr_sql} {$fv}"
+                        {$qui_vers} {$fv}"
                     )->row();
                     $this->property['pagetitle'] .= "• ARRÊT COMPTE ESCALE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_caisse/caisseprincipale', $this->property);
@@ -426,6 +438,8 @@
                 $this->property['pagetitle'] .= "• ARRÊT COMPTE ET CAISSE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
             return $this->layout->view('_caisse/caisseprincipale', $this->property);
             break;
+                case 'recettecourrier':
+                    $this->property['recette_famille'] = 'courrier';
                 case 'recette':
                         $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                         $this->property['caisseident'] = $caisseident;
@@ -438,8 +452,11 @@
                             $this->property['sommerecettes'] = $this->m_recette->ad_getmontant($this->company->ekey, $cdg, $cid, $cpr, $userole, true);
                             $this->property['totalrecettes'] = $this->property['sommerecettes'];
                         } elseif ($escale_ops) {
+                            $famille_recette = (!empty($this->property['recette_famille']) && $this->property['recette_famille'] === 'courrier')
+                                ? 'courrier'
+                                : 'ticket';
                             $this->property['recettes'] = $this->m_recette->liste_caisse_escale(
-                                $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse()
+                                $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse(), $famille_recette
                             );
                             $total_escale = $this->_total_lignes($this->property['recettes'], 'montant_recet');
                             $this->property['sommerecettes'] = (object) array('total' => $total_escale);
@@ -5614,7 +5631,7 @@
 
         /**
          * Ferme les confirmations ouvertes (hors CA monétaire) pour le rapport EPSON.
-         * Les confirmations n'ont pas de prixvente : elles n'entrent pas dans compte_guichet.
+         * Prix nul ou absent, y compris carte et catégorie : elles n'entrent pas dans compte_guichet.
          *
          * @param int|string $idcpt
          * @return int
@@ -5630,8 +5647,8 @@
                  SET statutvente = 1
                  WHERE idcptuser = ?
                  AND statutvente = 0
-                 AND statut_confirme = 'confirm'
-                 AND prixvente IS NULL
+                 AND statut_confirme IN ('confirm','catconfirm','confirmcarte')
+                 AND (prixvente IS NULL OR prixvente = 0)
                  AND IFNULL(actif_pas, 0) = 0",
                 array($idcpt)
             );
@@ -12537,16 +12554,13 @@
             case 'arretcaisse_adjoint':
                 $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                 $this->property['recettes'] = $this->m_recette->ad_recet($this->company->ekey, $cdg, $cid, $icx);
-                $this->property['recettecaisses'] = $this->m_recette->ad_recetcais($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['depenses'] = $this->m_depense->ad_depens($this->company->ekey, $cdg, $cid, $icx);
-                $this->property['depensecaisses'] = $this->m_depense->ad_depenscais($this->company->ekey, $cdg, $cid, $icx, $idsg);
                 $role_arret = function_exists('recette_role_userole_for_attribut')
                     ? recette_role_userole_for_attribut($icx) : '';
                 $ad_arret = function_exists('recette_role_is_validateur_adjoint')
                     && recette_role_is_validateur_adjoint($role_arret);
                 $fp_arret = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('d.nom_pre') : '';
                 $fv_arret = function_exists('caissier_escale_nom_filtre_sql') ? caissier_escale_nom_filtre_sql('v.nom_beneficiaire') : '';
-                $today_compte = mdate('%Y-%m-%d', now());
                 $escale_arret_page = function_exists('caissier_escale_ops_from_request')
                     && caissier_escale_ops_from_request();
                 if ($ad_arret) {
@@ -12580,7 +12594,6 @@
                     JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
                     WHERE {$caisse_arret_sql}
                     d.actif_depo = 0 AND d.type_depot <> 'Courrier'
-                    AND d.datedepot <= " . $this->db->escape($today_compte) . "
                     {$op_depot} {$fp_arret}"
                 )->row();
                 $this->property['versements_compte'] = $this->db->query(
@@ -12589,7 +12602,6 @@
                     WHERE {$caisse_arret_sql}
                     IFNULL(v.type_versement, '') <> 'Courrier'
                     AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
-                    AND v.date_versement <= " . $this->db->escape($today_compte) . "
                     {$op_vers} {$fv_arret}"
                 )->row();
                 if (empty($this->property['depots_compte']) || $this->property['depots_compte']->total === null) {
@@ -12598,8 +12610,18 @@
                 if (empty($this->property['versements_compte']) || $this->property['versements_compte']->total === null) {
                     $this->property['versements_compte'] = null;
                 }
-                $this->property['depotcaisses'] = $this->m_depot->ad_depocais($this->company->ekey, $cdg, $cid, $icx);
-                $this->property['montanttotalcaisses'] = $this->m_versements->versecaiss($this->company->ekey, $cdg, $cid, $icx);
+                $masquer_rapport_caisse = in_array((string) $role_arret, array('5', '16', '18'), true);
+                if ($masquer_rapport_caisse) {
+                    $this->property['recettecaisses'] = null;
+                    $this->property['depensecaisses'] = null;
+                    $this->property['depotcaisses'] = null;
+                    $this->property['montanttotalcaisses'] = null;
+                } else {
+                    $this->property['recettecaisses'] = $this->m_recette->ad_recetcais($this->company->ekey, $cdg, $cid, $icx);
+                    $this->property['depensecaisses'] = $this->m_depense->ad_depenscais($this->company->ekey, $cdg, $cid, $icx, $idsg);
+                    $this->property['depotcaisses'] = $this->m_depot->ad_depocais($this->company->ekey, $cdg, $cid, $icx);
+                    $this->property['montanttotalcaisses'] = $this->m_versements->versecaiss($this->company->ekey, $cdg, $cid, $icx);
+                }
                 $this->property['typedocuments'] = $this->m_typedocument->get();
                 $this->property['caisseident'] = $caisseident;
                 $this->property['genrespersonnels'] = $this->m_type_personnel->get();

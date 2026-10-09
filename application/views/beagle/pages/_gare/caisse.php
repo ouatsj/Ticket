@@ -598,7 +598,7 @@
 				                AND v.sgareidvers = '$gare_stop->idsousgare'
                                 AND ex.code_gaexp = '$item->gexp_caiss'
                                 {$hors_v}
-                                GROUP BY cs.id_caiss, v.idop_versement, v.sgareidvers")->row();
+                                GROUP BY cs.id_caiss")->row();
                             $recettes_ad = $this->db->query(
                                 "SELECT SUM(montant_recet) AS montant_rec FROM recette r
                                 JOIN caisse cs ON r.idcaisse = cs.id_caiss
@@ -610,13 +610,16 @@
                                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                                 WHERE e.ekey = '$cd'
                                 AND r.active_recet = 0
+                                AND IFNULL(r.is_actifrecet, 0) = 0
+                                AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)
+                                AND IFNULL(r.actif_rect, 0) = 0
                                 AND r.type_recet <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
                                 AND (r.idopera = '$conex->roleattribut' OR r.operavalidchef = '$conex->roleattribut')
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND r.recetsgid = '$gare_stop->idsousgare'
                                 {$hors_r}
-                                GROUP BY cs.id_caiss, r.idopera, r.recetsgid")->row();
+                                GROUP BY cs.id_caiss")->row();
                             $depenses_ad = $this->db->query(
                                 "SELECT SUM(montant_depens) AS montant_depen FROM depense d
                                 JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
@@ -636,7 +639,7 @@
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND d.sousgidepens = '$gare_stop->idsousgare'
                                 {$hors_d}
-                                GROUP BY cs.id_caiss, d.idop_dep, d.sousgidepens")->row();
+                                GROUP BY cs.id_caiss")->row();
                             $depots_ad = $this->db->query(
                                 "SELECT SUM(montant_depot) AS montant_depo FROM depot dp
                                 JOIN caisse cs ON dp.idcaisse_depot = cs.id_caiss
@@ -654,7 +657,7 @@
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND dp.sousgdepot = '$gare_stop->idsousgare'
                                 {$hors_dp}
-                                GROUP BY cs.id_caiss, dp.idop_depot, dp.sousgdepot")->row();
+                                GROUP BY cs.id_caiss")->row();
                         ?>
 
                                     <? if($versements_ad == NULL):?><?$vad=0;?><? else:?><? $vad = $versements_ad->montant_verse;?><?endif;?>

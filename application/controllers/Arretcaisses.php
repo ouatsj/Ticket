@@ -577,7 +577,7 @@
         }*/
         
 
-        public function validerecette($ckey, $g, $idc, $idcpt, $iduser, $sgid)
+        public function validerecette($ckey, $g, $idc, $idcpt, $iduser, $sgid, $date = null)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
@@ -592,12 +592,14 @@
                 ? caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $idcpt)
                 : '(r.idopera = ? OR r.operavalidchef = ?)';
             $caisse_sql = $escale_page ? '' : 'AND r.idcaisse = ?';
+            $date_sql = $escale_page ? caisse_arret_date_filter_sql('r.date_recet', $date) : '';
             $cfrecet = $this->db->query(
                 "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse
                 FROM recette r
                 WHERE {$qui}
                 {$caisse_sql}
                 AND {$arrete}
+                {$date_sql}
                 {$escale_sql}",
                 $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
             )->result();
@@ -632,7 +634,7 @@
             );
         }
 
-        public function rejetrecette($ckey, $g, $idc, $idcpt, $iduser, $sgid)
+        public function rejetrecette($ckey, $g, $idc, $idcpt, $iduser, $sgid, $date = null)
         {
             $this->company = $this->m_entreprises->get($ckey);
             $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
@@ -646,12 +648,14 @@
                     ? caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $idcpt)
                     : '(r.idopera = ? OR r.operavalidchef = ?)';
                 $caisse_sql = $escale_page ? '' : 'AND r.idcaisse = ?';
+                $date_sql = $escale_page ? caisse_arret_date_filter_sql('r.date_recet', $date) : '';
                 $cfrecet = $this->db->query(
                     "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse, r.valid_recet
                     FROM recette r
                     WHERE {$qui}
                     {$caisse_sql}
                     AND {$arrete}
+                    {$date_sql}
                     {$escale_sql}",
                     $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
                 )->result();
@@ -693,7 +697,7 @@
             );
         }
 
-        public function validedepense($ckey, $g, $idc, $idcpt, $iduser, $sgid)
+        public function validedepense($ckey, $g, $idc, $idcpt, $iduser, $sgid, $date = null)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
@@ -707,12 +711,14 @@
                 ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $idcpt)
                 : '(d.idop_dep = ? OR d.opevalidchef = ?)';
             $caisse_sql = $escale_page ? '' : 'AND d.idcaisse_depens = ?';
+            $date_sql = $escale_page ? caisse_arret_date_filter_sql('d.date_depens', $date) : '';
             $cfdepes = $this->db->query(
                 "SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens
                 FROM depense d
                 WHERE {$qui}
                 {$caisse_sql}
                 AND {$arrete}
+                {$date_sql}
                 {$escale_sql}",
                 $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
             )->result();
@@ -744,7 +750,7 @@
             );
         }
 
-        public function rejetdepense($ckey, $g, $idc, $idcpt, $iduser, $sgid)
+        public function rejetdepense($ckey, $g, $idc, $idcpt, $iduser, $sgid, $date = null)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $ctx = caissier_validation_bind_operateurs($this->company->ekey, $g, $idcpt, $iduser);
@@ -758,12 +764,14 @@
                     ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $idcpt)
                     : '(d.idop_dep = ? OR d.opevalidchef = ?)';
                 $caisse_sql = $escale_page ? '' : 'AND d.idcaisse_depens = ?';
+                $date_sql = $escale_page ? caisse_arret_date_filter_sql('d.date_depens', $date) : '';
                 $cfdepe = $this->db->query(
                     "SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.idop_dep, d.idcaisse_depens
                     FROM depense d
                     WHERE {$qui}
                     {$caisse_sql}
                     AND {$arrete}
+                    {$date_sql}
                     {$escale_sql}",
                     $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
                 )->result();

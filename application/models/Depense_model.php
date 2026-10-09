@@ -52,7 +52,7 @@
                 WHERE e.ekey = '$cid'
                 AND d.active_dep = 0
                 AND d.actif_deps = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 ORDER BY d.id_depense DESC")->result();
             }
@@ -68,7 +68,7 @@
                 AND d.id_depense = '$pk'
                 AND d.active_dep = 0
                 AND d.actif_deps = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 ORDER BY d.id_depense DESC")->row();
         }
@@ -94,7 +94,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND d.date_depens = '$today'
                 AND d.actif_deps = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalid = '$usc'
@@ -117,7 +117,7 @@
                 AND d.id_depense = '$pk'
                 AND d.date_depens = '$today'
                 AND d.actif_deps = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalid = '$usc'
@@ -148,7 +148,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND d.date_depens = '$today'
                 AND d.actif_deps = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalidad = '$usc'
@@ -172,7 +172,7 @@
                 AND d.id_depense = '$pk'
                 AND d.date_depens = '$today'
                 AND d.actif_deps = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalidad = '$usc'
@@ -199,7 +199,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND d.date_depens = '$today'
                 AND d.actif_deps = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 ORDER BY d.id_depense DESC")->result();
             }
@@ -219,7 +219,7 @@
                 AND d.id_depense = '$pk'
                 AND d.date_depens = '$today'
                 AND d.actif_deps = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 ORDER BY d.id_depense DESC")->row();
         }
@@ -248,7 +248,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
                 AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
-                AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'
+                AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 AND d.date_depens BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
                 {$copSql}
@@ -274,7 +274,7 @@
                 AND d.active_dep = 1
                 AND cs.id_caiss = '$idcais'
                 AND d.opevalidad = '$usc'
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 AND d.ferme_caisdep = 0
                 AND d.date_depens BETWEEN '$ddbut' AND '$dfin'
@@ -324,7 +324,7 @@
                 AND d.active_dep = 1
                 AND d.is_actifdep = 0
                 AND (d.idop_dep = " . (int) $us . " OR d.opevalidchef = " . (int) $us . ")
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 AND d.actif_deps = 0
                 AND d.ferme_caisdep = 0
@@ -345,7 +345,7 @@
                 AND d.is_actifdep = 0
                 AND d.ferme_caisdep = 0
                 AND (d.idop_dep = " . (int) $us . " OR d.opevalidchef = " . (int) $us . ")
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.id_depense = '$pk'
                 AND d.type_depense <> 'Courrier'
                 AND d.actif_deps = 0
@@ -461,7 +461,7 @@
                     AND d.compkey_dep = '$comp'
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
-                    AND cs.gexp_caiss = '$gid'
+                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                     {$filtre_lieu}
                     AND d.type_depense <> 'Courrier'
                     ORDER BY d.date_depens ASC")->result();
@@ -481,7 +481,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
-                    AND cs.gexp_caiss = '$gid'
+                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                     {$filtre_lieu}
                     AND d.type_depense <> 'Courrier'
                     ORDER BY d.date_depens ASC")->result();
@@ -502,7 +502,7 @@
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.type_depense <> 'Courrier'
-                    AND cs.gexp_caiss = '$gid'
+                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                     {$filtre_lieu}
                     ORDER BY d.date_depens ASC")->result();
             }
@@ -522,7 +522,7 @@
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
-                    AND cs.gexp_caiss = '$gid'
+                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                     {$filtre_lieu}
                     AND d.type_depense <> 'Courrier'
                     ORDER BY d.date_depens ASC")->result();
@@ -543,7 +543,7 @@
                     AND d.nom_perso = '$nm'
                     AND d.type_depense <> 'Courrier'
                     AND d.id_depense = '$iddep'
-                    AND cs.gexp_caiss = '$gid'
+                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                     {$filtre_lieu}
                     ORDER BY d.date_depens ASC")->row();
         }
@@ -688,7 +688,7 @@
                     AND d.is_actifdep = 1
                     AND d.actif_deps = 0
                     AND d.ferme_caisdep = 0
-                    AND cs.gexp_caiss = '$gid'
+                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
                     ORDER BY d.date_depens ASC")->result();
@@ -710,7 +710,7 @@
                     AND d.actif_deps = 0
                     AND d.ferme_caisdep = 0
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
-                    AND cs.gexp_caiss = '$gid'
+                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
                     ORDER BY d.date_depens ASC")->result();
@@ -731,7 +731,7 @@
                     AND d.ferme_caisdep = 0
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
-                    AND cs.gexp_caiss = '$gid'
+                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
                     ORDER BY d.date_depens ASC")->result();
@@ -753,7 +753,7 @@
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
-                    AND cs.gexp_caiss = '$gid'
+                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
                     ORDER BY d.date_depens ASC")->result();
@@ -776,7 +776,7 @@
                     AND d.id_depense = '$iddep'
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
-                    AND cs.gexp_caiss = '$gid'
+                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                     ORDER BY d.date_depens ASC")->row();
         }
 
@@ -795,7 +795,7 @@
                 AND d.ferme_caisdep = 0
                 AND d.actif_deps = 0
                 AND cs.id_caiss = '$idcais'
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
         }
@@ -814,7 +814,7 @@
                 AND d.ferme_caisdep = 0
                 AND d.actif_deps = 0
                 AND cs.id_caiss = '$idcais'
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
@@ -861,7 +861,7 @@
                 AND d.date_depens <= '$today'
                 AND cu.is_conect = 1
                 AND d.actif_deps = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND cs.id_caiss = '$idcais'
                 AND d.type_depense <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
@@ -879,10 +879,12 @@
             $caisse_sql = $escale ? '' : "AND d.idcaisse_depens = '{$idcais}' AND cs.gexp_caiss = " . $this->db->escape($gid);
             $idcaisse_sel = $escale ? (string) $idcais : 'd.idcaisse_depens';
             $gexp_sel = $escale ? $this->db->escape($gid) : 'cs.gexp_caiss';
-            $group = $escale ? 'cu.is_conect' : 'd.idcaisse_depens, cs.gexp_caiss, cu.is_conect';
+            $date_sel = $escale ? 'd.date_depens AS date_arret, COUNT(*) AS nb_ops,' : '';
+            $group = $escale ? 'd.date_depens, cu.is_conect' : 'd.idcaisse_depens, cs.gexp_caiss, cu.is_conect';
+            $ordre = $escale ? ' ORDER BY d.date_depens ASC' : '';
 
             return $this->db->query(
-                "SELECT SUM(d.montant_depens) AS mont, {$use} AS idop_dep, cu.is_conect, {$idcaisse_sel} AS idcaisse_depens, {$gexp_sel} AS gexp_caiss FROM depense d
+                "SELECT SUM(d.montant_depens) AS mont, {$date_sel} {$use} AS idop_dep, cu.is_conect, {$idcaisse_sel} AS idcaisse_depens, {$gexp_sel} AS gexp_caiss FROM depense d
                 JOIN attributions_role ar ON ar.roleattribut = {$use}
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -902,7 +904,53 @@
                 AND d.date_depens <= '$today'
                 AND d.type_depense <> 'Courrier'
                 " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
-                GROUP BY {$group}")->result();
+                GROUP BY {$group}{$ordre}")->result();
+        }
+
+        /**
+         * Détail des dépenses d'escale arrêtées par le chef, en attente de la caissière.
+         */
+        public function valideget_details($cid, $gid, $idcais, $use)
+        {
+            unset($gid, $idcais);
+            $today = mdate('%Y-%m-%d', now());
+            $use = (int) $use;
+            $qui = function_exists('caissier_validation_personne_where')
+                ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $use)
+                : "(d.idop_dep = {$use} OR d.opevalidchef = {$use})";
+
+            return $this->db->query(
+                "SELECT d.id_depense, d.montant_depens, d.date_depens, d.date_insert, d.createddep_at,
+                        d.type_depense, d.nom_perso, d.idop_dep,
+                        cu_aut.username AS auteur_user, u_aut.first_name AS auteur_prenom, u_aut.last_name AS auteur_nom,
+                        ar_aut.userole AS auteur_role,
+                        cu_ch.username AS adjoint_user, u_ch.first_name AS adjoint_prenom, u_ch.last_name AS adjoint_nom
+                FROM depense d
+                JOIN attributions_role ar_aut ON d.idop_dep = ar_aut.roleattribut
+                JOIN user_login ul_aut ON ar_aut.idgestcompte = ul_aut.uid_login
+                JOIN compte_user cu_aut ON ul_aut.uid_usercpte = cu_aut.cpuser_id
+                LEFT JOIN utilisateurs u_aut ON cu_aut.userlog_id = u_aut.uid
+                LEFT JOIN attributions_role ar_ch ON COALESCE(NULLIF(d.opevalidchef, 0), d.idop_dep) = ar_ch.roleattribut
+                LEFT JOIN user_login ul_ch ON ar_ch.idgestcompte = ul_ch.uid_login
+                LEFT JOIN compte_user cu_ch ON ul_ch.uid_usercpte = cu_ch.cpuser_id
+                LEFT JOIN utilisateurs u_ch ON cu_ch.userlog_id = u_ch.uid
+                JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = ?
+                AND d.active_dep = 1
+                AND {$qui}
+                AND d.is_validedep = 0
+                AND d.is_actifdep = 0
+                AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
+                AND COALESCE(d.valid_depens, '') = 'valid'
+                AND d.actif_deps = 0
+                AND d.date_depens <= ?
+                AND d.type_depense <> 'Courrier'
+                " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
+                ORDER BY d.date_depens ASC, d.id_depense ASC",
+                array($cid, $today)
+            )->result();
         }
 
         public function validegead($cid, $gid, $idcais, $use)
@@ -923,8 +971,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.active_dep = 1
-                AND " . sous_caisse_predicat('d.idcaisse_depens', $idcais) . "
-                AND cs.gexp_caiss = '$gid'
+                AND " . sous_caisse_filtre_page('d.idcaisse_depens', $idcais, $gid) . "
                 AND {$pending}
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
@@ -968,7 +1015,7 @@
                 WHERE e.ekey = ?
                 AND d.active_dep = 1
                 AND " . sous_caisse_predicat('d.idcaisse_depens', $idcais) . "
-                AND cs.gexp_caiss = ?
+                AND cs.gexp_caiss = ?" . sous_caisse_scope_sql('cs') . "
                 AND {$pending}
                 AND d.actif_deps = 0
                 AND d.date_depens <= ?
@@ -998,7 +1045,7 @@
                 AND d.active_dep = 0
                 AND " . sous_caisse_predicat('d.idcaisse_depens', $idcais) . "
                 AND d.idop_dep = '$use'
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.is_validedep = 0
                 AND d.is_actifdep = 0
                 AND d.actif_deps = 0
@@ -1033,7 +1080,7 @@
                 WHERE e.ekey = '$cid'
                 AND d.ferme_caisdep = 1
                 AND d.validcptabledep = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.opevalid = '$uc'
                 AND d.date_depens >='$today'
                 ORDER BY d.date_depens ASC")->result();
@@ -1058,7 +1105,7 @@
                 AND d.date_depens BETWEEN ? AND ?
                 AND d.ferme_caisdep = 1
                 AND d.validcptabledep = 0
-                AND cs.gexp_caiss = ?
+                AND cs.gexp_caiss = ?" . sous_caisse_scope_sql('cs') . "
                 AND d.opevalid = ?
                 {$companyFilter}
                 ORDER BY d.date_depens ASC",
@@ -1077,7 +1124,7 @@
                 AND d.ferme_caisdep = 1
                 AND d.validcptabledep = 0
                 AND d.actif_deps = 0
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.opevalid = '$uc'
                 GROUP BY cs.id_caiss")->row();
         }
@@ -1103,7 +1150,7 @@
                 AND cu.is_conect = 1
                 AND d.ferme_caisdep = 1
                 AND cs.id_caiss = '$idcais'
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '') . "
                 GROUP BY cs.id_caiss")->row();
@@ -1124,7 +1171,7 @@
                 AND d.ferme_caisdep = 0
                 AND d.date_depens <= '$today'
                 AND cs.id_caiss = '$idcais'
-                AND cs.gexp_caiss = '$gid'
+                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.opevalid = '$conect'
                 AND d.type_depense <> 'Courrier'
                 " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '') . "
@@ -1152,7 +1199,7 @@
                 AND d.date_depens <= '$today'
                 AND d.idop_dep = '$conect'
                 AND cs.id_caiss = '$idcais'
-                AND cs.gexp_caiss = '$g'
+                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 AND d.actif_deps = 0
                 GROUP BY cs.id_caiss, d.idop_dep")->result();
@@ -1394,37 +1441,14 @@
             $lieu = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep') : '';
             $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $ops);
             $etat = ($niveau === 'adjoint')
-                ? 'AND d.ferme_caisdep = 0 AND d.is_actifdepad = 1'
+                ? 'AND d.ferme_caisdep = 0 AND d.is_actifdepad = 1 AND IFNULL(d.is_actifdep, 0) = 0'
                 : 'AND d.ferme_caisdep = 0 AND d.is_actifdep = 1';
             $qui = function_exists('caissier_escale_validateur_sql')
                 ? caissier_escale_validateur_sql(($niveau === 'adjoint') ? 'd.opevalidad' : 'd.opevalid')
                 : '';
-            $gare_sql = 'AND cs.gexp_caiss = ' . $this->db->escape($idg);
-            if ($niveau !== 'adjoint'
-                && function_exists('caissier_escale_page_active')
-                && caissier_escale_page_active()
-                && function_exists('caissier_escale_roles_chefs_lieu')
-            ) {
-                $chefs = caissier_escale_roles_chefs_lieu($idg);
-                if ($chefs) {
-                    $in = implode(',', array_map('intval', $chefs));
-                    $gare_sql = '';
-                    $qui = '';
-                    $etat = 'AND (
-                        (cs.gexp_caiss = ' . $this->db->escape($idg) . ' AND d.ferme_caisdep = 0 AND d.is_actifdep = 1
-                         ' . (function_exists('caissier_escale_validateur_sql') ? caissier_escale_validateur_sql('d.opevalid') : '') . ')
-                        OR (
-                            d.active_dep = 1
-                            AND d.is_actifdep = 0
-                            AND d.is_validedep = 0
-                            AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
-                            AND IFNULL(d.ferme_caisdep, 0) = 0
-                            AND COALESCE(d.valid_depens, \'\') = \'valid\'
-                            AND COALESCE(NULLIF(d.opevalidchef, 0), d.idop_dep) IN (' . $in . ')
-                        )
-                    )';
-                }
-            }
+            $gare_sql = function_exists('caissier_escale_caisse_sql')
+                ? caissier_escale_caisse_sql('cs', $idg)
+                : ('AND cs.gexp_caiss = ' . $this->db->escape($idg));
 
             return $this->db->query(
                 "SELECT * FROM depense d
@@ -1436,7 +1460,6 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 {$gare_sql}
-                AND d.type_depense <> 'Courrier'
                 {$etat}
                 {$qui}
                 {$op_sql}
@@ -1480,7 +1503,7 @@
                 {$active_sql}
                 {$pending_sql}
                 {$date_sql}
-                AND cs.gexp_caiss = '$idg'
+                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
                 {$caisse_sql}
                 {$op_sql}
                 {$sg_sql}
@@ -1503,7 +1526,7 @@
                 {$active_sql}
                 {$pending_sql}
                 {$date_sql}
-                AND cs.gexp_caiss = '$idg'
+                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
                 {$caisse_sql}
                 {$op_sql}
                 {$sg_sql}
@@ -1517,7 +1540,6 @@
         //depenses du jour 
         public function ad_depens($cid, $g, $idcais, $conect)
         {
-            $today = mdate('%Y-%m-%d', now());
             $conect = (int) $conect;
             $userole = recette_role_userole_for_attribut($conect);
             $escale_page = function_exists('caissier_escale_ops_from_request') && caissier_escale_ops_from_request();
@@ -1530,7 +1552,9 @@
             } else {
                 $op_sql = recette_role_is_validateur_adjoint($userole)
                     ? "AND d.opevalidad = {$conect} AND d.is_actifdepad = 1 AND d.is_actifdep = 0 AND IFNULL(d.arret_caisdep, 0) = 0"
-                    : "AND (d.idop_dep = {$conect} OR d.opevalidchef = {$conect}) AND d.active_dep = 0";
+                    : "AND (d.idop_dep = {$conect} OR d.opevalidchef = {$conect}) AND d.active_dep = 0"
+                        . " AND IFNULL(d.is_actifdep, 0) = 0"
+                        . " AND (d.is_validedep = 0 OR d.is_validedep IS NULL)";
             }
             $caisse_sql = $escale_page
                 ? ''
@@ -1559,7 +1583,6 @@
                 WHERE e.ekey = '$cid'
                 {$op_sql}
                 AND d.actif_deps = 0
-                AND d.date_depens <= '$today'
                 {$caisse_sql}
                 AND d.type_depense <> 'Courrier'
                 {$peri}
@@ -1597,7 +1620,7 @@
                 AND d.arret_caisdep = 0
                 {$op_sql}
                 AND d.date_depens <= '$today'
-                AND cs.gexp_caiss = '$g'
+                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
                 AND cs.id_caiss = '$idcais'
                 {$sg_sql}
@@ -1755,7 +1778,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND d.compkey_dep = '$comp'
-                    AND cs.gexp_caiss = '$g'
+                    AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
                     AND d.idcaisse_depens = '$cais'
                     AND d.idop_dep = '$conect'
                     AND d.type_depense <> 'Courrier'
@@ -1776,7 +1799,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.compkey_dep = '$comp'
-                AND cs.gexp_caiss = '$g'
+                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
                 AND d.idcaisse_depens = '$cais'
                 AND d.idop_dep = '$conect'
                 AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
@@ -1815,7 +1838,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.compkey_dep = '$comp'
-                AND cs.gexp_caiss = '$g'
+                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
                 AND d.idcaisse_depens = '$cais'
                 AND d.opevalid = '$conect'
                 AND d.type_depense <> 'Courrier'
@@ -1840,7 +1863,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.compkey_dep = '$comp'
-                AND cs.gexp_caiss = '$g'
+                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
                 AND d.idcaisse_depens = '$cais'
                 AND d.opevalidad = '$conect'
                 AND d.type_depense <> 'Courrier'
@@ -1865,7 +1888,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND d.compkey_dep = '$comp'
-                    AND cs.gexp_caiss = '$g'
+                    AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
                     AND d.idcaisse_depens = '$cais'
                     AND d.idop_dep = '$conect'
                     AND d.type_depense <> 'Courrier'
@@ -1887,7 +1910,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND d.compkey_dep = '$comp'
-                    AND cs.gexp_caiss = '$g'
+                    AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
                     AND d.idcaisse_depens = '$cais'
                     AND d.idop_dep = '$conect'
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'

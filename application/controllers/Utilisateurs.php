@@ -198,7 +198,7 @@
         }
 
         /**
-         * Le valideur est enregistré avec son rôle sur la gare de l'escale.
+         * Le valideur est le profil connecté, sur la sous-caisse de l'escale.
          */
         protected function _ajuster_depense_escale($depense_id, $agent_id)
         {
@@ -217,11 +217,28 @@
             if ($lieu['sousgare_id'] > 0) {
                 $patch['sousgidepens'] = $lieu['sousgare_id'];
             }
-            if (in_array($role, array('5', '16'), true) && $lieu['chef_role'] > 0) {
-                $patch['opevalidchef'] = $lieu['chef_role'];
+            $profil = $this->_profil_connecte();
+            $cle = $this->_cle_agent_escale($agent_id);
+            if ($cle !== '' && $this->db->field_exists('escale_cle', 'depense')) {
+                $patch['escale_cle'] = $cle;
             }
-            if ($role === '4' && $lieu['caissier_role'] > 0) {
-                $patch['opevalid'] = $lieu['caissier_role'];
+            if (in_array($role, array('5', '16'), true)) {
+                $chef = $profil > 0 ? $profil : (int) $lieu['chef_role'];
+                if ($chef > 0) {
+                    $patch['opevalidchef'] = $chef;
+                }
+            }
+            if ($role === '4') {
+                $caissier = $profil > 0 ? $profil : (int) $lieu['caissier_role'];
+                if ($caissier > 0) {
+                    $patch['opevalid'] = $caissier;
+                }
+            }
+            if ($role === '18') {
+                $adjoint = $profil > 0 ? $profil : (int) (isset($lieu['adjoint_role']) ? $lieu['adjoint_role'] : 0);
+                if ($adjoint > 0) {
+                    $patch['opevalidad'] = $adjoint;
+                }
             }
             if ($patch) {
                 $this->m_depense->update((int) $depense_id, $patch);
@@ -245,16 +262,49 @@
             if ($lieu['sousgare_id'] > 0) {
                 $patch['recetsgid'] = $lieu['sousgare_id'];
             }
-            if (in_array($role, array('5', '16'), true) && $lieu['chef_role'] > 0) {
-                $patch['operavalidchef'] = $lieu['chef_role'];
+            $profil = $this->_profil_connecte();
+            $cle = $this->_cle_agent_escale($agent_id);
+            if ($cle !== '' && $this->db->field_exists('escale_cle', 'recette')) {
+                $patch['escale_cle'] = $cle;
             }
-            if ($role === '4' && $lieu['caissier_role'] > 0) {
-                $patch['operavalid'] = $lieu['caissier_role'];
+            if (in_array($role, array('5', '16'), true)) {
+                $chef = $profil > 0 ? $profil : (int) $lieu['chef_role'];
+                if ($chef > 0) {
+                    $patch['operavalidchef'] = $chef;
+                }
             }
-            if ($role === '18' && !empty($lieu['adjoint_role'])) {
-                $patch['operavalidad'] = $lieu['adjoint_role'];
+            if ($role === '4') {
+                $caissier = $profil > 0 ? $profil : (int) $lieu['caissier_role'];
+                if ($caissier > 0) {
+                    $patch['operavalid'] = $caissier;
+                }
+            }
+            if ($role === '18') {
+                $adjoint = $profil > 0 ? $profil : (int) (isset($lieu['adjoint_role']) ? $lieu['adjoint_role'] : 0);
+                if ($adjoint > 0) {
+                    $patch['operavalidad'] = $adjoint;
+                }
             }
             $this->m_recette->update((int) $recette_id, $patch);
+        }
+
+        protected function _profil_connecte()
+        {
+            return !empty($this->session->agent->roleattribut) ? (int) $this->session->agent->roleattribut : 0;
+        }
+
+        protected function _cle_agent_escale($agent_id)
+        {
+            $row = $this->db->query(
+                "SELECT REPLACE(TRIM(vente_escale_value), '|', '~') AS cle
+                 FROM attributions_role
+                 WHERE roleattribut = ? AND userole = 17
+                   AND TRIM(IFNULL(vente_escale_value, '')) <> ''
+                 LIMIT 1",
+                array((int) $agent_id)
+            )->row();
+
+            return ($row && trim((string) $row->cle) !== '') ? trim((string) $row->cle) : '';
         }
 
         protected function _role_personne_sur_gare($gare_id, array $roles, $fallback_chef)
@@ -1215,6 +1265,9 @@
             $this->property['depot_stop'] = $this->m_depot->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
             $this->property['versement_stop'] = $this->m_versements->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
             $this->property['is_profil_adjoint'] = recette_role_is_validateur_adjoint($profil_role) ? 1 : 0;
+            $this->property['validation_par_date'] = (
+                function_exists('caissier_escale_page_active') && caissier_escale_page_active()
+            ) ? 1 : 0;
             $this->property['recette_stop_details'] = array();
             $this->property['depense_stop_details'] = array();
             $this->property['depot_stop_details'] = array();
@@ -1226,6 +1279,13 @@
                     $this->company->ekey, $gid, $idcai, $idcpus
                 );
                 $this->property['depot_stop_details'] = $this->m_depot->validegead_details(
+                    $this->company->ekey, $gid, $idcai, $idcpus
+                );
+            } elseif (!empty($this->property['validation_par_date'])) {
+                $this->property['recette_stop_details'] = $this->m_recette->valideget_details(
+                    $this->company->ekey, $gid, $idcai, $idcpus
+                );
+                $this->property['depense_stop_details'] = $this->m_depense->valideget_details(
                     $this->company->ekey, $gid, $idcai, $idcpus
                 );
             }

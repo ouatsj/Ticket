@@ -959,6 +959,13 @@ if (!function_exists('roleattribut_guard_redirect_if_url_mismatch')) {
             'roleattribut_guard_notice',
             'Ce guichet ne correspond pas à votre compte. Redirection vers votre espace de vente.'
         );
+        $qs = isset($_SERVER['QUERY_STRING']) ? trim((string) $_SERVER['QUERY_STRING']) : '';
+        if ($qs !== '' && strpos($redirect_url, '?') === false) {
+            if (!preg_match('#^(\w+:)?//#i', $redirect_url)) {
+                $redirect_url = site_url($redirect_url);
+            }
+            $redirect_url .= '?' . $qs;
+        }
         redirect($redirect_url);
 
         return true;

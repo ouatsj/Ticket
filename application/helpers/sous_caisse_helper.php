@@ -197,8 +197,7 @@ if (!function_exists('sous_caisse_id_ecriture')) {
 
 if (!function_exists('sous_caisse_ids_lecture')) {
     /**
-     * Caisse de la page, plus la sous-caisse si elle existe déjà.
-     * Les lignes encore en attente sur la caisse mère restent visibles.
+     * Gare : cette caisse seule. Escale : la sous-caisse de cette escale seule.
      *
      * @param int|string $pageId
      * @return int[]
@@ -209,12 +208,99 @@ if (!function_exists('sous_caisse_ids_lecture')) {
         if ($pageId <= 0) {
             return array();
         }
-        $enfant = sous_caisse_enfant_id($pageId);
-        if ($enfant > 0 && $enfant !== $pageId) {
-            return array($pageId, $enfant);
+        if (!sous_caisse_colonnes_ok()) {
+            return array($pageId);
+        }
+        $cle = sous_caisse_cle_page();
+        if ($cle === '') {
+            return array($pageId);
+        }
+        $enfant = sous_caisse_enfant_id($pageId, $cle);
+        if ($enfant > 0) {
+            return array($enfant);
+        }
+        $CI =& get_instance();
+        $page = $CI->db->query(
+            "SELECT id_caiss, parent_caiss FROM caisse WHERE id_caiss = ? LIMIT 1",
+            array($pageId)
+        )->row();
+        if ($page && (int) $page->parent_caiss > 0) {
+            return array($pageId);
+        }
+        $parCle = $CI->db->query(
+            "SELECT id_caiss FROM caisse
+             WHERE parent_caiss > 0
+               AND REPLACE(TRIM(escale_cle), '|', '~') = ?
+             LIMIT 1",
+            array($cle)
+        )->row();
+        if ($parCle && (int) $parCle->id_caiss > 0) {
+            return array((int) $parCle->id_caiss);
         }
 
         return array($pageId);
+    }
+}
+
+if (!function_exists('sous_caisse_filtre_page')) {
+    /**
+     * Caisse de la page (même gare) ou sous-caisse liée, même si sa gare diffère.
+     *
+     * @param string $column
+     * @param int|string $pageId
+     * @param string $gid
+     * @return string
+     */
+    function sous_caisse_filtre_page($column, $pageId, $gid)
+    {
+        if (!preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $column)) {
+            $column = 'cs.id_caiss';
+        }
+        $page = (int) $pageId;
+        $ids = array();
+        foreach (sous_caisse_ids_lecture($page) as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (!$ids) {
+            return '1=0';
+        }
+        $CI =& get_instance();
+        $gid = $CI->db->escape_str((string) $gid);
+        if (sous_caisse_cle_page() !== '') {
+            return $column . ' IN (' . implode(',', $ids) . ')';
+        }
+
+        return $column . ' = ' . $page
+            . ' AND (cs.parent_caiss IS NULL OR cs.parent_caiss = 0)'
+            . " AND cs.gexp_caiss = '" . $gid . "'";
+    }
+}
+
+if (!function_exists('sous_caisse_scope_sql')) {
+    /**
+     * Gare : caisses mères seulement. Escale : la sous-caisse de l'escale ouverte.
+     *
+     * @param string $alias
+     * @return string
+     */
+    function sous_caisse_scope_sql($alias = 'cs')
+    {
+        if (!preg_match('/^[a-z][a-z0-9_]*$/', (string) $alias)) {
+            $alias = 'cs';
+        }
+        if (!sous_caisse_colonnes_ok()) {
+            return '';
+        }
+        $CI =& get_instance();
+        $cle = sous_caisse_cle_page();
+        if ($cle !== '') {
+            return ' AND REPLACE(TRIM(' . $alias . ".escale_cle), '|', '~') = " . $CI->db->escape($cle);
+        }
+
+        return ' AND (' . $alias . '.parent_caiss IS NULL OR ' . $alias . '.parent_caiss = 0)';
     }
 }
 
@@ -231,9 +317,18 @@ if (!function_exists('sous_caisse_predicat')) {
         if (!preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $column)) {
             $column = 'cs.id_caiss';
         }
-        $ids = sous_caisse_ids_lecture($pageId);
-        if (count($ids) < 2) {
-            return $column . ' = ' . (int) $pageId;
+        $ids = array();
+        foreach (sous_caisse_ids_lecture($pageId) as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (!$ids) {
+            return '1=0';
+        }
+        if (count($ids) === 1) {
+            return $column . ' = ' . reset($ids);
         }
 
         return $column . ' IN (' . implode(',', $ids) . ')';

@@ -63,6 +63,9 @@
                     <a href="<?= site_url('caisses/' . $this->session->company->ekey . '/gTv/' . $gexp_btn . '/' . (!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0) . '/recettebagage/' . $conex->roleattribut . '/' . $bus_stop->idsousgare . '/' . mdate('%d/%m/%Y', now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
                         <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE BAGAGE&nbsp;
                     </a>
+                    <a href="<?= site_url('caisses/' . $this->session->company->ekey . '/gTv/' . $gexp_btn . '/' . (!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0) . '/recettecourrier/' . $conex->roleattribut . '/' . $bus_stop->idsousgare . '/' . mdate('%d/%m/%Y', now('UTC'))) . $qesc; ?>" class="btn btn-space btn-secondary">
+                        <i class="fas fa-arrow-circle-down text-info"></i>&nbsp;RECETTE COURRIER&nbsp;
+                    </a>
                     <?php else: ?>
                     <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
                         (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0). "/".(!empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0).
@@ -95,9 +98,9 @@
         </p>
     </div>
     <?php if ($depuis_escale): ?>
-    <div class="alert alert-info mb-2 ml-4 mr-4">Recettes de cette escale chez <?= ($this->session->agent->userole === '18' || $this->input->get('escale_vue') === '18') ? 'le caissier adjoint' : 'le caissier principal'; ?>, y compris les arrêts du chef encore à valider.</div>
+    <div class="alert alert-info mb-2 ml-4 mr-4"><?= (!empty($recette_famille) && $recette_famille === 'courrier') ? 'Courriers de cette escale' : 'Recettes de cette escale, sans les courriers'; ?> chez <?= ($this->session->agent->userole === '18' || $this->input->get('escale_vue') === '18') ? 'le caissier adjoint' : 'le caissier principal'; ?><?= (!empty($recette_famille) && $recette_famille === 'courrier') ? ', y compris ceux que le chef a arrêtés et que la caissière n\'a pas encore validés' : ''; ?>.</div>
     <?php endif; ?>
-    <div class="form-group text-center">Les recettes de la caisse : <? if($totalrecettes == NULL):?> 0 <? else:?> &nbsp;<?=$totalrecettes->total; ?><? endif; ?></div>
+    <div class="form-group text-center"><?= (!empty($recette_famille) && $recette_famille === 'courrier') ? 'Les courriers de la caisse' : 'Les recettes de la caisse'; ?> : <? if($totalrecettes == NULL):?> 0 <? else:?> &nbsp;<?=$totalrecettes->total; ?><? endif; ?></div>
 <div class="row">
 
     <div class="col-12">

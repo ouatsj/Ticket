@@ -1184,13 +1184,30 @@
             return $url . '?' . http_build_query($query);
         }
 
-        protected function _escale_caisse($gare_id, $gid)
+        protected function _escale_caisse($gare_id, $gid, $escale_cle = '')
         {
+            $cle = str_replace('|', '~', trim((string) $escale_cle));
+            if ($cle !== '' && $this->db->field_exists('escale_cle', 'caisse') && $this->db->field_exists('parent_caiss', 'caisse')) {
+                $sous = $this->db->query(
+                    "SELECT ce.id_caiss, ce.gexp_caiss
+                     FROM caisse ce
+                     WHERE REPLACE(TRIM(ce.escale_cle), '|', '~') = ?
+                       AND ce.parent_caiss > 0
+                     ORDER BY ce.id_caiss ASC
+                     LIMIT 1",
+                    array($cle)
+                )->row();
+                if ($sous && !empty($sous->id_caiss)) {
+                    return $sous;
+                }
+            }
+
             return $this->db->query(
                 "SELECT ce.id_caiss, ce.gexp_caiss
                  FROM caisse ce
                  JOIN gare_exp ex ON ce.gexp_caiss = ex.code_gaexp
-                 WHERE ex.garesid = ? OR ex.code_gaexp = ?
+                 WHERE (ex.garesid = ? OR ex.code_gaexp = ?)
+                   AND (ce.parent_caiss IS NULL OR ce.parent_caiss = 0)
                  ORDER BY ce.id_caiss ASC
                  LIMIT 1",
                 array($gare_id, $gid)
@@ -1213,6 +1230,9 @@
         protected function _escale_boutons_comme_sousgare($userole, $caisse, $viewer, $idsg, $date_seg, array $agents, $gare_id)
         {
             $userole = (string) $userole;
+            if (in_array($userole, array('4', '18'), true) && $this->session->userdata('agent') && !empty($this->session->agent->roleattribut)) {
+                $viewer = (int) $this->session->agent->roleattribut;
+            }
             $sections = array();
             $gexp = ($caisse && !empty($caisse->gexp_caiss)) ? $caisse->gexp_caiss : '';
             $id_caiss = ($caisse && !empty($caisse->id_caiss)) ? (int) $caisse->id_caiss : 0;
@@ -1526,7 +1546,7 @@
                 }
             }
 
-            $caisse = $this->_escale_caisse($gare_id, $gid);
+            $caisse = $this->_escale_caisse($gare_id, $gid, $wanted);
             $this->property['caisseident'] = $caisse;
             $caisse_id = ($caisse && !empty($caisse->id_caiss)) ? (int) $caisse->id_caiss : 0;
             $gexp_solde = ($caisse && !empty($caisse->gexp_caiss)) ? $caisse->gexp_caiss : '';
@@ -1664,7 +1684,8 @@
                 return;
             }
 
-            $caisse = $this->_escale_caisse($gare_id, $gid);
+            $cle_escale = str_replace('|', '~', trim((string) $escale->vente_escale_value));
+            $caisse = $this->_escale_caisse($gare_id, $gid, $cle_escale);
             $taches = $this->_escale_boutons_comme_sousgare(
                 $userole,
                 $caisse,

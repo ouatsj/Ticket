@@ -393,6 +393,11 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
 
     </div>
 </div>
+<?php
+$role_page_arret = !empty($comptejours->userole) ? (string) $comptejours->userole : '';
+$masquer_rapport_caisse = in_array($role_page_arret, array('5', '16', '18'), true);
+?>
+<?php if (!$masquer_rapport_caisse): ?>
 <div class="row">
     <div class="col-lg-4">
 
@@ -519,4 +524,5 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
     </div>
     
 </div>
+<?php endif; ?>
 

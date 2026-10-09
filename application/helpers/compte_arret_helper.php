@@ -2507,6 +2507,14 @@ if (!function_exists('escale_ligne_lieu_sql')) {
                 $parts[] = 'r.commentaire_recet LIKE ' . $CI->db->escape('%' . $mark . '%');
             }
         }
+        $cle = str_replace('|', '~', $escale);
+        if ($cle !== '' && $colOk($nomColumn)) {
+            $alias = strstr($nomColumn, '.', true);
+            $cleCol = $alias . '.escale_cle';
+            if ($colOk($cleCol)) {
+                $parts[] = "REPLACE(TRIM(" . $cleCol . "), '|', '~') = " . $CI->db->escape($cle);
+            }
+        }
         if (!$parts) {
             return '';
         }
@@ -2654,8 +2662,51 @@ if (!function_exists('caissier_escale_validateur_sql')) {
         if ($id <= 0) {
             return 'AND 1=0';
         }
+        $ids = array($id => $id);
+        if (function_exists('recette_role_ids_meme_personne')) {
+            foreach (recette_role_ids_meme_personne($id) as $autre) {
+                $autre = (int) $autre;
+                if ($autre > 0) {
+                    $ids[$autre] = $autre;
+                }
+            }
+        }
 
-        return 'AND ' . $colonne . ' = ' . $id;
+        return 'AND ' . $colonne . ' IN (' . implode(',', $ids) . ')';
+    }
+}
+
+if (!function_exists('caissier_escale_caisse_sql')) {
+    /**
+     * Caisse de la page, ou la sous-caisse de l'escale ouverte.
+     * Même règle pour chaque caissier, quelle que soit sa gare.
+     *
+     * @param string $alias
+     * @param string $gid
+     * @return string
+     */
+    function caissier_escale_caisse_sql($alias, $gid)
+    {
+        if (!preg_match('/^[a-z][a-z0-9_]*$/', (string) $alias)) {
+            $alias = 'cs';
+        }
+        $CI =& get_instance();
+        $parts = array($alias . '.gexp_caiss = ' . $CI->db->escape($gid));
+        $cle = function_exists('sous_caisse_cle_page') ? sous_caisse_cle_page() : '';
+        if ($cle !== '' && $CI->db->field_exists('escale_cle', 'caisse') && $CI->db->field_exists('parent_caiss', 'caisse')) {
+            $sous = $CI->db->query(
+                "SELECT id_caiss FROM caisse
+                 WHERE parent_caiss > 0
+                   AND REPLACE(TRIM(escale_cle), '|', '~') = ?
+                 LIMIT 1",
+                array($cle)
+            )->row();
+            if ($sous && (int) $sous->id_caiss > 0) {
+                $parts[] = $alias . '.id_caiss = ' . (int) $sous->id_caiss;
+            }
+        }
+
+        return 'AND (' . implode(' OR ', $parts) . ')';
     }
 }
 
@@ -2679,7 +2730,10 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
         $CI =& get_instance();
         $caisse_id = (int) $caisse_id;
         $validator_id = (int) $validator_id;
-        if ($caisse_id <= 0 || !$ops || !function_exists('recette_role_ops_ou_nom_sql')) {
+        if (!function_exists('recette_role_ops_ou_nom_sql')) {
+            $CI->load->helper('recette_role');
+        }
+        if (!$ops || !function_exists('recette_role_ops_ou_nom_sql')) {
             return 0.0;
         }
         if (!$tous_validateurs && $validator_id <= 0) {
@@ -2694,6 +2748,11 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
             if ($mark !== '' && $nom_col === 'r.nom' && $sql !== '' && $sql !== 'AND 1=0') {
                 $sql = 'AND (' . preg_replace('/^AND\s+/', '', $sql)
                     . ' OR r.commentaire_recet LIKE ' . $CI->db->escape('%' . $mark . '%') . ')';
+            }
+            $cle = str_replace('|', '~', trim((string) $escale_label));
+            if ($cle !== '' && $sql !== '' && $sql !== 'AND 1=0' && preg_match('/^([a-z][a-z0-9_]*)\./', $nom_col, $alias)) {
+                $sql = 'AND (' . preg_replace('/^AND\s+/', '', $sql)
+                    . " OR REPLACE(TRIM(" . $alias[1] . ".escale_cle), '|', '~') = " . $CI->db->escape($cle) . ')';
             }
 
             return $sql;
@@ -2710,35 +2769,77 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
 
             return 0.0;
         };
+        $ids_caisse = array();
+        if (function_exists('sous_caisse_id_agent')) {
+            foreach ($ops as $op_escale) {
+                $sid = sous_caisse_id_agent($op_escale);
+                if ($sid > 0) {
+                    $ids_caisse[$sid] = $sid;
+                }
+            }
+        }
+        $cle_solde = str_replace('|', '~', trim((string) $escale_label));
+        if ($cle_solde !== '' && $CI->db->field_exists('escale_cle', 'caisse') && $CI->db->field_exists('parent_caiss', 'caisse')) {
+            $sous_cle = $CI->db->query(
+                "SELECT id_caiss FROM caisse
+                 WHERE parent_caiss > 0
+                   AND REPLACE(TRIM(escale_cle), '|', '~') = ?
+                 LIMIT 1",
+                array($cle_solde)
+            )->row();
+            if ($sous_cle && (int) $sous_cle->id_caiss > 0) {
+                $ids_caisse[(int) $sous_cle->id_caiss] = (int) $sous_cle->id_caiss;
+            }
+        }
+        if (!$ids_caisse && $caisse_id > 0) {
+            $ids_caisse[$caisse_id] = $caisse_id;
+        }
+        if (!$ids_caisse) {
+            return 0.0;
+        }
+        $in_caisse = implode(',', $ids_caisse);
+        $validateurs = array($validator_id => $validator_id);
+        if (function_exists('recette_role_ids_meme_personne')) {
+            foreach (recette_role_ids_meme_personne($validator_id) as $autre) {
+                $autre = (int) $autre;
+                if ($autre > 0) {
+                    $validateurs[$autre] = $autre;
+                }
+            }
+        }
+        $in_valid = implode(',', $validateurs);
         $base = "JOIN caisse cs ON %s = cs.id_caiss
             JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
             JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '{$ekey}'
-            AND cs.id_caiss = {$caisse_id}
-            AND ex.code_gaexp = '{$gexp}'";
+            AND cs.id_caiss IN ({$in_caisse})";
         if ($niveau === 'adjoint') {
-            $qui_r = $tous_validateurs ? '' : "AND r.operavalidad = {$validator_id}";
-            $qui_d = $tous_validateurs ? '' : "AND d.opevalidad = {$validator_id}";
-            $qui_p = $tous_validateurs ? '' : "AND dp.opvalidad = {$validator_id}";
-            $qui_v = $tous_validateurs ? '' : "AND v.validopad = {$validator_id}";
+            $qui_r = $tous_validateurs ? '' : "AND r.operavalidad IN ({$in_valid})";
+            $qui_d = $tous_validateurs ? '' : "AND d.opevalidad IN ({$in_valid})";
+            $qui_p = $tous_validateurs ? '' : "AND dp.opvalidad IN ({$in_valid})";
+            $qui_v = $tous_validateurs ? '' : "AND v.validopad IN ({$in_valid})";
             $recettes = $montant(
                 "SELECT SUM(r.montant_recet) AS total FROM recette r "
                 . sprintf($base, 'r.idcaisse') . "
                 AND r.ferme_caisrecet = 0 AND r.is_actifrecetad = 1
-                AND r.type_recet <> 'Courrier' {$qui_r} " . $scope('r.idopera', 'r.nom')
+                AND IFNULL(r.is_actifrecet, 0) = 0
+                AND IFNULL(r.type_recet, '') <> 'Courrier'
+                {$qui_r} " . $scope('r.idopera', 'r.nom')
             );
             $depenses = $montant(
                 "SELECT SUM(d.montant_depens) AS total FROM depense d "
                 . sprintf($base, 'd.idcaisse_depens') . "
                 AND d.ferme_caisdep = 0 AND d.is_actifdepad = 1
-                AND d.type_depense <> 'Courrier' {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
+                AND IFNULL(d.is_actifdep, 0) = 0
+                {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
             );
             $depots = $montant(
                 "SELECT SUM(dp.montant_depot) AS total FROM depot dp "
                 . sprintf($base, 'dp.idcaisse_depot') . "
                 AND dp.ferme_caisdepo = 0 AND dp.is_validdepo = 1 AND dp.is_actifdepoad = 1
-                AND dp.type_depot <> 'Courrier' {$qui_p} " . $scope('dp.idop_depot', 'dp.nom_pre')
+                AND IFNULL(dp.is_actifdepo, 0) = 0
+                {$qui_p} " . $scope('dp.idop_depot', 'dp.nom_pre')
             );
             $versements = $montant(
                 "SELECT SUM(v.montant_verser) AS total FROM versements v "
@@ -2747,27 +2848,28 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 AND v.type_versement <> 'Courrier' {$qui_v} " . $scope('v.idop_versement', 'v.nom_beneficiaire')
             );
         } else {
-            $qui_r = $tous_validateurs ? '' : "AND r.operavalid = {$validator_id}";
-            $qui_d = $tous_validateurs ? '' : "AND d.opevalid = {$validator_id}";
-            $qui_p = $tous_validateurs ? '' : "AND dp.opvalid = {$validator_id}";
-            $qui_v = $tous_validateurs ? '' : "AND v.validop = {$validator_id}";
+            $qui_r = $tous_validateurs ? '' : "AND r.operavalid IN ({$in_valid})";
+            $qui_d = $tous_validateurs ? '' : "AND d.opevalid IN ({$in_valid})";
+            $qui_p = $tous_validateurs ? '' : "AND dp.opvalid IN ({$in_valid})";
+            $qui_v = $tous_validateurs ? '' : "AND v.validop IN ({$in_valid})";
             $recettes = $montant(
                 "SELECT SUM(r.montant_recet) AS total FROM recette r "
                 . sprintf($base, 'r.idcaisse') . "
                 AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1
-                AND r.type_recet <> 'Courrier' {$qui_r} " . $scope('r.idopera', 'r.nom')
+                AND IFNULL(r.type_recet, '') <> 'Courrier'
+                {$qui_r} " . $scope('r.idopera', 'r.nom')
             );
             $depenses = $montant(
                 "SELECT SUM(d.montant_depens) AS total FROM depense d "
                 . sprintf($base, 'd.idcaisse_depens') . "
                 AND d.ferme_caisdep = 0 AND d.is_actifdep = 1
-                AND d.type_depense <> 'Courrier' {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
+                {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
             );
             $depots = $montant(
                 "SELECT SUM(dp.montant_depot) AS total FROM depot dp "
                 . sprintf($base, 'dp.idcaisse_depot') . "
                 AND dp.ferme_caisdepo = 0 AND dp.is_validdepo = 1
-                AND dp.type_depot <> 'Courrier' {$qui_p} " . $scope('dp.idop_depot', 'dp.nom_pre')
+                {$qui_p} " . $scope('dp.idop_depot', 'dp.nom_pre')
             );
             $versements = $montant(
                 "SELECT SUM(v.montant_verser) AS total FROM versements v "
@@ -2855,7 +2957,10 @@ if (!function_exists('caissier_escale_filtrer_lignes')) {
                     break;
                 }
             }
-            if ($par_id || $par_nom || $par_marqueur) {
+            $cle_page = str_replace('|', '~', trim((string) $CI->input->get_post('escale')));
+            $cle_ligne = isset($row->escale_cle) ? str_replace('|', '~', trim((string) $row->escale_cle)) : '';
+            $par_cle = ($cle_page !== '' && $cle_ligne !== '' && $cle_ligne === $cle_page);
+            if ($par_id || $par_nom || $par_marqueur || $par_cle) {
                 if (isset($row->commentaire_recet)) {
                     $row->commentaire_recet = caissier_escale_commentaire_visible($row->commentaire_recet);
                 }
