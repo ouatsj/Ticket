@@ -252,9 +252,9 @@ $allow_prix_diff_unifie = true;
             <div id="corr_unifie_wrap" style="display:none">
                 <div class="reprog-section-title">Itinéraire de correspondance</div>
                 <p class="small text-muted mb-2" id="corr_unifie_hint">
-                    Pas de direct à cette heure : choisissez l’itinéraire
-                    (2, 3 jambes ou plus). Sur chaque correspondance, la compagnie
-                    se choisit avant la ligne.
+                    Pas de direct à cette heure : les itinéraires possibles
+                    (2 jambes ou plus) qui atteignent la destination, comme à la vente.
+                    Sur chaque correspondance, la compagnie se choisit avant la ligne.
                 </p>
                 <p class="text-warning small mb-2" id="corr_unifie_msg"></p>
                 <div class="form-group mb-3">

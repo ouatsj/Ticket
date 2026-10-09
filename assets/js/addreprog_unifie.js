@@ -2393,101 +2393,92 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Heure sans direct : toutes les correspondances de ce départ
-     * (2 jambes et 3 jambes), comme la vente. L’agent choisit.
+     * Même source que la vente : verifchemins pour cette heure.
+     * Pas de direct → le champ Itinéraire liste les chemins de 2 jambes ou plus
+     * qui atteignent la destination. On ne fabrique pas un trajet à 2 jambes.
      */
     function __reprogPresentItinerairesHeure(list, hhmm, codePref, dateYmd, destLabel) {
         var hh = __reprogHhmm(hhmm || '');
-        var matched = __reprogRowsArray(list).filter(function (ch) {
-            if (!ch) return false;
-            var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
-            if (et.length < 2) return false;
-            if (hh && __reprogEtapeHeureStr(et[0]) !== hh) return false;
-            return true;
-        });
-        if (codePref) {
-            var withCode = matched.filter(function (ch) {
-                return __reprogFirstLegCode(ch) === String(codePref);
-            });
-            var longer = matched.filter(function (ch) {
-                return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 3;
-            });
-            if (withCode.length) {
-                var seenC = {};
-                matched = [];
-                withCode.concat(longer).forEach(function (ch) {
-                    var sig = __reprogCheminSig(ch);
-                    if (!sig || seenC[sig]) return;
-                    seenC[sig] = 1;
-                    matched.push(ch);
-                });
-            }
-        }
-        if (!matched.length) {
-            var box0 = __reprogQ('smspunifie');
-            var err0 = __reprogQ('erreurSmspunifie');
-            if (box0) box0.style.display = 'block';
-            if (err0) {
-                err0.textContent = 'Aucun itinéraire de correspondance à '
-                    + (hh || 'cette heure')
-                    + (destLabel ? (' vers ' + destLabel) : '')
-                    + '.';
-            }
+        var st = window.__reprogState;
+        var axe = __reprogAxeDepuisGareReport() || st.axe || '';
+        var box = __reprogQ('smspunifie');
+        var err = __reprogQ('erreurSmspunifie');
+        if (!axe || axe.indexOf('-') < 0 || !dateYmd) {
+            if (box) box.style.display = 'block';
+            if (err) err.textContent = 'Direction de report introuvable pour charger les itinéraires.';
             return;
         }
-        var base = null;
-        if (codePref) {
-            matched.some(function (ch) {
-                if (__reprogFirstLegCode(ch) === String(codePref)) {
-                    base = ch;
-                    return true;
-                }
-                return false;
-            });
-        }
-        if (!base) base = matched[0];
+        if (box) box.style.display = 'block';
+        if (err) err.textContent = 'Recherche des itinéraires de correspondance…';
 
-        function publish(extra) {
-            var seen = {};
-            var all = [];
-            matched.concat(__reprogRowsArray(extra)).forEach(function (ch) {
-                var sig = __reprogCheminSig(ch);
-                if (!sig || seen[sig]) return;
-                seen[sig] = 1;
-                all.push(ch);
+        var sgEl = document.querySelector('input[name="sousgareconnect"]');
+        var sg = (sgEl && String(sgEl.value || '').trim() !== '') ? String(sgEl.value).trim() : '0';
+        var url = window.location.origin + APP_ROOT
+            + '/programmes/verifchemins/'
+            + encodeURIComponent(axe) + '/'
+            + encodeURIComponent(dateYmd) + '/'
+            + encodeURIComponent(sg) + '/1';
+        if (hh) {
+            url += '?heure=' + encodeURIComponent(hh);
+        }
+        if (st.gid) {
+            url += (url.indexOf('?') === -1 ? '?' : '&') + 'gare=' + encodeURIComponent(String(st.gid));
+        }
+
+        __reprogXhrGet(url, function (payload) {
+            var chemins = [];
+            if (payload && payload.mode !== 'direct' && payload.mode !== 'none') {
+                if (Array.isArray(payload.chemins)) chemins = payload.chemins;
+                else if (payload.chemins) chemins = __reprogRowsArray(payload.chemins);
+            }
+            chemins = __reprogRowsArray(chemins).filter(function (ch) {
+                if (!ch || ch.source === 'direct' || ch.source === 'declaratif') return false;
+                var et = __reprogNormalizeEtapes(ch.etapes || ch.legs);
+                var n = parseInt(ch.nb_jambes, 10) || et.length;
+                if (n < 2 || et.length < 2) return false;
+                var h0 = __reprogEtapeHeureStr(et[0]);
+                if (hh && h0 && h0 !== hh) return false;
+                return __reprogCheminSensOk(ch) && __reprogCheminAtteintDest(ch);
             });
-            all.sort(function (a, b) {
-                var na = __reprogNormalizeEtapes(a.etapes || a.legs).length;
-                var nb = __reprogNormalizeEtapes(b.etapes || b.legs).length;
-                if (na !== nb) return nb - na;
+            var seen = {};
+            chemins = chemins.filter(function (ch) {
+                var sig = __reprogCheminSig(ch);
+                if (!sig || seen[sig]) return false;
+                seen[sig] = 1;
+                return true;
+            });
+            chemins.sort(function (a, b) {
+                var na = __reprogNormalizeEtapes(a.etapes || a.legs).length || 99;
+                var nb = __reprogNormalizeEtapes(b.etapes || b.legs).length || 99;
+                if (na !== nb) return na - nb;
                 return (__reprogTransitPrio(b) || 0) - (__reprogTransitPrio(a) || 0);
             });
+            if (!chemins.length) {
+                __reprogHideCorr();
+                if (box) box.style.display = 'block';
+                if (err) {
+                    err.textContent = 'Pas de départ direct à ' + (hh || 'cette heure')
+                        + (destLabel ? (' vers ' + destLabel) : '')
+                        + ' — aucune correspondance qui atteint la destination.';
+                }
+                return;
+            }
             window.__reprogState.mode = 'transit';
             window.__reprogState.uniqueTransit = null;
             window.__reprogState.itinerairesExpanded = true;
+            window.__reprogState.transitChemins = chemins;
             if (__reprogQ('reprog_mode_unifie')) {
                 __reprogQ('reprog_mode_unifie').value = 'transit';
             }
-            var n3 = all.some(function (ch) {
-                return __reprogNormalizeEtapes(ch.etapes || ch.legs).length >= 3;
-            });
             __reprogShowCorrExclusive(
-                all,
+                chemins,
                 'Pas de direct à ' + (hh || 'cette heure')
                     + (destLabel ? (' vers ' + destLabel) : '')
-                    + ' — choisissez l’itinéraire de correspondance'
-                    + (n3 ? ' (y compris 3 jambes).' : '.')
+                    + ' — choisissez l’itinéraire de correspondance ('
+                    + chemins.length + ' choix, 2 jambes ou plus).'
             );
             __reprogSetPlusItinVisible(false);
-            if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'none';
-        }
-
-        var box = __reprogQ('smspunifie');
-        var err = __reprogQ('erreurSmspunifie');
-        if (box) box.style.display = 'block';
-        if (err) err.textContent = 'Recherche des itinéraires de correspondance…';
-        __reprogBuildLongerViaCorrespondances(base, dateYmd, function (built) {
-            publish(built);
+            if (box) box.style.display = 'none';
         });
     }
 
