@@ -69,6 +69,80 @@
             ) ";
         }
 
+        /**
+         * Nom affiché : destination choisie.
+         * Ticket libre : l'itinéraire saisi. Sinon : la ligne d'arrivée choisie.
+         */
+        public function sql_nom_destination_choisie($espAlias = 'esp', $lgAlias = 'lg')
+        {
+            $espAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $espAlias);
+            $lgAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $lgAlias);
+            if ($espAlias === '') {
+                $espAlias = 'esp';
+            }
+            if ($lgAlias === '') {
+                $lgAlias = 'lg';
+            }
+            $q = $espAlias . '.quartier_escal';
+            $brut = "TRIM(REPLACE({$q}, '[LIBRE]', ''))";
+            $sansNote = "TRIM(SUBSTRING_INDEX({$brut}, '(', 1))";
+            $tiret = "REPLACE(REPLACE(REPLACE({$sansNote}, ' → ', '-'), '→', '-'), ' - ', '-')";
+
+            return "CASE
+                WHEN UPPER(TRIM({$q})) LIKE '[LIBRE]%' AND {$sansNote} <> ''
+                THEN UPPER({$tiret})
+                ELSE {$lgAlias}.nom_ligne
+            END";
+        }
+
+        /**
+         * L'escale du relevé est l'origine de la destination choisie.
+         * departgescal reste la gare d'affiliation : il ne classe pas le ticket.
+         */
+        public function sql_filtre_destination_choisie($gid, $espAlias = 'esp', $lgAlias = 'lg')
+        {
+            $gid = trim((string) $gid);
+            if ($gid === '' || $gid === '0') {
+                return '';
+            }
+            if (!isset($this->m_gare_depart)) {
+                $this->load->model('Gare_depart_model', 'm_gare_depart');
+            }
+            $lieu = $this->m_gare_depart->resolve_lieu($gid);
+            $codes = isset($lieu['codes']) && is_array($lieu['codes']) ? $lieu['codes'] : array();
+            $codes[] = $gid;
+            $in = array();
+            foreach ($codes as $c) {
+                $c = trim((string) $c);
+                if ($c !== '') {
+                    $in[$c] = $this->db->escape($c);
+                }
+            }
+            if (!$in) {
+                return $this->sql_filtre_gare_escal($gid);
+            }
+            $rows = $this->db->query(
+                "SELECT DISTINCT UPPER(TRIM(nom_gaep)) AS nom
+                 FROM gare_exp
+                 WHERE code_gaexp IN (" . implode(',', $in) . ")
+                    OR garesid IN (" . implode(',', $in) . ")"
+            )->result();
+            $likes = array();
+            foreach ($rows as $row) {
+                $nom = trim((string) $row->nom);
+                if ($nom === '') {
+                    continue;
+                }
+                $likes[$nom] = 'UPPER(' . $this->sql_nom_destination_choisie($espAlias, $lgAlias) . ') LIKE '
+                    . $this->db->escape($nom . '-%');
+            }
+            if (!$likes) {
+                return $this->sql_filtre_gare_escal($gid);
+            }
+
+            return ' AND (' . implode(' OR ', $likes) . ') ';
+        }
+
         public function sql_filtre_operateur_escal($us, $arAlias = 'ar')
         {
             $us = trim((string) $us);
@@ -723,16 +797,17 @@
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
             $cp = $this->db->escape_str($cp);
-            $gareSql = $this->sql_filtre_gare_escal($gid);
+            $gareSql = $this->sql_filtre_destination_choisie($gid);
             $opSql = $this->sql_filtre_operateur_escal($acl);
             $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
             $ligneSql = ($algn !== '')
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
+            $destNom = $this->sql_nom_destination_choisie('esp', 'lg');
+
             return $this->db->query(
-                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal,
-                        u.first_name, u.last_name, dest.id_compaga, ar.roleattribut
+                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, {$destNom} AS nom_ligne, esp.prixescal
                 FROM escalclients esp
                 JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -750,7 +825,7 @@
                 {$gareSql}
                 {$opSql}
                 {$ligneSql}
-                GROUP BY lg.nom_ligne, esp.prixescal, u.first_name, u.last_name, dest.id_compaga, ar.roleattribut"
+                GROUP BY {$destNom}, esp.prixescal"
             )->result();
         }
         
@@ -761,16 +836,17 @@
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
             $cp = $this->db->escape_str($cp);
-            $gareSql = $this->sql_filtre_gare_escal($gid);
+            $gareSql = $this->sql_filtre_destination_choisie($gid);
             $opSql = $this->sql_filtre_operateur_escal($acl);
             $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
             $ligneSql = ($algn !== '')
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
+            $destNom = $this->sql_nom_destination_choisie('esp', 'lg');
+
             return $this->db->query(
-                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal,
-                        u.first_name, u.last_name, dest.id_compaga, ar.roleattribut
+                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, {$destNom} AS nom_ligne, esp.prixescal
                 FROM escalclients esp
                 JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -789,7 +865,7 @@
                 {$gareSql}
                 {$opSql}
                 {$ligneSql}
-                GROUP BY lg.nom_ligne, esp.prixescal, u.first_name, u.last_name, dest.id_compaga, ar.roleattribut"
+                GROUP BY {$destNom}, esp.prixescal"
             )->result();
         }
 
