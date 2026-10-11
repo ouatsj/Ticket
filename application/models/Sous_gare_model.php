@@ -173,18 +173,27 @@
         
         public function sget($cid, $gid, $gsd)
         {
-            
-                return $this->db->query(
-                    "SELECT * FROM sousgare s
+            $cid = $this->db->escape_str($cid);
+            $gid = $this->db->escape_str($gid);
+            $gsd = (int) $gsd;
+            $sql = "SELECT * FROM sousgare s
                     JOIN gare_exp gd ON s.gareprinceid = gd.code_gaexp
-                    JOIN gares g ON gd.garesid = g.idengare 
+                    JOIN gares g ON gd.garesid = g.idengare
                     JOIN ville v ON gd.id_villegd = v.id_ville
                     JOIN compagnies c ON gd.id_compagd = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND g.idengare = '$gid'
-                    AND s.idsousgare = '$gsd'")->row();
-            
+                    WHERE e.ekey = '{$cid}'
+                    AND s.idsousgare = {$gsd}";
+            $row = $this->db->query(
+                $sql . " AND (g.idengare = '{$gid}' OR gd.code_gaexp = '{$gid}' OR gd.garesid = '{$gid}') LIMIT 1"
+            )->row();
+            if ($row) {
+                return $row;
+            }
+
+            // Escale : la sous-gare suit le lieu (ex. BOR26) alors que la caisse
+            // d'affiliation est un autre code (ex. OUA1).
+            return $this->db->query($sql . ' LIMIT 1')->row();
         }
 
         public function sgettr($cid, $lit)

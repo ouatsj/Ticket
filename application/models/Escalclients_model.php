@@ -691,14 +691,15 @@
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
             $cp = $this->db->escape_str($cp);
-            $gareSql = $this->sql_filtre_gare_escal($gid);
+            $gareSql = $this->sql_filtre_destination_choisie($gid);
             $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
             $ligneSql = ($algn !== '')
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
+            $destNom = $this->sql_nom_destination_choisie('esp', 'lg');
 
             return $this->db->query(
-                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal
+                "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, {$destNom} AS nom_ligne, esp.prixescal
                 FROM escalclients esp
                 JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -717,7 +718,7 @@
                 AND dest.id_compaga = '{$cp}'
                 {$gareSql}
                 {$ligneSql}
-                GROUP BY lg.nom_ligne, esp.prixescal")->result();
+                GROUP BY {$destNom}, esp.prixescal")->result();
         }
 
         public function reporticketcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)

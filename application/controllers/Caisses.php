@@ -12263,6 +12263,7 @@
         public function options($ckey, $cdg, $cid, $icx, $type = 'recette_adjoint', $idsg, $d = FALSE, $m = FALSE, $y = FALSE)
         {
            $this->company = $this->m_entreprises->get_key($ckey);
+                $idsg = escale_idsousgare_saisie($idsg);
 
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $idsg);
                 $this->property['bus_stop'] = $bus_stop;

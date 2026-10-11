@@ -1467,9 +1467,24 @@
             $bus_stop = $this->m_gare_depart->get($this->company->id_entreprise, $gid);
             $gare_id = ($bus_stop && !empty($bus_stop->garesid)) ? $bus_stop->garesid : $gid;
             if ($idsg <= 0) {
-                $sous_lieu = $this->m_sousgare->get($this->company->id_entreprise, $gare_id);
-                if (!empty($sous_lieu[0]->idsousgare)) {
-                    $idsg = (int) $sous_lieu[0]->idsousgare;
+                if (!function_exists('role17_code_gaexp_lieu')) {
+                    $this->load->helper('role17_context');
+                }
+                $code_lieu = function_exists('role17_code_gaexp_lieu') ? role17_code_gaexp_lieu($wanted) : '';
+                if ($code_lieu !== '') {
+                    $lieu = $this->db->query(
+                        'SELECT idsousgare FROM sousgare WHERE gareprinceid = ? ORDER BY idsousgare ASC LIMIT 1',
+                        array($code_lieu)
+                    )->row();
+                    if ($lieu) {
+                        $idsg = (int) $lieu->idsousgare;
+                    }
+                }
+                if ($idsg <= 0) {
+                    $sous_lieu = $this->m_sousgare->get($this->company->id_entreprise, $gare_id);
+                    if (!empty($sous_lieu[0]->idsousgare)) {
+                        $idsg = (int) $sous_lieu[0]->idsousgare;
+                    }
                 }
             }
             $gare_connect = roleattribut_guard_normalize_gare_id($this->company->ekey, $gare_id);

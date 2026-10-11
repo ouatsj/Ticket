@@ -71,7 +71,7 @@
                 $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
                 $gid = $this->input->post('gareconnect');
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
-                $sgid = $this->input->post('sousgareconnect');
+                $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
                 $idcmpt = $this->input->post('compconnected');
 
             if($this->input->post('date_depot')!= '')
@@ -135,7 +135,7 @@
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');            
             if($this->input->post('datedepot')!= '')
             {
@@ -194,7 +194,7 @@
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
 
             if($this->input->post('datedepot')!= '')
@@ -255,7 +255,7 @@
             $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
             $date_depot = $this->_depot_date_from_post($idpo);
             if ($date_depot !== '')
@@ -424,7 +424,7 @@
             $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
 
             if($this->input->post('daterecep')!= '')
@@ -487,7 +487,7 @@
                 $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
             $date_depot = $this->_depot_date_from_post($idpo);
             if ($date_depot !== '')
@@ -527,7 +527,7 @@
                 $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
                 $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
             $date_depot = $this->_depot_date_from_post($idpo);
             if ($date_depot !== '')
@@ -568,7 +568,7 @@
                 $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
                 $gid = $this->input->post('gareconnect');
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
-                $sgid = $this->input->post('sousgareconnect');
+                $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
                 $idcmpt = $this->input->post('compconnected');
 
             if($this->input->post('daterecep')!= '')
@@ -637,7 +637,7 @@
             $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
             $date_depot = $this->_depot_date_from_post($id);
             if ($date_depot !== '')
@@ -679,7 +679,7 @@
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
 
             $prouve = array(
@@ -716,7 +716,7 @@
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
             $prouve = array(
                 'commentaire' => $this->input->post('approuvedepot'),

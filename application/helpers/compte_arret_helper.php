@@ -2486,20 +2486,8 @@ if (!function_exists('escale_ligne_lieu_sql')) {
         $colOk = function ($column) {
             return $column !== '' && (bool) preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $column);
         };
-        if ($lieu !== '') {
-            if ($colOk($idColumn)) {
-                $parts[] = $idColumn . ' IN (SELECT arx.roleattribut FROM attributions_role arx WHERE ' . $lieu . ')';
-            }
-            if ($colOk($nomColumn)) {
-                $parts[] = 'UPPER(TRIM(' . $nomColumn . ")) IN (
-                    SELECT UPPER(TRIM(CONCAT(TRIM(IFNULL(u.first_name, '')), ' ', TRIM(IFNULL(u.last_name, '')))))
-                    FROM attributions_role arx
-                    JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login
-                    JOIN compte_user cux ON ulx.uid_usercpte = cux.cpuser_id
-                    JOIN utilisateurs u ON cux.userlog_id = u.uid
-                    WHERE " . $lieu . '
-                )';
-            }
+        if ($lieu !== '' && $colOk($idColumn)) {
+            $parts[] = $idColumn . ' IN (SELECT arx.roleattribut FROM attributions_role arx WHERE ' . $lieu . ')';
         }
         if ($commentColumn === 'r.commentaire_recet' && function_exists('caissier_escale_marqueur')) {
             $mark = caissier_escale_marqueur($escale);
@@ -2588,6 +2576,121 @@ if (!function_exists('caissier_escale_marqueur')) {
         }
 
         return '[[escale:' . $escale . ']]';
+    }
+}
+
+if (!function_exists('escale_idsousgare_saisie')) {
+    /**
+     * Sous-gare de l'escale ouverte. Une sous-gare de la gare d'affiliation ne convient pas.
+     *
+     * @param int|string $posted
+     * @return int
+     */
+    function escale_idsousgare_saisie($posted = 0)
+    {
+        $CI =& get_instance();
+        $caisseId = (int) $CI->input->post('idcaisse');
+        $cle = escale_cle_demande($caisseId);
+
+        return escale_idsousgare_pour_cle($cle, $posted);
+    }
+}
+
+if (!function_exists('escale_cle_demande')) {
+    /**
+     * Escale de la page, ou celle de la caisse enregistrée.
+     *
+     * @param int $caisseId
+     * @return string
+     */
+    function escale_cle_demande($caisseId = 0)
+    {
+        $CI =& get_instance();
+        $escale = str_replace('|', '~', trim((string) $CI->input->get_post('escale')));
+        if (strpos($escale, 'escale~') === 0) {
+            return $escale;
+        }
+        $caisseId = (int) $caisseId;
+        if ($caisseId <= 0 || !$CI->db->field_exists('escale_cle', 'caisse')) {
+            return '';
+        }
+        $row = $CI->db->query(
+            'SELECT escale_cle FROM caisse WHERE id_caiss = ? AND parent_caiss > 0 LIMIT 1',
+            array($caisseId)
+        )->row();
+        if (!$row) {
+            return '';
+        }
+        $cle = str_replace('|', '~', trim((string) $row->escale_cle));
+
+        return (strpos($cle, 'escale~') === 0) ? $cle : '';
+    }
+}
+
+if (!function_exists('escale_idsousgare_pour_cle')) {
+    /**
+     * @param string $cle
+     * @param int|string $posted
+     * @return int
+     */
+    function escale_idsousgare_pour_cle($cle, $posted = 0)
+    {
+        $CI =& get_instance();
+        $posted = (int) $posted;
+        $cle = str_replace('|', '~', trim((string) $cle));
+        if (strpos($cle, 'escale~') !== 0) {
+            return $posted;
+        }
+        if (!function_exists('role17_code_gaexp_lieu')) {
+            $CI->load->helper('role17_context');
+        }
+        $code = function_exists('role17_code_gaexp_lieu') ? role17_code_gaexp_lieu($cle) : '';
+        if ($code === '') {
+            return $posted;
+        }
+        if ($posted > 0) {
+            $deja = $CI->db->query(
+                'SELECT idsousgare FROM sousgare WHERE idsousgare = ? AND gareprinceid = ? LIMIT 1',
+                array($posted, $code)
+            )->row();
+            if ($deja) {
+                return (int) $deja->idsousgare;
+            }
+        }
+        $lieu = $CI->db->query(
+            'SELECT idsousgare FROM sousgare WHERE gareprinceid = ? ORDER BY idsousgare ASC LIMIT 1',
+            array($code)
+        )->row();
+        if ($lieu) {
+            return (int) $lieu->idsousgare;
+        }
+
+        return $posted;
+    }
+}
+
+if (!function_exists('escale_ligne_ancrer')) {
+    /**
+     * Une écriture d'escale prend la sous-gare du lieu et la clé de l'escale.
+     *
+     * @param array $data
+     * @param string $sousgareCol
+     * @param string $caisseCol
+     * @return array
+     */
+    function escale_ligne_ancrer(array $data, $sousgareCol, $caisseCol)
+    {
+        $caisseId = isset($data[$caisseCol]) ? (int) $data[$caisseCol] : 0;
+        $cle = escale_cle_demande($caisseId);
+        if ($cle === '') {
+            return $data;
+        }
+        if (isset($data[$sousgareCol])) {
+            $data[$sousgareCol] = escale_idsousgare_pour_cle($cle, $data[$sousgareCol]);
+        }
+        $data['escale_cle'] = $cle;
+
+        return $data;
     }
 }
 
@@ -2907,26 +3010,8 @@ if (!function_exists('caissier_escale_filtrer_lignes')) {
         if (!$ids) {
             return array();
         }
-        $noms = array();
-        $q = $CI->db->query(
-            "SELECT UPPER(TRIM(CONCAT(TRIM(IFNULL(u.first_name, '')), ' ', TRIM(IFNULL(u.last_name, ''))))) AS nom
-            FROM attributions_role arn
-            JOIN user_login uln ON arn.idgestcompte = uln.uid_login
-            JOIN compte_user cun ON uln.uid_usercpte = cun.cpuser_id
-            JOIN utilisateurs u ON cun.userlog_id = u.uid
-            WHERE arn.roleattribut IN (" . implode(',', $ids) . ")"
-        );
-        if ($q) {
-            foreach ($q->result() as $agent) {
-                $nom = strtoupper(trim((string) $agent->nom));
-                if ($nom !== '') {
-                    $noms[$nom] = true;
-                }
-            }
-        }
         $marqueur = caissier_escale_marqueur($CI->input->get_post('escale'));
         $champs_id = array('idopera', 'idop_dep', 'idop_depot', 'idop_versement');
-        $champs_nom = array('nom', 'nom_perso', 'nom_pre', 'nom_beneficiaire');
         $champs_comment = array('commentaire_recet', 'commentaire', 'commentaire_depot');
         $out = array();
         foreach ($rows as $row) {
@@ -2941,14 +3026,6 @@ if (!function_exists('caissier_escale_filtrer_lignes')) {
                     break;
                 }
             }
-            $par_nom = false;
-            foreach ($champs_nom as $champ) {
-                $nom = isset($row->$champ) ? strtoupper(trim((string) $row->$champ)) : '';
-                if ($nom !== '' && isset($noms[$nom])) {
-                    $par_nom = true;
-                    break;
-                }
-            }
             $par_marqueur = false;
             foreach ($champs_comment as $champ) {
                 $comment = isset($row->$champ) ? (string) $row->$champ : '';
@@ -2960,7 +3037,7 @@ if (!function_exists('caissier_escale_filtrer_lignes')) {
             $cle_page = str_replace('|', '~', trim((string) $CI->input->get_post('escale')));
             $cle_ligne = isset($row->escale_cle) ? str_replace('|', '~', trim((string) $row->escale_cle)) : '';
             $par_cle = ($cle_page !== '' && $cle_ligne !== '' && $cle_ligne === $cle_page);
-            if ($par_id || $par_nom || $par_marqueur || $par_cle) {
+            if ($par_id || $par_marqueur || $par_cle) {
                 if (isset($row->commentaire_recet)) {
                     $row->commentaire_recet = caissier_escale_commentaire_visible($row->commentaire_recet);
                 }

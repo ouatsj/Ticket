@@ -48,11 +48,7 @@
 
                     <tr>
                         <td>
-                            <span><?= $item->identbordbag; ?>&nbsp;&nbsp;&nbsp;
-                            <a class="icon" title="reimprimer"
-                            href="<?= site_url_segments('Rapport', 'reimpressionlistebag', $this->session->company->ekey, $item->code_gaexp, $item->idsousgare, $item->code_progr, $item->id_heur, $item->date_progr, $item->quartierbordbag); ?>">
-                            <i class="fas fa-print"></i>
-                            </a></span>
+                            <span><?= $item->identbordbag; ?></span>
                         </td>
 
                         <td>
@@ -77,8 +73,9 @@
                         </td>
                         <td>
                             
+                           <?php $qtPrint = trim((string) $item->quartierbordbag); if ($qtPrint === '') { $qtPrint = '-'; } ?>
                            <a class="icon" title="reimprimer"
-                            href="<?= site_url_segments('Rapport', 'reimpressionlistebag', $this->session->company->ekey, $item->code_gaexp, $item->idsousgare, $item->code_progr, $item->id_heur, $item->date_progr, $item->quartierbordbag); ?>">
+                            href="<?= site_url_segments('Rapport', 'reimpressionlistebag', $this->session->company->ekey, $item->code_gaexp, $item->idsousgare, $item->code_progr, $item->id_heur, $item->date_progr, $qtPrint); ?>">
                             <i class="fas fa-print"></i>
                             </a>&nbsp;    
                         </td>

@@ -150,6 +150,65 @@
         }
 
         /**
+         * Page escale : le récap suit le lieu de l'escale, pas la gare d'affiliation.
+         *
+         * @return array{code:string,nom:string,valeur:string,ops:string}|null
+         */
+        protected function _contexte_recap_escale()
+        {
+            $valeur = str_replace('|', '~', trim((string) $this->input->get_post('escale')));
+            $nom = trim((string) $this->input->get_post('escale_nom'));
+            $ops = trim((string) $this->input->get_post('escale_ops'));
+            if ($valeur === '' && $nom === '' && $ops === '') {
+                return null;
+            }
+            $code = '';
+            if ($valeur !== '' && function_exists('role17_code_gaexp_lieu')) {
+                $code = role17_code_gaexp_lieu($valeur);
+            }
+            if ($code === '' && function_exists('escale_codes_gaexp_contexte')) {
+                $codes = escale_codes_gaexp_contexte();
+                if ($codes) {
+                    $code = (string) $codes[0];
+                }
+            }
+            $lieu = '';
+            if ($code !== '') {
+                $row = $this->db->query(
+                    "SELECT UPPER(TRIM(nom_gaep)) AS nom FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                    array($code)
+                )->row();
+                if ($row && trim((string) $row->nom) !== '') {
+                    $lieu = trim((string) $row->nom);
+                }
+            }
+
+            return array(
+                'code' => $code,
+                'nom' => $lieu,
+                'valeur' => $valeur,
+                'ops' => $ops,
+            );
+        }
+
+        /**
+         * @param array{code:string,nom:string,valeur:string,ops:string}|null $ctx
+         * @return array
+         */
+        protected function _qs_recap_escale($ctx)
+        {
+            if (!$ctx) {
+                return array();
+            }
+
+            return array(
+                'escale' => $ctx['valeur'],
+                'escale_nom' => trim((string) $this->input->get_post('escale_nom')),
+                'escale_ops' => $ctx['ops'],
+            );
+        }
+
+        /**
          * Opérateur choisi (roleattribut) → libellé titre PDF + variantes de nom
          * pour matcher recette.nom (souvent « NOM Prenom », parfois username).
          *
@@ -653,6 +712,11 @@
             if ($gid === '') {
                 $gid = $this->_normalize_recap_gare_code_filter($g);
             }
+            $ctx = $this->_contexte_recap_escale();
+            if ($ctx && $ctx['code'] !== '') {
+                $gid = $ctx['code'];
+            }
+            $lieuTitre = ($ctx && $ctx['nom'] !== '') ? (' ' . $ctx['nom']) : '';
             $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
@@ -675,7 +739,7 @@
                 );
                 $total += $mt;
             }
-            $qs = http_build_query(array_filter(array(
+            $qs = http_build_query(array_filter(array_merge(array(
                 'datedebutbagesc' => $dt1,
                 'datefinbagesc' => $dt2,
                 'axelignebagesc' => $lign,
@@ -684,9 +748,9 @@
                 'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
-            )));
+            ), $this->_qs_recap_escale($ctx))));
             return array(
-                'titre' => 'RECAP EX MENSUEL BABAGEESCAL ' . $cieNom . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => 'RECAP EX MENSUEL BABAGEESCAL ' . $cieNom . $lieuTitre . ' DU ' . $days . ' AU ' . $days1,
                 'lignes' => $lignes,
                 'total' => $total,
                 'filters_qs' => $qs,
@@ -1427,6 +1491,7 @@
             $this->property['signature_agent'] = isset($payload['signature_agent']) ? $payload['signature_agent'] : '';
             $this->property['signature_convoyeur'] = isset($payload['signature_convoyeur']) ? $payload['signature_convoyeur'] : '';
             $this->property['bordereau_envoi'] = !empty($payload['bordereau_envoi']);
+            $this->property['depart_affiche'] = isset($payload['depart_affiche']) ? trim((string) $payload['depart_affiche']) : '';
             $this->property['bundle_datatables'] = false;
             return $this->layout->view('_rapport/etat_tableau', $this->property);
         }
@@ -1445,6 +1510,27 @@
                 return '';
             }
             return $n;
+        }
+
+        /**
+         * Date et heure de départ enregistrées sur le bordereau (datebordbag + heure du programme).
+         */
+        protected function _bordereau_depart_affiche($row)
+        {
+            if (!$row) {
+                return '';
+            }
+            $dateDep = isset($row->datebordbag) ? trim((string) $row->datebordbag) : '';
+            $dateAff = $dateDep;
+            if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $dateDep, $dm)) {
+                $dateAff = $dm[3] . '/' . $dm[2] . '/' . $dm[1];
+            }
+            $heureDep = '';
+            $rawHeure = isset($row->dateheure_prog) ? (string) $row->dateheure_prog : '';
+            if (preg_match('/(\d{2}:\d{2})/', $rawHeure, $hm)) {
+                $heureDep = $hm[1];
+            }
+            return trim($dateAff . ' ' . $heureDep);
         }
 
         protected function _etat_output_pdf(array $payload)
@@ -1484,6 +1570,11 @@
 
             $titre = '<h1 align="center" style="font-size:' . ($readable ? '16' : '14') . 'pt;">'
                 . htmlspecialchars($titreTxt) . '</h1>';
+            $departAffiche = isset($payload['depart_affiche']) ? trim((string) $payload['depart_affiche']) : '';
+            if ($departAffiche !== '') {
+                $titre .= '<h2 align="center" style="font-size:' . ($readable ? '14' : '12') . 'pt;">Départ : '
+                    . htmlspecialchars($departAffiche) . '</h2>';
+            }
             $them = '<table align="center" border="1" cellpadding="' . $pad . '"><thead><tr>';
             foreach ($columns as $col) {
                 $align = isset($col['align']) ? $col['align'] : 'left';
@@ -4285,6 +4376,11 @@
             if ($gid === '') {
                 $gid = $this->_normalize_recap_gare_code_filter($g);
             }
+            $ctx = $this->_contexte_recap_escale();
+            if ($ctx && $ctx['code'] !== '') {
+                $gid = $ctx['code'];
+            }
+            $lieuTitre = ($ctx && $ctx['nom'] !== '') ? (' ' . $ctx['nom']) : '';
             $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
@@ -4307,7 +4403,7 @@
                 );
                 $total += $mt;
             }
-            $qs = http_build_query(array_filter(array(
+            $qs = http_build_query(array_filter(array_merge(array(
                 'datedebutes' => $dt1,
                 'datefines' => $dt2,
                 'axelignees' => $lign,
@@ -4316,9 +4412,9 @@
                 'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
-            )));
+            ), $this->_qs_recap_escale($ctx))));
             return array(
-                'titre' => 'RECAP EX MENSUEL TICKET ESCAL ' . $cieNom . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => 'RECAP EX MENSUEL TICKET ESCAL ' . $cieNom . $lieuTitre . ' DU ' . $days . ' AU ' . $days1,
                 'lignes' => $lignes,
                 'total' => $total,
                 'filters_qs' => $qs,
@@ -5047,6 +5143,11 @@
             if ($gid === '') {
                 $gid = $this->_normalize_recap_gare_code_filter($g);
             }
+            $ctx = $this->_contexte_recap_escale();
+            if ($ctx && $ctx['code'] !== '') {
+                $gid = $ctx['code'];
+            }
+            $lieuTitre = ($ctx && $ctx['nom'] !== '') ? (' ' . $ctx['nom']) : '';
             $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
@@ -5078,7 +5179,7 @@
                 );
                 $total += $mt;
             }
-            $qs = http_build_query(array_filter(array(
+            $qs = http_build_query(array_filter(array_merge(array(
                 'datedebutcresc' => $dt1,
                 'datefincresc' => $dt2,
                 'axelignecresc' => $lign,
@@ -5088,9 +5189,9 @@
                 'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
-            )));
+            ), $this->_qs_recap_escale($ctx))));
             return array(
-                'titre' => 'RECAP EX MENSUEL ESCAL ' . $cieNom . ' ' . $ty3 . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => 'RECAP EX MENSUEL ESCAL ' . $cieNom . $lieuTitre . ' ' . $ty3 . ' DU ' . $days . ' AU ' . $days1,
                 'lignes' => $lignes,
                 'total' => $total,
                 'filters_qs' => $qs,
@@ -9845,6 +9946,10 @@
 
         protected function _reimpressionlistebag_payload($ckey, $gd, $sgd, $sub_heurebord, $sub_heurebord2, $dabord, $lignequart)
         {
+            $lignequart = trim(rawurldecode((string) $lignequart));
+            if ($lignequart === '-' || $lignequart === '_') {
+                $lignequart = '';
+            }
             $this->entreprise = $this->m_entreprises->get_key($ckey);
             $itinerairesg = $this->db->query(
                 "SELECT sg.nomsousgare, sg.idsousgare FROM sousgare sg WHERE sg.idsousgare = ?",
@@ -9888,6 +9993,7 @@
             if ($agentLabel !== '') {
                 $titre .= ' — Agent ' . $agentLabel;
             }
+            $departAffiche = $this->_bordereau_depart_affiche($onprogrambordaxe);
             $convoyeurLabel = ($onprogrambordaxe && isset($onprogrambordaxe->busconvoybordbag))
                 ? $this->_etat_nom_convoyeur($onprogrambordaxe->busconvoybordbag)
                 : '';
@@ -9910,20 +10016,21 @@
                     array('key' => 'montant', 'label' => 'Montant', 'align' => 'right', 'money' => true),
                     array('key' => 'dest', 'label' => 'Dest. finale', 'align' => 'left'),
                 ),
-                'export_base' => site_url('Rapport/reimpressionlistebag_export/' . rawurlencode($ckey) . '/' . rawurlencode($gd) . '/' . rawurlencode($sgd) . '/' . rawurlencode($sub_heurebord) . '/' . rawurlencode($sub_heurebord2) . '/' . rawurlencode($dabord) . '/' . rawurlencode($lignequart)),
+                'export_base' => site_url('Rapport/reimpressionlistebag_export/' . rawurlencode($ckey) . '/' . rawurlencode($gd) . '/' . rawurlencode($sgd) . '/' . rawurlencode($sub_heurebord) . '/' . rawurlencode($sub_heurebord2) . '/' . rawurlencode($dabord) . '/' . rawurlencode($lignequart !== '' ? $lignequart : '-')),
                 'bordereau_envoi' => true,
                 'pdf_readable' => true,
                 'signature_agent' => $agentLabel,
                 'signature_convoyeur' => $convoyeurLabel,
+                'depart_affiche' => $departAffiche,
             );
         }
 
-        public function reimpressionlistebag($ckey, $gd, $sgd, $sub_heurebord, $sub_heurebord2, $dabord, $lignequart)
+        public function reimpressionlistebag($ckey, $gd, $sgd, $sub_heurebord, $sub_heurebord2, $dabord, $lignequart = '-')
         {
             return $this->_etat_render_view('Réimpression liste bagages', $this->_reimpressionlistebag_payload($ckey, $gd, $sgd, $sub_heurebord, $sub_heurebord2, $dabord, $lignequart));
         }
 
-        public function reimpressionlistebag_export($ckey, $gd, $sgd, $sub_heurebord, $sub_heurebord2, $dabord, $lignequart)
+        public function reimpressionlistebag_export($ckey, $gd, $sgd, $sub_heurebord, $sub_heurebord2, $dabord, $lignequart = '-')
         {
             $this->_etat_export_dispatch($this->_reimpressionlistebag_payload($ckey, $gd, $sgd, $sub_heurebord, $sub_heurebord2, $dabord, $lignequart));
         }

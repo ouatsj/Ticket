@@ -53,7 +53,7 @@
     <?php if ($depuis_escale): ?>
     <div class="alert alert-info mb-2 ml-4 mr-4">Dépenses de cette escale déjà chez <?= ($this->session->agent->userole === '18' || $this->input->get('escale_vue') === '18') ? 'le caissier adjoint' : 'le caissier principal'; ?>.</div>
     <?php endif; ?>
-    <div class="form-group text-center">les depenses de la caisse : <? if($sommesdepenses == NULL):?> 0 <? else:?> &nbsp;<?=$sommesdepenses->montant_depens; ?><? endif; ?></div>
+    <div class="form-group text-center">les depenses de la caisse : <? if($sommesdepenses == NULL):?> 0 <? else:?> &nbsp;<?= isset($sommesdepenses->total) ? $sommesdepenses->total : $sommesdepenses->montant_depens; ?><? endif; ?></div>
 <div class="row">
 
     <div class="col-12">

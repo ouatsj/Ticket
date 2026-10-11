@@ -85,7 +85,7 @@
             $ra = roleattribut_guard_session_ra();
             $admin = saisie_tri_est_admin();
             $lignes_tri = $this->m_recette->getrecettrisss($this->company->ekey, $idcais, $idgd, $ra, $d, $f, $co, $admin);
-            $this->property['recettes'] = caissier_escale_filtrer_lignes($lignes_tri);
+            $this->property['recettes'] = $admin ? caissier_escale_filtrer_lignes($lignes_tri) : $lignes_tri;
             $this->property['genrespersonnels'] = $this->m_type_personnel->get();
             $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
             $this->property['typedocuments'] = $this->m_typedocument->get();
@@ -149,7 +149,7 @@
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
             
             if($this->input->post('daterecep')!= '')
@@ -350,7 +350,7 @@
             $identifiant_caisse = $this->input->post('idcaisse');    
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
             $ligne = $this->db->query('SELECT * FROM recette WHERE id_recette = ? LIMIT 1', array((int) $recet))->row();
             if (!saisie_recette_modifiable($ligne)) {

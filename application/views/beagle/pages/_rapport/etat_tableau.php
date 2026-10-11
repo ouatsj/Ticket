@@ -17,6 +17,7 @@ $retour = isset($retour_url) ? $retour_url : '#';
 $qs = isset($filters_qs) ? $filters_qs : '';
 $exportBase = isset($export_base) ? $export_base : '#';
 $bordereauEnvoi = !empty($bordereau_envoi);
+$departAffiche = isset($depart_affiche) ? trim((string) $depart_affiche) : '';
 $sigAgent = isset($signature_agent) ? trim((string) $signature_agent) : '';
 $sigConvoyeur = isset($signature_convoyeur) ? trim((string) $signature_convoyeur) : '';
 $sep = (strpos($exportBase, '?') === false) ? '?' : '&';
@@ -113,6 +114,9 @@ $colCount = max(1, count($columns));
         <div class="card">
             <div class="card-header">
                 <strong><?= htmlspecialchars($titre); ?></strong>
+                <?php if ($departAffiche !== ''): ?>
+                    <div>Départ : <?= htmlspecialchars($departAffiche); ?></div>
+                <?php endif; ?>
             </div>
             <div class="card-body table-responsive">
                 <?php if (empty($lignes)): ?>

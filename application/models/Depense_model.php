@@ -12,6 +12,9 @@
         
         public function create(array $data)
         {
+            if (function_exists('escale_ligne_ancrer')) {
+                $data = escale_ligne_ancrer($data, 'sousgidepens', 'idcaisse_depens');
+            }
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }
@@ -235,7 +238,7 @@
                 } elseif ($niveau_caisse) {
                     $ownerSql = " AND (d.idop_dep = {$ra} OR d.opevalid = {$ra})";
                 } else {
-                    $ownerSql = " AND d.idop_dep = '{$ra}'";
+                    $ownerSql = saisie_tri_compte_sql('d.idop_dep', 'd.opevalidchef', $ra);
                 }
                 return $this->db->query(
                 "SELECT * FROM depense d
@@ -287,7 +290,7 @@
                 $copSql = (trim((string) $cop) !== '')
                     ? " AND d.compkey_dep = '" . $this->db->escape_str($cop) . "'"
                     : '';
-                $ownerSql = $toutes ? '' : " AND d.idop_dep = '" . (int) $conect . "'";
+                $ownerSql = $toutes ? '' : saisie_tri_compte_sql('d.idop_dep', 'd.opevalidchef', $conect);
                 $gidSql = (trim((string) $gid) !== '')
                     ? " AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'"
                     : '';
@@ -958,6 +961,10 @@
             // Option B : dépenses validées adjoint, en attente confirmation principal.
             $today = mdate('%Y-%m-%d', now());
             $pending = caisse_validation_pending_adjoint_depense_sql((int) $use, 'd');
+            $escale = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            $caisseSql = $escale
+                ? ''
+                : ('AND ' . sous_caisse_filtre_page('d.idcaisse_depens', $idcais, $gid));
             return $this->db->query(
                 "SELECT SUM(montant_depens) AS mont, d.date_depens AS date_arret, d.opevalidad, cu.is_conect,
                         d.idcaisse_depens, cs.gexp_caiss, COUNT(*) AS nb_ops
@@ -971,7 +978,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.active_dep = 1
-                AND " . sous_caisse_filtre_page('d.idcaisse_depens', $idcais, $gid) . "
+                {$caisseSql}
                 AND {$pending}
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
@@ -994,6 +1001,15 @@
             if ($df !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $df)) {
                 $dateSql = ' AND d.date_depens = ' . $this->db->escape($df);
             }
+            $escale = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            $caisseSql = '';
+            $bind = array($cid);
+            if (!$escale) {
+                $caisseSql = 'AND ' . sous_caisse_predicat('d.idcaisse_depens', $idcais)
+                    . ' AND cs.gexp_caiss = ?' . sous_caisse_scope_sql('cs');
+                $bind[] = $gid;
+            }
+            $bind[] = $today;
             return $this->db->query(
                 "SELECT d.id_depense, d.montant_depens, d.date_depens, d.date_insert, d.createddep_at,
                         d.type_depense, d.idop_dep, d.opevalidad,
@@ -1014,8 +1030,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = ?
                 AND d.active_dep = 1
-                AND " . sous_caisse_predicat('d.idcaisse_depens', $idcais) . "
-                AND cs.gexp_caiss = ?" . sous_caisse_scope_sql('cs') . "
+                {$caisseSql}
                 AND {$pending}
                 AND d.actif_deps = 0
                 AND d.date_depens <= ?
@@ -1023,7 +1038,7 @@
                 {$dateSql}
                 " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
                 ORDER BY d.date_depens ASC, d.date_insert ASC, d.id_depense ASC",
-                array($cid, $gid, $today)
+                $bind
             )->result();
         }
 

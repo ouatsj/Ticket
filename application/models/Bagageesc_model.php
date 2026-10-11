@@ -23,6 +23,42 @@
             );
         }
 
+        /**
+         * Lieu d'escale : bagage facturé sur ce code, ou ligne dont l'origine est ce lieu.
+         */
+        protected function _sql_origine_ou_gare_esc($gid)
+        {
+            $gareSql = $this->_sql_gare_esc($gid);
+            $gid = trim((string) $gid);
+            if ($gid === '' || $gid === '0') {
+                return $gareSql;
+            }
+            $rows = $this->db->query(
+                "SELECT DISTINCT UPPER(TRIM(nom_gaep)) AS nom
+                 FROM gare_exp
+                 WHERE code_gaexp = ? OR garesid = ?",
+                array($gid, $gid)
+            )->result();
+            $likes = array();
+            foreach ($rows as $row) {
+                $nom = trim((string) $row->nom);
+                if ($nom === '') {
+                    continue;
+                }
+                $likes[] = 'UPPER(lg.nom_ligne) LIKE ' . $this->db->escape($nom . '-%');
+            }
+            if (!$likes) {
+                return $gareSql;
+            }
+            $origine = '(' . implode(' OR ', $likes) . ')';
+            if ($gareSql === '') {
+                return ' AND ' . $origine . ' ';
+            }
+            $inner = trim(preg_replace('/^\s*AND\s+/i', '', $gareSql));
+
+            return ' AND (' . $inner . ' OR ' . $origine . ') ';
+        }
+
         protected function _sql_op_esc($us)
         {
             if (!isset($this->m_bagage)) {
@@ -793,7 +829,7 @@
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
             $cp = $this->db->escape_str($cp);
-            $gareSql = $this->_sql_gare_esc($gid);
+            $gareSql = $this->_sql_origine_ou_gare_esc($gid);
             $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
             $ligneSql = ($algn !== '')
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "

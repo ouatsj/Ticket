@@ -43,7 +43,7 @@
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_session_ra();
             $pageUser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
             $date_debut = DateTime::createFromFormat('!Y-m-d', $d);
             $date_fin = DateTime::createFromFormat('!Y-m-d', $f);
@@ -58,10 +58,12 @@
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $pageUser ? $pageUser : $iduser);
             $this->property['conex'] = $conex;
             $role_tri = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
-            $this->property['depenses'] = caissier_escale_filtrer_lignes($this->m_depense->getsdepen(
-                $this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop, saisie_tri_est_admin(),
+            $admin_tri = saisie_tri_est_admin();
+            $lignes_tri = $this->m_depense->getsdepen(
+                $this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop, $admin_tri,
                 recette_role_is_validateur_principal($role_tri)
-            ));
+            );
+            $this->property['depenses'] = $admin_tri ? caissier_escale_filtrer_lignes($lignes_tri) : $lignes_tri;
 			$caisseident = $this->m_caisse->get($this->company->id_entreprise, $idgd, $idcais);
               $this->property['caisseident'] = $caisseident;
 			  $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $idcais, $idgd, $iduser);
@@ -89,13 +91,13 @@
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_session_ra();
             $pageUser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
             $date_debut = DateTime::createFromFormat('!Y-m-d', $d);
             $date_fin = DateTime::createFromFormat('!Y-m-d', $f);
             if (!$date_debut || !$date_fin || $date_debut->format('Y-m-d') !== $d || $date_fin->format('Y-m-d') !== $f || $date_debut > $date_fin) {
                 $this->session->set_flashdata('error', 'Veuillez choisir une date de début et une date de fin valides.');
-                redirect('caisses/' . $this->company->ekey . '/cais/' . $idgd . '/' . (int) $idcais . '/' . (int) $iduser . '/depense_adjoint/' . (int) $sgid . '/' . mdate('%d/%m/%Y', now('UTC')));
+                redirect('caisses/' . $this->company->ekey . '/cais/' . $idgd . '/' . (int) $idcais . '/' . (int) $iduser . '/depense_adjoint/' . (int) $sgid . '/' . mdate('%d/%m/%Y', now('UTC')) . caissier_escale_query_suffix());
                 return;
             }
             $this->property['pagetitle'] .= " LES DEPENSES &nbsp; <strong>{$d} au &nbsp;{$f}</strong>";
@@ -103,16 +105,19 @@
             $this->property['bus_stop'] = $bus_stop;
             $conex = $this->m_compte_user->getusergare($this->company->ekey, $idgd, $pageUser ? $pageUser : $iduser);
             $this->property['conex'] = $conex;
-            $this->property['depenses'] = caissier_escale_filtrer_lignes($this->m_depense->getadjointdepen(
-                $this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop, saisie_tri_est_admin()
-            ));
+            $admin_tri = saisie_tri_est_admin();
+            $lignes_tri = $this->m_depense->getadjointdepen(
+                $this->company->ekey, $idcais, $idgd, $iduser, $d, $f, $cop, $admin_tri
+            );
+            $this->property['depenses'] = $admin_tri ? caissier_escale_filtrer_lignes($lignes_tri) : $lignes_tri;
 			$caisseident = $this->m_caisse->get($this->company->id_entreprise, $idgd, $idcais);
               $this->property['caisseident'] = $caisseident;
-			  $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $idcais, $idgd);
-                    $this->property['sommedepenses'] = $this->m_versements->totaldepense($this->company->ekey, $idcais, $idgd);
-                    $this->property['sommerecettes'] = $this->m_versements->totalrecette($this->company->ekey, $idcais, $idgd);
+			  $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $idcais, $idgd, $iduser);
+                    $this->property['sommedepenses'] = $this->m_versements->totaldepense($this->company->ekey, $idcais, $idgd, $iduser);
+                    $this->property['sommerecettes'] = $this->m_versements->totalrecette($this->company->ekey, $idcais, $idgd, $iduser);
                     $this->property['typedocuments'] = $this->m_typedocument->get();
-                    $this->property['sommedepot'] = $this->m_versements->totaldepot($this->company->ekey, $idcais, $idgd);
+                    $this->property['genres'] = $this->m_genre_depense->get();
+                    $this->property['sommedepot'] = $this->m_versements->totaldepot($this->company->ekey, $idcais, $idgd, $iduser);
                     $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $idcais, $iduser, $idgd);
             $this->property['depotcaisse'] = $this->m_depot->ad_depotinterne1($this->company->ekey, $idgd, $idcais, $iduser);
             $this->property['genrespersonnels'] = $this->m_type_personnel->get();
@@ -131,7 +136,7 @@
             $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse')); 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
-            $sgid = $this->input->post('sousgareconnect');
+            $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
 
             if($this->input->post('datereception')!= '')
@@ -334,7 +339,7 @@
 
                 $gid = $this->input->post('gareconnect');
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
-                $sgid = $this->input->post('sousgareconnect');
+                $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
                 $idcmpt = $this->input->post('compconnected');
                 $ligne = $this->db->query('SELECT * FROM depense WHERE id_depense = ? LIMIT 1', array((int) $dep))->row();
                 if (!saisie_depense_modifiable($ligne)) {
@@ -380,7 +385,7 @@
                 $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));   
                 $gid = $this->input->post('gareconnect');
                 $iduser = roleattribut_guard_post_hint($this->company->ekey);
-                $sgid = $this->input->post('sousgareconnect');
+                $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
                 $idcmpt = $this->input->post('compconnected');
                 $ligne = $this->db->query('SELECT * FROM depense WHERE id_depense = ? LIMIT 1', array((int) $dep))->row();
                 if (!saisie_depense_modifiable($ligne)) {

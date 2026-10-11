@@ -93,10 +93,12 @@
                                 </td>
                                 
                                 <td>
+                                    <? if (saisie_depot_modifiable($alldepots)): ?>
                                     <a href="<?= "#?{$alldepots->id_depot}&&&"; ?>"
                                     class="md-trigger" data-modal="depot-edit-<?= $alldepots->id_depot; ?>">
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
+                                    <? endif; ?>
 
                                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                         id="depot-edit-<?= $alldepots->id_depot; ?>">

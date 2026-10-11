@@ -273,6 +273,7 @@
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+            <?= caissier_escale_hidden_inputs(); ?>
             <div class="row">
                 <div class="form-group col-sm-4">
                     <label>COMPAGNIE</label>
@@ -645,6 +646,7 @@
                 <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
                 
                 <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
+                <?= caissier_escale_hidden_inputs(); ?>
                 
                 <div class="form-group col-sm-4">
                     <label>COMPAGNIE</label>

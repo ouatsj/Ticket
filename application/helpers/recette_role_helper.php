@@ -594,6 +594,58 @@ if (!function_exists('saisie_tri_est_admin')) {
     }
 }
 
+if (!function_exists('saisie_tri_compte_sql')) {
+    /**
+     * Tri du chef : ses saisies et ce qu'il a validé. Les autres rôles : leurs saisies.
+     *
+     * @param string $authorCol
+     * @param string $chefCol
+     * @param int|string $roleattribut
+     * @param string|null $userole
+     * @return string
+     */
+    function saisie_tri_compte_sql($authorCol, $chefCol, $roleattribut, $userole = null)
+    {
+        $ra = (int) $roleattribut;
+        if ($ra <= 0) {
+            return ' AND 1=0 ';
+        }
+        if ($userole === null) {
+            $CI =& get_instance();
+            $agent = $CI->session->userdata('agent') ? $CI->session->agent : null;
+            $userole = ($agent && !empty($agent->userole)) ? $agent->userole : '';
+        }
+        if (recette_role_is_saisie($userole)) {
+            return ' ' . recette_role_porteur_personne_sql($authorCol, $chefCol, $ra) . ' ';
+        }
+
+        return ' ' . recette_role_porteur_personne_sql($authorCol, '', $ra) . ' ';
+    }
+}
+
+if (!function_exists('saisie_auteur_est_personne')) {
+    /**
+     * La ligne a été saisie par cette personne, quel que soit le rôle de gare.
+     *
+     * @param int $owner
+     * @param int $roleattribut
+     * @return bool
+     */
+    function saisie_auteur_est_personne($owner, $roleattribut)
+    {
+        $owner = (int) $owner;
+        $roleattribut = (int) $roleattribut;
+        if ($owner <= 0 || $roleattribut <= 0) {
+            return false;
+        }
+        if ($owner === $roleattribut) {
+            return true;
+        }
+
+        return in_array($owner, recette_role_ids_meme_personne($roleattribut), true);
+    }
+}
+
 if (!function_exists('saisie_ligne_arret_valide')) {
     /**
      * Ligne envoyée par un arrêt et déjà validée : plus modifiable, sauf l'admin.
@@ -633,7 +685,7 @@ if (!function_exists('saisie_depense_modifiable')) {
         $ra = (int) $roleattribut;
         if (recette_role_is_validateur_principal($userole)) {
             $validateur = isset($row->opevalid) ? (int) $row->opevalid : 0;
-            if ($ra <= 0 || ($owner !== $ra && $validateur !== $ra)) {
+            if ($ra <= 0 || (!saisie_auteur_est_personne($owner, $ra) && $validateur !== $ra)) {
                 return false;
             }
             if ((isset($row->ferme_caisdep) && (int) $row->ferme_caisdep === 1)
@@ -642,7 +694,7 @@ if (!function_exists('saisie_depense_modifiable')) {
             }
             return true;
         }
-        if ($owner <= 0 || $owner !== $ra) {
+        if (!saisie_auteur_est_personne($owner, $ra)) {
             return false;
         }
         return !saisie_ligne_arret_valide($row, 'arret_caisdep', array(
@@ -665,7 +717,7 @@ if (!function_exists('saisie_recette_modifiable')) {
             $roleattribut = roleattribut_guard_session_ra();
         }
         $owner = ($row && isset($row->idopera)) ? (int) $row->idopera : 0;
-        if ($owner <= 0 || $owner !== (int) $roleattribut) {
+        if (!saisie_auteur_est_personne($owner, $roleattribut)) {
             return false;
         }
         return !saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
@@ -674,6 +726,32 @@ if (!function_exists('saisie_recette_modifiable')) {
             'is_actifrecetad',
             'ferme_caisrecet',
             'valid_cptablerecet',
+        ));
+    }
+}
+
+if (!function_exists('saisie_depot_modifiable')) {
+    /**
+     * Modifier un dépôt : celui qui l'a saisi. Une validation ne donne pas le crayon.
+     */
+    function saisie_depot_modifiable($row, $roleattribut = null, $userole = null)
+    {
+        if (saisie_tri_est_admin($userole)) {
+            return (bool) $row;
+        }
+        if ($roleattribut === null && function_exists('roleattribut_guard_session_ra')) {
+            $roleattribut = roleattribut_guard_session_ra();
+        }
+        $owner = ($row && isset($row->idop_depot)) ? (int) $row->idop_depot : 0;
+        if (!saisie_auteur_est_personne($owner, $roleattribut)) {
+            return false;
+        }
+
+        return !saisie_ligne_arret_valide($row, 'arret_caisdepo', array(
+            'is_validdepo',
+            'is_actifdepo',
+            'is_actifdepoad',
+            'valid_cptabledepo',
         ));
     }
 }

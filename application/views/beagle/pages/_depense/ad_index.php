@@ -63,7 +63,7 @@
     </div>
     <?php endif; ?>
     
-    <div class="form-group text-center">les depenses de la caisse : <? if($sommesdepenses == NULL):?> 0 <? else:?> &nbsp;<?=$sommesdepenses->montant_depens; ?><? endif; ?></div>
+    <div class="form-group text-center">les depenses de la caisse : <? if($sommesdepenses == NULL):?> 0 <? else:?> &nbsp;<?= isset($sommesdepenses->total) ? $sommesdepenses->total : $sommesdepenses->montant_depens; ?><? endif; ?></div>
 <div class="row">
 
     <div class="col-12">
@@ -290,6 +290,7 @@
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+            <?= caissier_escale_hidden_inputs(); ?>
         <div class="row">
             <div class="form-group text-center text-danger" style="display:none"
                     id="smsmt" style="display:none">
@@ -526,6 +527,7 @@
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+            <?= caissier_escale_hidden_inputs(); ?>
             <div class="form-group col-sm-4">
                 <label>COMPAGNIE</label>
                 <select class="form-control form-control-sm" name="_compag">

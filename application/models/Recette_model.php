@@ -14,6 +14,9 @@
             // idopera reste celui qui a saisi ou arrêté. Seuls les valideurs suivent le compte connecté.
             $data = roleattribut_guard_apply_to_data($data, array('operavalid', 'operavalidad'));
             $data = $this->_nom_espaces_simples($data);
+            if (function_exists('escale_ligne_ancrer')) {
+                $data = escale_ligne_ancrer($data, 'recetsgid', 'idcaisse');
+            }
 
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
@@ -202,7 +205,7 @@
             $copSql = (trim((string) $co) !== '')
                 ? " AND r.compkey_recet = '" . $this->db->escape_str($co) . "'"
                 : '';
-            $ownerSql = $toutes ? '' : " AND r.idopera = '" . (int) $conect . "'";
+            $ownerSql = $toutes ? '' : saisie_tri_compte_sql('r.idopera', 'r.operavalidchef', $conect);
             return $this->db->query(
                 "SELECT * FROM recette r
                 JOIN type_personnel tp ON r.id_genre_recet = tp.idtyperso
@@ -326,7 +329,7 @@
                 $copSql = (trim((string) $co) !== '')
                     ? " AND r.compkey_recet = '" . $this->db->escape_str($co) . "'"
                     : '';
-                $ownerSql = $toutes ? '' : " AND r.idopera = '" . (int) $conect . "'";
+                $ownerSql = $toutes ? '' : saisie_tri_compte_sql('r.idopera', 'r.operavalidchef', $conect);
                 return $this->db->query(
                 "SELECT * FROM recette r
                 JOIN sousgare sg ON r.recetsgid = sg.idsousgare

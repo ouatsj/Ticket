@@ -120,12 +120,12 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
                                 </td>
                                 
                                 <td>
-                                    <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '5'): ?>
-                                        <a href="<?= "#?{$alldepots->id_depot}&&&"; ?>"
+                                <? if (saisie_depot_modifiable($alldepots)): ?>
+                                    <a href="<?= "#?{$alldepots->id_depot}&&&"; ?>"
                                         class="md-trigger" data-modal="depot-edit-<?= $alldepots->id_depot; ?>">
-                                            <span class="fas fa-edit text-warning"></span>
-                                        </a>
-                                    <?endif;?>
+                                        <span class="fas fa-edit text-warning"></span>
+                                    </a>
+                                <?endif;?>
                                         <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="depot-edit-<?= $alldepots->id_depot; ?>">
 
@@ -265,6 +265,7 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+            <?= caissier_escale_hidden_inputs(); ?>
             <div class="form-group col-sm-4">
                 <label>COMPAGNIE</label>
                 <select class="form-control form-control-sm" name="_compag">

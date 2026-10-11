@@ -201,7 +201,6 @@ if (!function_exists('layout_restreindre_escale')) {
             return $pdata;
         }
         $vente = $exclure_escale ? layout_operateurs_vente_escale() : array();
-        $noms_escale = $dans_escale ? layout_noms_agents($ops) : array();
         $noms_vente = $exclure_escale ? layout_noms_agents($vente) : array();
         if ($exclure_escale && !$vente && !$noms_vente) {
             return $pdata;
@@ -256,13 +255,6 @@ if (!function_exists('layout_restreindre_escale')) {
                         $trouves[] = (int) $row->{$champ};
                     }
                 }
-                $nom_cle = '';
-                foreach (array('nom', 'nom_perso', 'nom_pre', 'nom_beneficiaire') as $champ_nom) {
-                    if (isset($row->{$champ_nom}) && trim((string) $row->{$champ_nom}) !== '') {
-                        $nom_cle = layout_nom_cle($row->{$champ_nom});
-                        break;
-                    }
-                }
                 $garder = false;
                 if ($dans_escale) {
                     foreach ($trouves as $valeur) {
@@ -271,12 +263,16 @@ if (!function_exists('layout_restreindre_escale')) {
                             break;
                         }
                     }
-                    if (!$garder && $nom_cle !== '' && isset($noms_escale[$nom_cle])) {
-                        $garder = true;
-                    }
                     if (!$garder && isset($row->commentaire_recet) && function_exists('caissier_escale_marqueur')) {
                         $mark = caissier_escale_marqueur($escale);
                         if ($mark !== '' && strpos((string) $row->commentaire_recet, $mark) !== false) {
+                            $garder = true;
+                        }
+                    }
+                    if (!$garder && isset($row->escale_cle)) {
+                        $cle_ligne = str_replace('|', '~', trim((string) $row->escale_cle));
+                        $cle_page = str_replace('|', '~', $escale);
+                        if ($cle_ligne !== '' && $cle_ligne === $cle_page) {
                             $garder = true;
                         }
                     }
@@ -287,9 +283,6 @@ if (!function_exists('layout_restreindre_escale')) {
                             $garder = false;
                             break;
                         }
-                    }
-                    if ($garder && $nom_cle !== '' && isset($noms_vente[$nom_cle])) {
-                        $garder = false;
                     }
                 }
                 if ($garder) {
@@ -304,6 +297,11 @@ if (!function_exists('layout_restreindre_escale')) {
                 foreach ($sommes[$cle] as $nom) {
                     if (isset($pdata[$nom]) && is_object($pdata[$nom]) && isset($pdata[$nom]->total)) {
                         $pdata[$nom]->total = $total;
+                        foreach (array('montant_depens', 'montant_recet', 'montant_depot', 'montant_verser') as $champMontant) {
+                            if (isset($pdata[$nom]->{$champMontant})) {
+                                $pdata[$nom]->{$champMontant} = $total;
+                            }
+                        }
                     }
                 }
             }

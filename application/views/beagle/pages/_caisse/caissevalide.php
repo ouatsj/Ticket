@@ -21,7 +21,8 @@ if ($escale_nom !== '') {
 
 <?php
 $escale_ops_q = trim((string) $this->input->get('escale_ops'));
-$render_validation_cards = function ($items, $pending_map, $label_badge) use ($caisseident, $conex, $bus_stop, $escale_nom, $escale_ops_q) {
+$idsg_arret = (!empty($bus_stop->idsousgare)) ? (int) $bus_stop->idsousgare : (int) $this->uri->segment(8);
+$render_validation_cards = function ($items, $pending_map, $label_badge, $cadre_adjoint = false) use ($caisseident, $conex, $idsg_arret, $escale_nom, $escale_ops_q) {
     if (empty($items)) {
         return;
     }
@@ -32,10 +33,19 @@ $render_validation_cards = function ($items, $pending_map, $label_badge) use ($c
 <div class="row">
     <? foreach ($items as $item):
         $pending = caissier_arret_pending_for_chef(isset($pending_map) ? $pending_map : array(), $item->roleattribut);
+        $cadre = '';
+        $classe_carte = 'card card-border card-contrast';
+        if ($cadre_adjoint) {
+            $cadre = $pending->has_pending
+                ? 'border:3px solid #dc3545;'
+                : 'border:3px solid #198754;';
+        } elseif ($pending->has_pending) {
+            $classe_carte .= ' border-warning';
+        }
     ?>
         <div class="col-lg-3">
 
-            <div class="card card-border card-contrast<?= $pending->has_pending ? ' border-warning' : ''; ?>">
+            <div class="<?= $classe_carte; ?>"<?= $cadre !== '' ? ' style="' . $cadre . '"' : ''; ?>>
                 <div class="card-header card-header-contrast">
                     <?= $item->first_name; ?>
                     <? if ($pending->has_pending): ?>
@@ -83,7 +93,7 @@ $render_validation_cards = function ($items, $pending_map, $label_badge) use ($c
                         . $this->session->company->ekey . '/caissier/'
                         . (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : $item->guser) . '/'
                         . $caisseident->id_caiss . '/' . $item->roleattribut . '/'
-                        . $conex->roleattribut . '/' . $bus_stop->idsousgare . '/'
+                        . $conex->roleattribut . '/' . $idsg_arret . '/'
                         . mdate("%d/%m/%Y", now('UTC'))) . (($escale_nom !== '' || $escale_ops_q !== '') ? ('?escale=' . rawurlencode($escale_nom) . '&escale_ops=' . rawurlencode($escale_ops_q)) : ''); ?>" class="btn btn-block btn-rounded text-dark <?= $pending->has_pending ? 'bg-warning' : 'bg-info'; ?>">
                             <span class="icon mdi mdi-eye"></span>&nbsp;VOIR ARRÊT DE COMPTE
                     </a>
@@ -109,7 +119,8 @@ if (!empty($useradjoints)) {
     $render_validation_cards(
         $useradjoints,
         isset($pending_arret_adjoint) ? $pending_arret_adjoint : array(),
-        'Caissiers adjoints (à confirmer)'
+        'Caissiers adjoints (à confirmer)',
+        ($escale_nom !== '' || $escale_ops_q !== '')
     );
 }
 ?>

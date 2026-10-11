@@ -14,6 +14,9 @@
         {
             // idop_depot reste celui qui a saisi ou arrêté. Seuls les valideurs suivent le compte connecté.
             $data = roleattribut_guard_apply_to_data($data, array('opvalid', 'opvalidad'));
+            if (function_exists('escale_ligne_ancrer')) {
+                $data = escale_ligne_ancrer($data, 'sousgdepot', 'idcaisse_depot');
+            }
             if (empty($data['createddepot_at'])) {
                 $data['createddepot_at'] = mdate('%Y-%m-%d %H:%i:%s', now('UTC'));
             }

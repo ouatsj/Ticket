@@ -1678,8 +1678,8 @@ if (!function_exists('escale_lieu_sql_requete')) {
                 SELECT ar_lieu.roleattribut
                 FROM attributions_role ar_lieu
                 JOIN user_login ul_lieu ON ar_lieu.idgestcompte = ul_lieu.uid_login
-                WHERE ar_lieu.userole = 17
-                  AND ul_lieu.guser IN (' . implode(',', $inLieu) . ')
+                WHERE ul_lieu.guser IN (' . implode(',', $inLieu) . ')
+                  AND ar_lieu.userole IN (5, 16, 17)
             )';
         }
         if (!$parts) {
