@@ -1128,13 +1128,17 @@
                 );
                 $recette = $this->m_recette->create($arrayrecette);
                           
+                $validateur_ra = function_exists('caisse_validation_ra_affiliation')
+                    ? caisse_validation_ra_affiliation($iduser, $identifiant_caisse)
+                    : (int) $iduser;
+
                 if($this->session->agent->userole === '4')
                 {
                     $uprecette = array(
                         'active_recet' => 1,
                         'is_validerecet' => 1,
                         'is_actifrecet' => 1,
-                        'operavalid' => $iduser,
+                        'operavalid' => $validateur_ra,
                     );
                     $this->m_recette->update($recette, $uprecette);
 
@@ -1147,7 +1151,7 @@
                         'active_recet' => 1,
                         'is_validerecet' => 1,
                         'is_actifrecetad' => 1,
-                        'operavalidad' => $iduser,
+                        'operavalidad' => $validateur_ra,
                     );
                         $this->m_recette->update($recette, $uprecette);
 
@@ -1412,15 +1416,21 @@
                 }
 
                 if ($is_adjoint) {
+                    $idcpt_aff = function_exists('caisse_validation_ra_affiliation')
+                        ? caisse_validation_ra_affiliation($idcpt, $identifiant_caisse)
+                        : (int) $idcpt;
+                    $roles_ad = function_exists('caisse_validation_roles_meme_personne_sql')
+                        ? caisse_validation_roles_meme_personne_sql($idcpt_aff)
+                        : (string) (int) $idcpt_aff;
                     $cfrecet = $this->db->query(
                         "SELECT r.id_recette FROM recette r
-                        WHERE r.operavalidad = ?
+                        WHERE r.operavalidad IN ({$roles_ad})
                         AND r.is_actifrecetad = 1
                         AND r.is_actifrecet = 0
                         AND r.arret_caisrecet = 0
                         AND r.idcaisse = ?
                         AND r.date_recet BETWEEN ? AND ?",
-                        array($idcpt, $identifiant_caisse, $db, $df)
+                        array($identifiant_caisse, $db, $df)
                     )->result();
                 } else {
                     $cfrecet = $this->db->query(
@@ -1444,13 +1454,13 @@
                 if ($is_adjoint) {
                     $cfdepe = $this->db->query(
                         "SELECT d.id_depense FROM depense d
-                        WHERE d.opevalidad = ?
+                        WHERE d.opevalidad IN ({$roles_ad})
                         AND d.is_actifdepad = 1
                         AND d.is_actifdep = 0
                         AND d.arret_caisdep = 0
                         AND d.idcaisse_depens = ?
                         AND d.date_depens BETWEEN ? AND ?",
-                        array($idcpt, $identifiant_caisse, $db, $df)
+                        array($identifiant_caisse, $db, $df)
                     )->result();
                 } else {
                     $cfdepe = $this->db->query(
@@ -1474,13 +1484,13 @@
                 if ($is_adjoint) {
                     $cfdepo = $this->db->query(
                         "SELECT d.id_depot FROM depot d
-                        WHERE d.opvalidad = ?
+                        WHERE d.opvalidad IN ({$roles_ad})
                         AND d.is_actifdepoad = 1
                         AND d.is_actifdepo = 0
                         AND d.arret_caisdepo = 0
                         AND d.idcaisse_depot = ?
                         AND d.datedepot BETWEEN ? AND ?",
-                        array($idcpt, $identifiant_caisse, $db, $df)
+                        array($identifiant_caisse, $db, $df)
                     )->result();
                 } else {
                     $cfdepo = $this->db->query(
@@ -6064,6 +6074,9 @@
             }
             if ($validator_ra <= 0) {
                 return;
+            }
+            if (function_exists('caisse_validation_ra_affiliation')) {
+                $validator_ra = caisse_validation_ra_affiliation($validator_ra);
             }
             if ($role === '4') {
                 $this->m_recette->update($recette_id, array(
@@ -11828,7 +11841,7 @@
                         'active_verse' => 1,
                         'valider_vers' => 1, 
                         'is_actifverser' => 1,
-                        'validopad' => $iduser,
+                        'validopad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_versements->update($ver, $upvers);
                 
@@ -11894,7 +11907,7 @@
                         'active_verse' => 1,
                         'valider_vers' => 1, 
                         'is_actifverser' => 1,
-                        'validopad' => $iduser,
+                        'validopad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_versements->update($ver, $upvers);
                 
@@ -12034,7 +12047,7 @@
                         'active_verse' => 1,
                         'valider_vers' => 1, 
                         'is_actifverser' => 1,
-                        'validopad' => $iduser,
+                        'validopad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_versements->update($ver, $upvers);
 

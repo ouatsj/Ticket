@@ -1413,7 +1413,9 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = " . $this->db->escape($cid) . "
                 AND " . sous_caisse_filtre_page('cs.id_caiss', $idcais, $gid) . "
-                AND v.idop_versement = {$use}
+                AND " . (function_exists('caissier_validation_personne_where')
+                    ? caissier_validation_personne_where('v.idop_versement', '', $use)
+                    : "v.idop_versement = {$use}") . "
                 AND {$arrete}
                 AND v.date_versement <= " . $this->db->escape($today) . "
                 {$peri}

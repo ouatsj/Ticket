@@ -22,7 +22,9 @@ if ($escale_nom !== '') {
 <?php
 $escale_ops_q = trim((string) $this->input->get('escale_ops'));
 $idsg_arret = (!empty($bus_stop->idsousgare)) ? (int) $bus_stop->idsousgare : (int) $this->uri->segment(8);
-$render_validation_cards = function ($items, $pending_map, $label_badge, $cadre_adjoint = false) use ($caisseident, $conex, $idsg_arret, $escale_nom, $escale_ops_q) {
+$gare_page = trim((string) $this->uri->segment(4));
+$id_caisse_page = !empty($caisseident->id_caiss) ? (int) $caisseident->id_caiss : (int) $this->uri->segment(5);
+$render_validation_cards = function ($items, $pending_map, $label_badge, $cadre_adjoint = false) use ($caisseident, $conex, $idsg_arret, $escale_nom, $escale_ops_q, $gare_page, $id_caisse_page) {
     if (empty($items)) {
         return;
     }
@@ -89,10 +91,16 @@ $render_validation_cards = function ($items, $pending_map, $label_badge, $cadre_
                     <? else: ?>
                         <p class="text-muted small mb-2">Aucun arrêt en attente de validation.</p>
                     <? endif; ?>
+                    <?php
+                    $gare_lien = $gare_page !== ''
+                        ? $gare_page
+                        : (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : $item->guser);
+                    $id_lien = $id_caisse_page > 0 ? $id_caisse_page : 0;
+                    ?>
                     <a href="<?= site_url('utilisateurs/'
                         . $this->session->company->ekey . '/caissier/'
-                        . (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : $item->guser) . '/'
-                        . $caisseident->id_caiss . '/' . $item->roleattribut . '/'
+                        . $gare_lien . '/'
+                        . $id_lien . '/' . $item->roleattribut . '/'
                         . $conex->roleattribut . '/' . $idsg_arret . '/'
                         . mdate("%d/%m/%Y", now('UTC'))) . (($escale_nom !== '' || $escale_ops_q !== '') ? ('?escale=' . rawurlencode($escale_nom) . '&escale_ops=' . rawurlencode($escale_ops_q)) : ''); ?>" class="btn btn-block btn-rounded text-dark <?= $pending->has_pending ? 'bg-warning' : 'bg-info'; ?>">
                             <span class="icon mdi mdi-eye"></span>&nbsp;VOIR ARRÊT DE COMPTE

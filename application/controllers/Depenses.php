@@ -290,13 +290,17 @@
                                 $depense = $this->m_depense->create($arraydeps);
                             }
                     }
+                    $validateur_ra = function_exists('caisse_validation_ra_affiliation')
+                        ? caisse_validation_ra_affiliation($iduser, $identifiant_caisse)
+                        : (int) $iduser;
+
                     if(recette_role_is_validateur_principal($this->session->agent->userole))
                     {
                         $updeps = array(
                             'active_dep' => 1, 
                             'is_validedep' => 1, 
                             'is_actifdep' => 1,
-                            'opevalid' => $iduser,
+                            'opevalid' => $validateur_ra,
                         );
                         $this->m_depense->update($depense, $updeps);
 
@@ -311,7 +315,7 @@
                             'active_dep' => 1, 
                             'is_validedep' => 1, 
                             'is_actifdepad' => 1,
-                            'opevalidad' => $iduser,
+                            'opevalidad' => $validateur_ra,
                         );
                         $this->m_depense->update($depense, $updeps);
 

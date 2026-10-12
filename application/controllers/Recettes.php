@@ -304,13 +304,17 @@
                             }
                     }
                         
+                    $validateur_ra = function_exists('caisse_validation_ra_affiliation')
+                        ? caisse_validation_ra_affiliation($iduser, $identifiant_caisse)
+                        : (int) $iduser;
+
                     if(recette_role_is_validateur_principal($this->session->agent->userole))
                     {
                         $upargv = array(
                             'active_recet' => 1, 
                             'is_validerecet' => 1, 
                             'is_actifrecet' => 1,
-                            'operavalid' => $iduser,
+                            'operavalid' => $validateur_ra,
                         );
                         $this->m_recette->update($recette, $upargv);
 
@@ -324,7 +328,7 @@
                             'active_recet' => 1, 
                             'is_validerecet' => 1, 
                             'is_actifrecetad' => 1,
-                            'operavalidad' => $iduser,
+                            'operavalidad' => $validateur_ra,
                         );
                         $this->m_recette->update($recette, $upargv);
 

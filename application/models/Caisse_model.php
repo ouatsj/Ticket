@@ -35,7 +35,8 @@
                 WHERE e.id_entreprise = '$cid'
                 AND ce.gexp_caiss = '$gid'" . $this->_sans_sous_caisse_sql())->result();
             }
-            return $this->db->query(
+            $pk = (int) $pk;
+            $row = $this->db->query(
                 "SELECT * FROM caisse ce
                 JOIN gare_exp ex ON ce.gexp_caiss = ex.code_gaexp
                 JOIN gares g ON ex.garesid = g.idengare
@@ -44,7 +45,22 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.id_entreprise = '$cid'
                 AND ce.gexp_caiss = '$gid'
-                AND ce.id_caiss = '$pk'")->row();
+                AND ce.id_caiss = '{$pk}'")->row();
+            if ($row || $pk <= 0) {
+                return $row;
+            }
+
+            // Sous-caisse d'escale : son gexp est la gare mère (ex. BOB1)
+            // alors que la page caissier est ouverte sur la gare du lieu (ex. DIS10).
+            return $this->db->query(
+                "SELECT * FROM caisse ce
+                JOIN gare_exp ex ON ce.gexp_caiss = ex.code_gaexp
+                JOIN gares g ON ex.garesid = g.idengare
+                JOIN type_caisse t ON ce.type_caisse = t.id_typecaisse
+                JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.id_entreprise = '$cid'
+                AND ce.id_caiss = '{$pk}'")->row();
         }        
  
         public function getcaisse($cid, $pk = FALSE)

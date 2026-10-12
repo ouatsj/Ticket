@@ -2007,6 +2007,9 @@ if (!function_exists('validerecette_flags_validateur')) {
         if ($ra <= 0) {
             return array();
         }
+        if (function_exists('caisse_validation_ra_affiliation')) {
+            $ra = caisse_validation_ra_affiliation($ra);
+        }
         if (recette_role_is_validateur_principal($role)) {
             return array(
                 'active_recet' => 1,
@@ -2050,6 +2053,9 @@ if (!function_exists('validedepense_flags_validateur')) {
         $ra = !empty($CI->session->agent->roleattribut) ? (int) $CI->session->agent->roleattribut : 0;
         if ($ra <= 0) {
             return array();
+        }
+        if (function_exists('caisse_validation_ra_affiliation')) {
+            $ra = caisse_validation_ra_affiliation($ra);
         }
         if (recette_role_is_validateur_principal($role)) {
             return array(
@@ -2794,9 +2800,11 @@ if (!function_exists('caissier_escale_caisse_sql')) {
             $alias = 'cs';
         }
         $CI =& get_instance();
-        $parts = array($alias . '.gexp_caiss = ' . $CI->db->escape($gid));
         $cle = function_exists('sous_caisse_cle_page') ? sous_caisse_cle_page() : '';
         if ($cle !== '' && $CI->db->field_exists('escale_cle', 'caisse') && $CI->db->field_exists('parent_caiss', 'caisse')) {
+            $parts = array(
+                "REPLACE(TRIM(" . $alias . ".escale_cle), '|', '~') = " . $CI->db->escape($cle),
+            );
             $sous = $CI->db->query(
                 "SELECT id_caiss FROM caisse
                  WHERE parent_caiss > 0
@@ -2807,9 +2815,11 @@ if (!function_exists('caissier_escale_caisse_sql')) {
             if ($sous && (int) $sous->id_caiss > 0) {
                 $parts[] = $alias . '.id_caiss = ' . (int) $sous->id_caiss;
             }
+
+            return 'AND (' . implode(' OR ', $parts) . ')';
         }
 
-        return 'AND (' . implode(' OR ', $parts) . ')';
+        return 'AND ' . $alias . '.gexp_caiss = ' . $CI->db->escape($gid);
     }
 }
 
@@ -3084,11 +3094,11 @@ if (!function_exists('caissier_validation_bind_fail_redirect')) {
             redirect(site_url(
                 'caisses/' . $ekey . '/gTv/' . $gare_id . '/' . $idcai
                 . '/validation/' . $caissier_ra . '/' . $idsg . '/' . $date
-            ));
+            ) . caissier_escale_query_suffix());
         } else {
             redirect(site_url(
                 'gares/' . $ekey . '/gTv/' . $gare_id . '/cais/' . $caissier_ra . '/0/' . $date
-            ));
+            ) . caissier_escale_query_suffix());
         }
         exit;
     }

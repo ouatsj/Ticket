@@ -94,19 +94,25 @@
             }
 
             $this->db->trans_start();
+            $idcpt_aff = function_exists('caisse_validation_ra_affiliation')
+                ? (int) caisse_validation_ra_affiliation($idcpt, $idc)
+                : (int) $idcpt;
+            if ($idcpt_aff <= 0) {
+                $idcpt_aff = (int) $idcpt;
+            }
 
                 // Adjoint : uniquement ce qu’il a validé (*validad), comme les soldes.
                 if ($is_adjoint) {
                     $cfrecet = $this->db->query(
                         "SELECT r.id_recette, r.active_recet, r.idopera FROM recette r
-                        WHERE r.operavalidad = ?
+                        WHERE r.operavalidad = {$idcpt_aff}
                         AND r.is_actifrecetad = 1
                         AND r.is_actifrecet = 0
                         AND IFNULL(r.arret_caisrecet, 0) = 0
                         AND IFNULL(r.ferme_caisrecet, 0) = 0
+                        AND IFNULL(r.type_recet, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')
                         AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
-                        {$fr}",
-                        array($idcpt)
+                        {$fr}"
                     )->result();
                 } else {
                     $escale_arret = $depuis_escale && function_exists('caissier_validation_personne_where');
@@ -126,7 +132,7 @@
 
                     foreach ($cfrecet as $item7) {
                         if ($is_adjoint) {
-                            $plarray = caisse_validation_flags_chef_by_validator('18', $idcpt, true);
+                            $plarray = caisse_validation_flags_chef_by_validator('18', $idcpt_aff, true, $idc);
                             $plarray['valid_recet'] = 'valid';
                             $plarray['arret_caisrecet'] = 1;
                         } else {
@@ -139,16 +145,43 @@
                     }
 
                 if ($is_adjoint) {
+                    $courrier_recet = $this->db->query(
+                        "SELECT r.id_recette FROM recette r
+                        WHERE r.operavalidad = {$idcpt_aff}
+                        AND IFNULL(r.type_recet, '') = 'Courrier'
+                        AND IFNULL(r.operavalid, 0) = 0
+                        AND IFNULL(r.is_actifrecet, 0) = 0
+                        AND IFNULL(r.arret_caisrecet, 0) = 0
+                        AND IFNULL(r.ferme_caisrecet, 0) = 0
+                        AND (IFNULL(r.is_actifrecetad, 0) = 1 OR IFNULL(r.is_validerecet, 0) = 1)
+                        AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
+                        {$fr}"
+                    )->result();
+                    foreach ($courrier_recet as $ligne_courrier) {
+                        $this->m_recette->update($ligne_courrier->id_recette, array(
+                            'active_recet' => 1,
+                            'valid_recet' => 'valid',
+                            'is_validerecet' => 1,
+                            'is_actifrecet' => 1,
+                            'is_actifrecetad' => 0,
+                            'operavalid' => 0,
+                            'operavalidad' => $idcpt_aff,
+                            'arret_caisrecet' => 1,
+                        ));
+                    }
+                }
+
+                if ($is_adjoint) {
                     $cfdepe = $this->db->query(
                         "SELECT d.id_depense, d.active_dep, d.idop_dep FROM depense d
-                        WHERE d.opevalidad = ?
+                        WHERE d.opevalidad = {$idcpt_aff}
                         AND d.is_actifdepad = 1
                         AND d.is_actifdep = 0
                         AND IFNULL(d.arret_caisdep, 0) = 0
                         AND IFNULL(d.ferme_caisdep, 0) = 0
+                        AND IFNULL(d.type_depense, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')
                         AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
-                        {$fd}",
-                        array($idcpt)
+                        {$fd}"
                     )->result();
                 } else {
                     $escale_arret = $depuis_escale && function_exists('caissier_validation_personne_where');
@@ -168,7 +201,7 @@
 
                     foreach ($cfdepe as $item8) {
                         if ($is_adjoint) {
-                            $dplarray = caisse_validation_flags_depense_chef_by_validator('18', $idcpt, true);
+                            $dplarray = caisse_validation_flags_depense_chef_by_validator('18', $idcpt_aff, true, $idc);
                             $dplarray['valid_depens'] = 'valid';
                             $dplarray['arret_caisdep'] = 1;
                         } else {
@@ -181,17 +214,44 @@
                     }
 
                 if ($is_adjoint) {
+                    $courrier_dep = $this->db->query(
+                        "SELECT d.id_depense FROM depense d
+                        WHERE d.opevalidad = {$idcpt_aff}
+                        AND IFNULL(d.type_depense, '') = 'Courrier'
+                        AND IFNULL(d.opevalid, 0) = 0
+                        AND IFNULL(d.is_actifdep, 0) = 0
+                        AND IFNULL(d.arret_caisdep, 0) = 0
+                        AND IFNULL(d.ferme_caisdep, 0) = 0
+                        AND (IFNULL(d.is_actifdepad, 0) = 1 OR IFNULL(d.is_validedep, 0) = 1)
+                        AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
+                        {$fd}"
+                    )->result();
+                    foreach ($courrier_dep as $ligne_courrier) {
+                        $this->m_depense->update($ligne_courrier->id_depense, array(
+                            'active_dep' => 1,
+                            'valid_depens' => 'valid',
+                            'is_validedep' => 1,
+                            'is_actifdep' => 1,
+                            'is_actifdepad' => 0,
+                            'opevalid' => 0,
+                            'opevalidad' => $idcpt_aff,
+                            'arret_caisdep' => 1,
+                        ));
+                    }
+                }
+
+                if ($is_adjoint) {
                     $cfdepo = $this->db->query(
                         "SELECT d.id_depot FROM depot d
-                        WHERE d.opvalidad = ?
+                        WHERE d.opvalidad = {$idcpt_aff}
                         AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
                         AND d.arret_caisdepo = 0
                         AND IFNULL(d.ferme_caisdepo, 0) = 0
                         AND d.is_actifdepoad = 1
                         AND d.is_actifdepo = 0
                         AND d.actif_depo = 0
-                        {$fp}",
-                        array($idcpt)
+                        AND IFNULL(d.type_depot, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')
+                        {$fp}"
                     )->result();
                 } else {
                     $escale_arret = $depuis_escale && function_exists('caissier_validation_personne_where');
@@ -215,7 +275,7 @@
 
                 foreach ($cfdepo as $item9) {
                     if ($is_adjoint) {
-                        $dpoarray = caisse_validation_flags_depot_chef_by_validator('18', $idcpt, true);
+                        $dpoarray = caisse_validation_flags_depot_chef_by_validator('18', $idcpt_aff, true, $idc);
                         $dpoarray['valid_depo'] = 'valid';
                         $dpoarray['arret_caisdepo'] = 1;
                     } else {
@@ -227,9 +287,33 @@
                 }
 
                 if ($is_adjoint) {
+                    $courrier_depo = $this->db->query(
+                        "SELECT d.id_depot FROM depot d
+                        WHERE d.opvalidad = {$idcpt_aff}
+                        AND IFNULL(d.type_depot, '') = 'Courrier'
+                        AND IFNULL(d.opvalid, 0) = 0
+                        AND IFNULL(d.arret_caisdepo, 0) = 0
+                        AND IFNULL(d.ferme_caisdepo, 0) = 0
+                        AND (IFNULL(d.is_actifdepoad, 0) = 1 OR IFNULL(d.is_validdepo, 0) = 1)
+                        AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
+                        {$fp}"
+                    )->result();
+                    foreach ($courrier_depo as $ligne_courrier) {
+                        $this->m_depot->update($ligne_courrier->id_depot, array(
+                            'active_depot' => 1,
+                            'valid_depo' => 'valid',
+                            'is_validdepo' => 1,
+                            'is_actifdepoad' => 0,
+                            'opvalid' => 0,
+                            'opvalidad' => $idcpt_aff,
+                        ));
+                    }
+                }
+
+                if ($is_adjoint) {
                     $cfvers = $this->db->query(
                         "SELECT v.id_versements FROM versements v
-                        WHERE v.validopad = ?
+                        WHERE v.validopad = {$idcpt_aff}
                         AND IFNULL(v.is_actifverserad, 0) = 1
                         AND IFNULL(v.is_actifverser, 0) = 0
                         AND IFNULL(v.arret_caisvers, 0) = 0
@@ -237,8 +321,7 @@
                         AND " . sous_caisse_predicat('v.idcaisse_versement', $idc) . "
                         AND IFNULL(v.type_versement, '') <> 'Courrier'
                         AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
-                        {$fv}",
-                        array($idcpt)
+                        {$fv}"
                     )->result();
                 } else {
                     $escale_arret = $depuis_escale && function_exists('caissier_validation_personne_where');
@@ -588,11 +671,15 @@
 
             $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
             $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
-            $qui = $escale_page && function_exists('caissier_validation_personne_where')
+            $qui = function_exists('caissier_validation_personne_where')
                 ? caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $idcpt)
                 : '(r.idopera = ? OR r.operavalidchef = ?)';
             $caisse_sql = $escale_page ? '' : 'AND r.idcaisse = ?';
             $date_sql = $escale_page ? caisse_arret_date_filter_sql('r.date_recet', $date) : '';
+            $bind_rec = (strpos($qui, '?') !== false) ? array($idcpt, $idcpt) : array();
+            if (!$escale_page) {
+                $bind_rec[] = (int) $idc;
+            }
             $cfrecet = $this->db->query(
                 "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse
                 FROM recette r
@@ -601,7 +688,7 @@
                 AND {$arrete}
                 {$date_sql}
                 {$escale_sql}",
-                $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
+                $bind_rec
             )->result();
 
                     foreach ($cfrecet as $item9) {
@@ -644,11 +731,15 @@
            
                 $escale_sql = caissier_escale_nom_filtre_sql('r.nom');
                 $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
-                $qui = $escale_page && function_exists('caissier_validation_personne_where')
+                $qui = function_exists('caissier_validation_personne_where')
                     ? caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $idcpt)
                     : '(r.idopera = ? OR r.operavalidchef = ?)';
                 $caisse_sql = $escale_page ? '' : 'AND r.idcaisse = ?';
                 $date_sql = $escale_page ? caisse_arret_date_filter_sql('r.date_recet', $date) : '';
+                $bind_rec = (strpos($qui, '?') !== false) ? array($idcpt, $idcpt) : array();
+                if (!$escale_page) {
+                    $bind_rec[] = (int) $idc;
+                }
                 $cfrecet = $this->db->query(
                     "SELECT r.id_recette, r.active_recet, r.is_validerecet, r.idopera, r.idcaisse, r.valid_recet
                     FROM recette r
@@ -657,7 +748,7 @@
                     AND {$arrete}
                     {$date_sql}
                     {$escale_sql}",
-                    $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
+                    $bind_rec
                 )->result();
 
                     foreach ($cfrecet as $item10) {
@@ -707,11 +798,15 @@
 
             $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
             $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
-            $qui = $escale_page && function_exists('caissier_validation_personne_where')
+            $qui = function_exists('caissier_validation_personne_where')
                 ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $idcpt)
                 : '(d.idop_dep = ? OR d.opevalidchef = ?)';
             $caisse_sql = $escale_page ? '' : 'AND d.idcaisse_depens = ?';
             $date_sql = $escale_page ? caisse_arret_date_filter_sql('d.date_depens', $date) : '';
+            $bind_dep = (strpos($qui, '?') !== false) ? array($idcpt, $idcpt) : array();
+            if (!$escale_page) {
+                $bind_dep[] = (int) $idc;
+            }
             $cfdepes = $this->db->query(
                 "SELECT d.id_depense, d.active_dep, d.is_validedep, d.idop_dep, d.idcaisse_depens
                 FROM depense d
@@ -720,7 +815,7 @@
                 AND {$arrete}
                 {$date_sql}
                 {$escale_sql}",
-                $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
+                $bind_dep
             )->result();
 
                     foreach ($cfdepes as $cfdep) {
@@ -760,11 +855,15 @@
            
                 $escale_sql = caissier_escale_nom_filtre_sql('d.nom_perso');
                 $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
-                $qui = $escale_page && function_exists('caissier_validation_personne_where')
+                $qui = function_exists('caissier_validation_personne_where')
                     ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $idcpt)
                     : '(d.idop_dep = ? OR d.opevalidchef = ?)';
                 $caisse_sql = $escale_page ? '' : 'AND d.idcaisse_depens = ?';
                 $date_sql = $escale_page ? caisse_arret_date_filter_sql('d.date_depens', $date) : '';
+                $bind_dep = (strpos($qui, '?') !== false) ? array($idcpt, $idcpt) : array();
+                if (!$escale_page) {
+                    $bind_dep[] = (int) $idc;
+                }
                 $cfdepe = $this->db->query(
                     "SELECT d.id_depense, d.active_dep, d.is_validedep, d.valid_depens, d.idop_dep, d.idcaisse_depens
                     FROM depense d
@@ -773,7 +872,7 @@
                     AND {$arrete}
                     {$date_sql}
                     {$escale_sql}",
-                    $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
+                    $bind_dep
                 )->result();
 
                     foreach ($cfdepe as $teme1) {
@@ -820,10 +919,14 @@
 
             $escale_sql = caissier_escale_nom_filtre_sql('d.nom_pre');
             $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
-            $qui = $escale_page && function_exists('caissier_validation_personne_where')
+            $qui = function_exists('caissier_validation_personne_where')
                 ? caissier_validation_personne_where('d.idop_depot', 'd.opvalidchef', $idcpt)
                 : '(d.idop_depot = ? OR d.opvalidchef = ?)';
             $caisse_sql = $escale_page ? '' : 'AND d.idcaisse_depot = ?';
+            $bind_depo = (strpos($qui, '?') !== false) ? array($idcpt, $idcpt) : array();
+            if (!$escale_page) {
+                $bind_depo[] = (int) $idc;
+            }
             $cfdepo = $this->db->query(
                 "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.idcaisse_depot
                 FROM depot d
@@ -831,7 +934,7 @@
                 {$caisse_sql}
                 AND {$arrete}
                 {$escale_sql}",
-                $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
+                $bind_depo
             )->result();
 
                     foreach ($cfdepo as $tems) {
@@ -870,10 +973,14 @@
 
             $escale_sql = caissier_escale_nom_filtre_sql('d.nom_pre');
             $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
-            $qui = $escale_page && function_exists('caissier_validation_personne_where')
+            $qui = function_exists('caissier_validation_personne_where')
                 ? caissier_validation_personne_where('d.idop_depot', 'd.opvalidchef', $idcpt)
                 : '(d.idop_depot = ? OR d.opvalidchef = ?)';
             $caisse_sql = $escale_page ? '' : 'AND d.idcaisse_depot = ?';
+            $bind_depo = (strpos($qui, '?') !== false) ? array($idcpt, $idcpt) : array();
+            if (!$escale_page) {
+                $bind_depo[] = (int) $idc;
+            }
             $cfdepo = $this->db->query(
                 "SELECT d.id_depot, d.is_validdepo, d.idop_depot, d.valid_depo, d.idcaisse_depot
                 FROM depot d
@@ -881,7 +988,7 @@
                 {$caisse_sql}
                 AND {$arrete}
                 {$escale_sql}",
-                $escale_page ? array() : array($idcpt, $idcpt, (int) $idc)
+                $bind_depo
             )->result();
 
                     foreach ($cfdepo as $tem) {
@@ -945,17 +1052,21 @@
             $arrete = caisse_validation_chef_arrete_versement_sql('v');
             $escale_sql = caissier_escale_nom_filtre_sql('v.nom_beneficiaire');
             $escale_page = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
-            $qui = $escale_page && function_exists('caissier_validation_personne_where')
+            $qui = function_exists('caissier_validation_personne_where')
                 ? caissier_validation_personne_where('v.idop_versement', '', $idcpt)
                 : 'v.idop_versement = ?';
             $caisse_sql = $escale_page ? '' : 'AND v.idcaisse_versement = ?';
+            $bind_ver = (strpos($qui, '?') !== false) ? array($idcpt) : array();
+            if (!$escale_page) {
+                $bind_ver[] = (int) $idc;
+            }
             $rows = $this->db->query(
                 "SELECT v.id_versements FROM versements v
                 WHERE {$qui}
                 {$caisse_sql}
                 AND {$arrete}
                 {$escale_sql}",
-                $escale_page ? array() : array($idcpt, (int) $idc)
+                $bind_ver
             )->result();
             foreach ($rows as $row) {
                 if ($rejet) {

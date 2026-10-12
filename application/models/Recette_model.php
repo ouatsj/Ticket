@@ -1186,10 +1186,13 @@
             $use = (int) $use;
             $idcais = (int) $idcais;
             $escale = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
-            $qui = $escale && function_exists('caissier_validation_personne_where')
+            $qui = function_exists('caissier_validation_personne_where')
                 ? caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $use)
                 : "(r.idopera = {$use} OR r.operavalidchef = {$use})";
-            $caisse_sql = $escale ? '' : "AND cs.id_caiss = '{$idcais}' AND cs.gexp_caiss = " . $this->db->escape($gid);
+            $caisse_sql = $escale ? '' : "AND cs.id_caiss = '{$idcais}'";
+            if (!$escale && !(function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($idcais))) {
+                $caisse_sql .= ' AND cs.gexp_caiss = ' . $this->db->escape($gid);
+            }
             $idcaisse_sel = $escale ? (string) $idcais : 'r.idcaisse';
             $gexp_sel = $escale ? $this->db->escape($gid) : 'cs.gexp_caiss';
             $date_sel = $escale ? 'r.date_recet AS date_arret, COUNT(*) AS nb_ops,' : '';
@@ -1316,6 +1319,13 @@
             if ($df !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $df)) {
                 $dateSql = ' AND r.date_recet = ' . $this->db->escape($df);
             }
+            $enfant = function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($idcais);
+            $gareSql = $enfant ? '' : (' AND cs.gexp_caiss = ?' . sous_caisse_scope_sql('cs'));
+            $bind = array($cid);
+            if (!$enfant) {
+                $bind[] = $gid;
+            }
+            $bind[] = $today;
             return $this->db->query(
                 "SELECT r.id_recette, r.montant_recet, r.date_recet, r.date_insertrecet, r.createdrecet_at,
                         r.type_recet, r.idopera, r.operavalidad,
@@ -1337,7 +1347,7 @@
                 WHERE e.ekey = ?
                 AND r.active_recet = 1
                 AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
-                AND cs.gexp_caiss = ?" . sous_caisse_scope_sql('cs') . "
+                {$gareSql}
                 AND {$pending}
                 AND r.actif_rect = 0
                 AND r.type_recet <> 'Courrier'
@@ -1345,7 +1355,7 @@
                 {$dateSql}
                 " . caissier_escale_nom_filtre_sql('r.nom') . "
                 ORDER BY r.date_recet ASC, r.date_insertrecet ASC, r.id_recette ASC",
-                array($cid, $gid, $today)
+                $bind
             )->result();
         }
 
@@ -2729,6 +2739,63 @@
         }
 
         /**
+         * Clés d'escale dont le lieu physique est la gare demandée.
+         *
+         * @param string $gid
+         * @return string[]
+         */
+        protected function _cles_escale_du_lieu($gid)
+        {
+            $gid = trim((string) $gid);
+            if ($gid === '' || $gid === '0' || !$this->db->field_exists('escale_cle', 'caisse')) {
+                return array();
+            }
+            $CI =& get_instance();
+            if (!isset($CI->m_gare_depart)) {
+                $CI->load->model('Gare_depart_model', 'm_gare_depart');
+            }
+            $lieu = $CI->m_gare_depart->resolve_lieu($gid);
+            $accept = array(strtoupper($gid) => true);
+            if (!empty($lieu['phys'])) {
+                $phys = strtoupper(trim((string) $lieu['phys']));
+                if ($phys !== '') {
+                    $accept[$phys] = true;
+                }
+            }
+            if (!empty($lieu['codes']) && is_array($lieu['codes'])) {
+                foreach ($lieu['codes'] as $code) {
+                    $code = strtoupper(trim((string) $code));
+                    if ($code !== '') {
+                        $accept[$code] = true;
+                    }
+                }
+            }
+            $CI->load->helper('role17_context');
+            if (!function_exists('role17_code_gaexp_lieu')) {
+                return array();
+            }
+            $rows = $this->db->query(
+                "SELECT DISTINCT REPLACE(TRIM(escale_cle), '|', '~') AS cle
+                 FROM caisse
+                 WHERE escale_cle LIKE 'escale~%'
+                   AND IFNULL(parent_caiss, 0) > 0"
+            )->result();
+            $out = array();
+            foreach ($rows as $row) {
+                $cle = trim((string) $row->cle);
+                if ($cle === '') {
+                    continue;
+                }
+                $code = strtoupper(trim((string) role17_code_gaexp_lieu($cle)));
+                if ($code !== '' && isset($accept[$code])) {
+                    $out[$cle] = $cle;
+                }
+            }
+
+            return array_values($out);
+        }
+
+        /**
          * Versements (table recette) filtrés par type Ticket|Courrier|Bagage.
          *
          * @param string|array|false $nop
@@ -2789,28 +2856,44 @@
             }
             $gidTrim = trim((string) $gid);
             if ($gidTrim !== '' && $gidTrim !== '0') {
-                $caisseGare = "(ex.code_gaexp = ? OR ex.garesid = {$physEsc})";
-                $binds[] = $gidTrim;
-                // Depuis une escale : uniquement la caisse de ce lieu.
-                // Le nom d'un vendeur ne doit pas ramener Bobo, Ouaga ou une autre gare.
                 $escaleDemande = trim((string) $this->input->get_post('escale')) !== ''
                     || trim((string) $this->input->get_post('escale_nom')) !== ''
                     || trim((string) $this->input->get_post('escale_ops')) !== '';
-                $escaleOu = $escaleDemande ? '' : $this->_sql_versements_vente_escale($cid, $gidTrim);
-                $gareSql = ($escaleOu !== '')
-                    ? ' AND (' . $caisseGare . ' OR ' . $escaleOu . ')'
-                    : ' AND ' . $caisseGare;
-                if ($this->db->field_exists('escale_cle', 'caisse') && function_exists('sous_caisse_cle_page')) {
-                    if ($escaleDemande) {
-                        $cleEscale = sous_caisse_cle_page();
-                        if ($cleEscale !== '') {
-                            $gareSql = ($escaleOu !== '')
-                                ? ' AND (' . $caisseGare . ' OR ' . $escaleOu . ' OR cs.escale_cle = ' . $this->db->escape($cleEscale) . ')'
-                                : ' AND (' . $caisseGare . ' OR cs.escale_cle = ' . $this->db->escape($cleEscale) . ')';
-                        }
-                    } elseif ($this->db->field_exists('parent_caiss', 'caisse')) {
-                        $gareSql .= ' AND (cs.parent_caiss IS NULL OR cs.parent_caiss = 0) ';
+                $cleEscale = ($escaleDemande && function_exists('sous_caisse_cle_page'))
+                    ? sous_caisse_cle_page()
+                    : '';
+                if ($cleEscale !== '') {
+                    if (!function_exists('role17_code_gaexp_lieu')) {
+                        $this->load->helper('role17_context');
                     }
+                    $parts = array('cs.escale_cle = ' . $this->db->escape($cleEscale));
+                    $codeLieu = function_exists('role17_code_gaexp_lieu') ? role17_code_gaexp_lieu($cleEscale) : '';
+                    if ($codeLieu !== '') {
+                        $parts[] = '(ex.code_gaexp = ' . $this->db->escape($codeLieu)
+                            . ' AND (cs.parent_caiss IS NULL OR cs.parent_caiss = 0))';
+                    }
+                    $gareSql = ' AND (' . implode(' OR ', $parts) . ')';
+                } else {
+                    $caisseGare = "(ex.code_gaexp = ? OR ex.garesid = {$physEsc})";
+                    $binds[] = $gidTrim;
+                    $escaleOu = $escaleDemande ? '' : $this->_sql_versements_vente_escale($cid, $gidTrim);
+                    $brancheGare = $caisseGare;
+                    if (!$escaleDemande && $this->db->field_exists('parent_caiss', 'caisse')) {
+                        $brancheGare = '(' . $caisseGare . ' AND (cs.parent_caiss IS NULL OR cs.parent_caiss = 0))';
+                    }
+                    $parts = array($brancheGare);
+                    if ($escaleOu !== '') {
+                        $parts[] = '(' . $escaleOu . ')';
+                    }
+                    $lieuCles = $this->_cles_escale_du_lieu($gidTrim);
+                    if ($lieuCles) {
+                        $esc = array();
+                        foreach ($lieuCles as $cle) {
+                            $esc[] = $this->db->escape($cle);
+                        }
+                        $parts[] = 'cs.escale_cle IN (' . implode(',', $esc) . ')';
+                    }
+                    $gareSql = ' AND (' . implode(' OR ', $parts) . ')';
                 }
             }
             if (!empty($noms) && $this->db->field_exists('iduseescal', 'recette')) {

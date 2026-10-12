@@ -487,6 +487,11 @@ if (!function_exists('recette_role_op_sql_recette_list')) {
     {
         if (recette_role_is_chef_guichet_rd_list($userole, $gare_scope)) {
             $ra = (int) $roleattribut;
+            if (function_exists('sous_caisse_cle_page') && sous_caisse_cle_page() !== ''
+                && function_exists('recette_role_porteur_personne_sql')
+            ) {
+                return recette_role_porteur_personne_sql($alias . '.idopera', $alias . '.operavalidchef', $ra);
+            }
 
             return 'AND (' . $alias . '.idopera = ' . $ra . ' OR ' . $alias . '.operavalidchef = ' . $ra . ')';
         }
@@ -503,6 +508,11 @@ if (!function_exists('recette_role_op_sql_depense_list')) {
     {
         if (recette_role_is_chef_guichet_rd_list($userole, $gare_scope)) {
             $ra = (int) $roleattribut;
+            if (function_exists('sous_caisse_cle_page') && sous_caisse_cle_page() !== ''
+                && function_exists('recette_role_porteur_personne_sql')
+            ) {
+                return recette_role_porteur_personne_sql($alias . '.idop_dep', $alias . '.opevalidchef', $ra);
+            }
 
             return 'AND (' . $alias . '.idop_dep = ' . $ra . ' OR ' . $alias . '.opevalidchef = ' . $ra . ')';
         }

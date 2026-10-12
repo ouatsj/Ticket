@@ -95,7 +95,7 @@
                     $updepos = array(
                             'is_validdepo' => 1, 
                             'is_actifdepo' => 1,
-                            'opvalid' => $iduser,
+                            'opvalid' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                         );
                     $this->m_depot->update($depo, $updepos);
 
@@ -108,7 +108,7 @@
                     $updepos = array(
                         'is_validdepo' => 1, 
                         'is_actifdepoad' => 1,
-                        'opvalidad' => $iduser,
+                        'opvalidad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_depot->update($depo, $updepos);
 
@@ -158,7 +158,7 @@
                 {
                     $updepos = array(
                         'is_actifdepo' => 1,
-                        'opvalid' => $iduser,
+                        'opvalid' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_depot->update($depo, $updepos);
 
@@ -170,7 +170,7 @@
                 {
                     $updepos = array(
                         'is_actifdepoad' => 1,
-                        'opvalidad' => $iduser,
+                        'opvalidad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_depot->update($depo, $updepos);
 
@@ -218,7 +218,7 @@
                 {
                     $updepos = array(
                         'is_actifdepo' => 1,
-                        'opvalid' => $iduser,
+                        'opvalid' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_depot->update($depo, $updepos);
 
@@ -230,7 +230,7 @@
                 {
                     $updepos = array(
                         'is_actifdepoad' => 1,
-                        'opvalidad' => $iduser,
+                        'opvalidad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_depot->update($depo, $updepos);
 
@@ -448,7 +448,7 @@
                     $updepos = array(
                             'is_validdepo' => 1, 
                             'is_actifdepo' => 1,
-                            'opvalid' => $iduser,
+                            'opvalid' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                         );
                     $this->m_depot->update($depo, $updepos);
 
@@ -461,7 +461,7 @@
                     $updepos = array(
                         'is_validdepo' => 1, 
                         'is_actifdepoad' => 1,
-                        'opvalidad' => $iduser,
+                        'opvalidad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_depot->update($depo, $updepos);
 
@@ -594,7 +594,7 @@
                     $updepos = array(
                         'is_validdepo' => 1, 
                         'is_actifdepo' => 1,
-                        'opvalid' => $iduser,
+                        'opvalid' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_depot->update($depo, $updepos);
 
@@ -609,7 +609,7 @@
                     $updepos = array(
                         'is_validdepo' => 1, 
                         'is_actifdepoad' => 1,
-                        'opvalidad' => $iduser,
+                        'opvalidad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                     $this->m_depot->update($depo, $updepos);
 
@@ -744,7 +744,7 @@
                 $updepos = array(
                         'is_validdepo' => 1, 
                         'is_actifdepo' => 1,
-                        'opvalid' => $iduser,
+                        'opvalid' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                 $this->m_depot->update($id, $updepos);
 
@@ -758,7 +758,7 @@
                 $updepos = array(
                         'is_validdepo' => 1, 
                         'is_actifdepoad' => 1,
-                        'opvalidad' => $iduser,
+                        'opvalidad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
                     );
                 $this->m_depot->update($id, $updepos);
 

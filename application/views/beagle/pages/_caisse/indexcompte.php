@@ -17,8 +17,9 @@ if (!isset($pending_totals) || !is_object($pending_totals)) {
     );
 }
 $escale_q = function_exists('caissier_escale_query_suffix') ? caissier_escale_query_suffix() : '';
-$gare_code = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0;
-$id_caiss = !empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0;
+$gare_url = trim((string) $this->uri->segment(4));
+$gare_code = $gare_url !== '' ? $gare_url : (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : 0);
+$id_caiss = !empty($caisseident->id_caiss) ? (int) $caisseident->id_caiss : (int) $this->uri->segment(5);
 $date_nav = mdate('%d/%m/%Y', now('UTC'));
 $chef_nom = trim(($user_connect->first_name ?? '') . ' ' . ($user_connect->last_name ?? ''));
 if ($chef_nom === '') {

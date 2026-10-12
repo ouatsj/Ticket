@@ -642,13 +642,17 @@
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
                 AND " . sous_caisse_predicat('d.idcaisse_depot', $idcais) . "
-                AND (d.idop_depot = {$use} OR d.opvalidchef = {$use})
+                AND " . (function_exists('caissier_validation_personne_where')
+                    ? caissier_validation_personne_where('d.idop_depot', 'd.opvalidchef', $use)
+                    : "(d.idop_depot = {$use} OR d.opvalidchef = {$use})") . "
                 AND d.is_validdepo = 0
                 AND COALESCE(d.valid_depo, '') = 'valid'
                 AND d.datedepot <= '$today'
                 AND d.actif_depo = 0
                 AND d.type_depot <> 'Courrier'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . ((function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($idcais))
+                    ? ''
+                    : ("AND cs.gexp_caiss = " . $this->db->escape($gid) . sous_caisse_scope_sql('cs'))) . "
                 " . caissier_escale_nom_filtre_sql('d.nom_pre') . "
                 GROUP BY d.idcaisse_depot, cs.gexp_caiss, cu.is_conect")->result();
         }
@@ -676,7 +680,9 @@
                 AND d.datedepot <= '$today'
                 AND d.actif_depo = 0
                 AND d.type_depot <> 'Courrier'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . ((function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($idcais))
+                    ? ''
+                    : ("AND cs.gexp_caiss = " . $this->db->escape($gid) . sous_caisse_scope_sql('cs'))) . "
                 " . caissier_escale_nom_filtre_sql('d.nom_pre') . "
                 GROUP BY d.datedepot, cs.id_caiss, d.opvalidad, d.idcaisse_depot, cs.gexp_caiss, cu.is_conect
                 ORDER BY d.datedepot ASC"
@@ -694,6 +700,12 @@
             $df = trim((string) $date);
             if ($df !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $df)) {
                 $dateSql = ' AND d.datedepot = ' . $this->db->escape($df);
+            }
+            $enfant = function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($idcais);
+            $gareSql = $enfant ? '' : (' AND cs.gexp_caiss = ?' . sous_caisse_scope_sql('cs'));
+            $bind = array($cid, $today);
+            if (!$enfant) {
+                $bind[] = $gid;
             }
             return $this->db->query(
                 "SELECT d.id_depot, d.montant_depot, d.datedepot, d.createddepot_at, d.lastpo_updated,
@@ -719,11 +731,11 @@
                 AND d.datedepot <= ?
                 AND d.actif_depo = 0
                 AND d.type_depot <> 'Courrier'
-                AND cs.gexp_caiss = ?" . sous_caisse_scope_sql('cs') . "
+                {$gareSql}
                 {$dateSql}
                 " . caissier_escale_nom_filtre_sql('d.nom_pre') . "
                 ORDER BY d.datedepot ASC, d.createddepot_at ASC, d.id_depot ASC",
-                array($cid, $today, $gid)
+                $bind
             )->result();
         }
 

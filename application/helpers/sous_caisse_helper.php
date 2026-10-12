@@ -160,6 +160,17 @@ if (!function_exists('sous_caisse_assurer')) {
         if ($existant > 0) {
             return $existant;
         }
+        $deja = $CI->db->query(
+            "SELECT id_caiss FROM caisse
+             WHERE parent_caiss > 0
+               AND REPLACE(TRIM(escale_cle), '|', '~') = ?
+             ORDER BY id_caiss ASC
+             LIMIT 1",
+            array($cle)
+        )->row();
+        if ($deja && (int) $deja->id_caiss > 0) {
+            return (int) $deja->id_caiss;
+        }
         $CI->db->insert('caisse', array(
             'gexp_caiss' => $parent->gexp_caiss,
             'type_caisse' => (int) $parent->type_caisse,
@@ -273,9 +284,42 @@ if (!function_exists('sous_caisse_filtre_page')) {
             return $column . ' IN (' . implode(',', $ids) . ')';
         }
 
+        // La sous-caisse d'escale se lit par son id, même si l'URL est sur la gare du lieu.
+        if (sous_caisse_est_enfant($page)) {
+            return $column . ' = ' . $page;
+        }
+
         return $column . ' = ' . $page
             . ' AND (cs.parent_caiss IS NULL OR cs.parent_caiss = 0)'
             . " AND cs.gexp_caiss = '" . $gid . "'";
+    }
+}
+
+if (!function_exists('sous_caisse_est_enfant')) {
+    /**
+     * Vrai si cette caisse est une sous-caisse (escale), rattachée à une caisse mère.
+     *
+     * @param int|string $pageId
+     * @return bool
+     */
+    function sous_caisse_est_enfant($pageId)
+    {
+        static $cache = array();
+        $pageId = (int) $pageId;
+        if ($pageId <= 0 || !sous_caisse_colonnes_ok()) {
+            return false;
+        }
+        if (array_key_exists($pageId, $cache)) {
+            return $cache[$pageId];
+        }
+        $CI =& get_instance();
+        $row = $CI->db->query(
+            'SELECT parent_caiss FROM caisse WHERE id_caiss = ? LIMIT 1',
+            array($pageId)
+        )->row();
+        $cache[$pageId] = (bool) ($row && (int) $row->parent_caiss > 0);
+
+        return $cache[$pageId];
     }
 }
 

@@ -14,6 +14,9 @@
  * - Après validation adjoint (18) : operavalidad + is_actifrecetad=1 ; is_actifrecet=0
  * - Après confirmation principal (4) : + operavalid + is_actifrecet=1 ; piste ad conservée (audit + solde A)
  * - Validation directe 4 sur chef : operavalid + is_actifrecet=1 (sans toucher operavalidad)
+ *
+ * Escale : le validateur écrit toujours le roleattribut de la gare d'affiliation
+ * de la sous-caisse (ex. OUA1 pour Kombissiri), jamais celui d'une gare locale.
  */
 
 if (!function_exists('caisse_validation_flags_strip_author')) {
@@ -119,19 +122,116 @@ if (!function_exists('caisse_validation_require_principal_ra')) {
     }
 }
 
+if (!function_exists('caisse_validation_ra_affiliation')) {
+    /**
+     * Sur une sous-caisse d'escale, le validateur doit être le rôle de la gare
+     * d'affiliation (ex. OUA1 pour Kombissiri escale), jamais celui d'une gare locale (ex. KOM24).
+     *
+     * @param int             $validator_ra
+     * @param int|string|null $caisse_id
+     * @return int
+     */
+    function caisse_validation_ra_affiliation($validator_ra, $caisse_id = null)
+    {
+        $validator_ra = (int) $validator_ra;
+        if ($validator_ra <= 0) {
+            return 0;
+        }
+        $CI =& get_instance();
+        $caisse_id = (int) $caisse_id;
+        if ($caisse_id <= 0) {
+            $caisse_id = (int) $CI->input->post('idcaisse');
+        }
+        if ($caisse_id <= 0) {
+            $caisse_id = (int) $CI->input->get('idcaisse');
+        }
+        if (function_exists('sous_caisse_cle_page') && sous_caisse_cle_page() !== '') {
+            if ($caisse_id > 0 && function_exists('sous_caisse_assurer')) {
+                $caisse_id = (int) sous_caisse_assurer($caisse_id);
+            } else {
+                $sous = $CI->db->query(
+                    "SELECT id_caiss FROM caisse
+                     WHERE parent_caiss > 0
+                       AND REPLACE(TRIM(escale_cle), '|', '~') = ?
+                     LIMIT 1",
+                    array(sous_caisse_cle_page())
+                )->row();
+                if ($sous && (int) $sous->id_caiss > 0) {
+                    $caisse_id = (int) $sous->id_caiss;
+                }
+            }
+        }
+        if ($caisse_id <= 0) {
+            return $validator_ra;
+        }
+        $caisse = $CI->db->query(
+            'SELECT id_caiss, gexp_caiss, parent_caiss FROM caisse WHERE id_caiss = ? LIMIT 1',
+            array($caisse_id)
+        )->row();
+        if (!$caisse || trim((string) $caisse->gexp_caiss) === '') {
+            return $validator_ra;
+        }
+        $force = ((int) $caisse->parent_caiss > 0)
+            || (function_exists('caissier_escale_page_active') && caissier_escale_page_active());
+        if (!$force) {
+            return $validator_ra;
+        }
+        $gare = trim((string) $caisse->gexp_caiss);
+        $cur = $CI->db->query(
+            'SELECT ar.userole, ul.guser
+             FROM attributions_role ar
+             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+             WHERE ar.roleattribut = ?
+             LIMIT 1',
+            array($validator_ra)
+        )->row();
+        if (!$cur) {
+            return $validator_ra;
+        }
+        if (trim((string) $cur->guser) === $gare) {
+            return $validator_ra;
+        }
+        $userole = (int) $cur->userole;
+        if ($userole <= 0) {
+            return $validator_ra;
+        }
+        $alt = $CI->db->query(
+            'SELECT ar2.roleattribut
+             FROM attributions_role ar0
+             JOIN user_login ul0 ON ar0.idgestcompte = ul0.uid_login
+             JOIN compte_user cu0 ON ul0.uid_usercpte = cu0.cpuser_id
+             JOIN compte_user cu2 ON cu2.userlog_id = cu0.userlog_id
+             JOIN user_login ul2 ON ul2.uid_usercpte = cu2.cpuser_id
+             JOIN attributions_role ar2 ON ar2.idgestcompte = ul2.uid_login
+             WHERE ar0.roleattribut = ?
+             AND ul2.guser = ?
+             AND ar2.userole = ?
+             ORDER BY IFNULL(ar2.activer_role, 0) ASC, ar2.roleattribut ASC
+             LIMIT 1',
+            array($validator_ra, $gare, $userole)
+        )->row();
+        if ($alt && (int) $alt->roleattribut > 0) {
+            return (int) $alt->roleattribut;
+        }
+
+        return $validator_ra;
+    }
+}
+
 if (!function_exists('caisse_validation_flags_chef_by_validator')) {
     /**
      * Flags posés quand 4 ou 18 valide l’arrêt d’un chef (5/16).
      * N’inclut jamais idopera.
      *
-     * @param string|int $validator_userole
-     * @param int        $validator_ra
-     * @param bool       $is_saisie_chef  true si file active_*=0 (saisie)
+     * @param string|int      $validator_userole
+     * @param int             $validator_ra
+     * @param bool            $is_saisie_chef  true si file active_*=0 (saisie)
+     * @param int|string|null $caisse_id
      * @return array
      */
-    function caisse_validation_flags_chef_by_validator($validator_userole, $validator_ra, $is_saisie_chef = true)
+    function caisse_validation_flags_chef_by_validator($validator_userole, $validator_ra, $is_saisie_chef = true, $caisse_id = null)
     {
-        $validator_ra = (int) $validator_ra;
+        $validator_ra = caisse_validation_ra_affiliation((int) $validator_ra, $caisse_id);
         // Source de vérité = userole DB du RA (évite session/hint incohérents).
         if ($validator_ra > 0 && function_exists('recette_role_userole_for_attribut')) {
             $db_userole = recette_role_userole_for_attribut($validator_ra);
@@ -169,9 +269,9 @@ if (!function_exists('caisse_validation_flags_chef_by_validator')) {
 }
 
 if (!function_exists('caisse_validation_flags_depense_chef_by_validator')) {
-    function caisse_validation_flags_depense_chef_by_validator($validator_userole, $validator_ra, $is_saisie_chef = true)
+    function caisse_validation_flags_depense_chef_by_validator($validator_userole, $validator_ra, $is_saisie_chef = true, $caisse_id = null)
     {
-        $validator_ra = (int) $validator_ra;
+        $validator_ra = caisse_validation_ra_affiliation((int) $validator_ra, $caisse_id);
         if ($validator_ra > 0 && function_exists('recette_role_userole_for_attribut')) {
             $db_userole = recette_role_userole_for_attribut($validator_ra);
             if ($db_userole !== null && $db_userole !== '') {
@@ -207,9 +307,9 @@ if (!function_exists('caisse_validation_flags_depense_chef_by_validator')) {
 }
 
 if (!function_exists('caisse_validation_flags_depot_chef_by_validator')) {
-    function caisse_validation_flags_depot_chef_by_validator($validator_userole, $validator_ra, $is_saisie_chef = true)
+    function caisse_validation_flags_depot_chef_by_validator($validator_userole, $validator_ra, $is_saisie_chef = true, $caisse_id = null)
     {
-        $validator_ra = (int) $validator_ra;
+        $validator_ra = caisse_validation_ra_affiliation((int) $validator_ra, $caisse_id);
         if ($validator_ra > 0 && function_exists('recette_role_userole_for_attribut')) {
             $db_userole = recette_role_userole_for_attribut($validator_ra);
             if ($db_userole !== null && $db_userole !== '') {
@@ -335,7 +435,8 @@ if (!function_exists('caisse_validation_chef_arrete_recette_sql')) {
             AND {$alias}.is_validerecet = 0
             AND {$alias}.is_actifrecet = 0
             AND ({$alias}.is_actifrecetad = 0 OR {$alias}.is_actifrecetad IS NULL)
-            AND COALESCE({$alias}.valid_recet, '') = 'valid'";
+            AND COALESCE({$alias}.valid_recet, '') = 'valid'
+            AND IFNULL({$alias}.type_recet, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')";
     }
 }
 
@@ -347,7 +448,8 @@ if (!function_exists('caisse_validation_chef_arrete_depense_sql')) {
             AND {$alias}.is_actifdep = 0
             AND ({$alias}.is_actifdepad = 0 OR {$alias}.is_actifdepad IS NULL)
             AND {$alias}.ferme_caisdep = 0
-            AND COALESCE({$alias}.valid_depens, '') = 'valid'";
+            AND COALESCE({$alias}.valid_depens, '') = 'valid'
+            AND IFNULL({$alias}.type_depense, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')";
     }
 }
 
@@ -359,7 +461,40 @@ if (!function_exists('caisse_validation_chef_arrete_depot_sql')) {
             AND ({$alias}.is_actifdepoad = 0 OR {$alias}.is_actifdepoad IS NULL)
             AND {$alias}.arret_caisdepo = 0
             AND {$alias}.actif_depo = 0
-            AND COALESCE({$alias}.valid_depo, '') = 'valid'";
+            AND COALESCE({$alias}.valid_depo, '') = 'valid'
+            AND IFNULL({$alias}.type_depot, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')";
+    }
+}
+
+if (!function_exists('caisse_validation_roles_meme_personne_sql')) {
+    /**
+     * Liste SQL des roleattribut de la même personne (ex. chef Bobo et chef Dissin).
+     *
+     * @param int $roleattribut
+     * @return string
+     */
+    function caisse_validation_roles_meme_personne_sql($roleattribut)
+    {
+        $roleattribut = (int) $roleattribut;
+        $ids = array($roleattribut);
+        if ($roleattribut > 0 && function_exists('recette_role_ids_meme_personne')) {
+            $found = recette_role_ids_meme_personne($roleattribut);
+            if (is_array($found) && $found) {
+                $ids = $found;
+            }
+        }
+        $clean = array();
+        foreach ($ids as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $clean[$id] = $id;
+            }
+        }
+        if (!$clean) {
+            return '0';
+        }
+
+        return implode(',', $clean);
     }
 }
 
@@ -369,39 +504,42 @@ if (!function_exists('caisse_validation_pending_adjoint_recette_sql')) {
      */
     function caisse_validation_pending_adjoint_recette_sql($adjoint_ra, $alias = 'r')
     {
-        $adjoint_ra = (int) $adjoint_ra;
+        $adjoint_ra = caisse_validation_roles_meme_personne_sql($adjoint_ra);
 
-        return "{$alias}.operavalidad = {$adjoint_ra}
+        return "{$alias}.operavalidad IN ({$adjoint_ra})
             AND {$alias}.is_actifrecetad = 1
             AND {$alias}.is_actifrecet = 0
             AND {$alias}.is_validerecet = 1
-            AND IFNULL({$alias}.arret_caisrecet, 0) = 1";
+            AND IFNULL({$alias}.arret_caisrecet, 0) = 1
+            AND IFNULL({$alias}.type_recet, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')";
     }
 }
 
 if (!function_exists('caisse_validation_pending_adjoint_depense_sql')) {
     function caisse_validation_pending_adjoint_depense_sql($adjoint_ra, $alias = 'd')
     {
-        $adjoint_ra = (int) $adjoint_ra;
+        $adjoint_ra = caisse_validation_roles_meme_personne_sql($adjoint_ra);
 
-        return "{$alias}.opevalidad = {$adjoint_ra}
+        return "{$alias}.opevalidad IN ({$adjoint_ra})
             AND {$alias}.is_actifdepad = 1
             AND {$alias}.is_actifdep = 0
             AND {$alias}.is_validedep = 1
-            AND IFNULL({$alias}.arret_caisdep, 0) = 1";
+            AND IFNULL({$alias}.arret_caisdep, 0) = 1
+            AND IFNULL({$alias}.type_depense, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')";
     }
 }
 
 if (!function_exists('caisse_validation_pending_adjoint_depot_sql')) {
     function caisse_validation_pending_adjoint_depot_sql($adjoint_ra, $alias = 'd')
     {
-        $adjoint_ra = (int) $adjoint_ra;
+        $adjoint_ra = caisse_validation_roles_meme_personne_sql($adjoint_ra);
 
-        return "{$alias}.opvalidad = {$adjoint_ra}
+        return "{$alias}.opvalidad IN ({$adjoint_ra})
             AND {$alias}.is_actifdepoad = 1
             AND {$alias}.is_actifdepo = 0
             AND {$alias}.is_validdepo = 1
-            AND IFNULL({$alias}.arret_caisdepo, 0) = 1";
+            AND IFNULL({$alias}.arret_caisdepo, 0) = 1
+            AND IFNULL({$alias}.type_depot, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')";
     }
 }
 
@@ -411,9 +549,9 @@ if (!function_exists('caisse_validation_flags_versement_by_validator')) {
      * Adjoint : reste chez lui (is_actifverserad) tant qu'il n'a pas arrêté son compte (arret_caisvers).
      * Principal : peut valider directement la file du chef.
      */
-    function caisse_validation_flags_versement_by_validator($validator_userole, $validator_ra)
+    function caisse_validation_flags_versement_by_validator($validator_userole, $validator_ra, $caisse_id = null)
     {
-        $validator_ra = (int) $validator_ra;
+        $validator_ra = caisse_validation_ra_affiliation((int) $validator_ra, $caisse_id);
         if ($validator_ra > 0 && function_exists('recette_role_userole_for_attribut')) {
             $db_userole = recette_role_userole_for_attribut($validator_ra);
             if ($db_userole !== null && $db_userole !== '') {
@@ -492,9 +630,9 @@ if (!function_exists('caisse_validation_chef_arrete_versement_sql')) {
 if (!function_exists('caisse_validation_pending_adjoint_versement_sql')) {
     function caisse_validation_pending_adjoint_versement_sql($adjoint_ra, $alias = 'v')
     {
-        $adjoint_ra = (int) $adjoint_ra;
+        $adjoint_ra = caisse_validation_roles_meme_personne_sql($adjoint_ra);
 
-        return "{$alias}.validopad = {$adjoint_ra}
+        return "{$alias}.validopad IN ({$adjoint_ra})
             AND IFNULL({$alias}.is_actifverserad, 0) = 1
             AND IFNULL({$alias}.is_actifverser, 0) = 0
             AND IFNULL({$alias}.arret_caisvers, 0) = 1

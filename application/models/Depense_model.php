@@ -876,10 +876,13 @@
             $use = (int) $use;
             $idcais = (int) $idcais;
             $escale = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
-            $qui = $escale && function_exists('caissier_validation_personne_where')
+            $qui = function_exists('caissier_validation_personne_where')
                 ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $use)
                 : "(d.idop_dep = {$use} OR d.opevalidchef = {$use})";
-            $caisse_sql = $escale ? '' : "AND d.idcaisse_depens = '{$idcais}' AND cs.gexp_caiss = " . $this->db->escape($gid);
+            $caisse_sql = $escale ? '' : "AND d.idcaisse_depens = '{$idcais}'";
+            if (!$escale && !(function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($idcais))) {
+                $caisse_sql .= ' AND cs.gexp_caiss = ' . $this->db->escape($gid);
+            }
             $idcaisse_sel = $escale ? (string) $idcais : 'd.idcaisse_depens';
             $gexp_sel = $escale ? $this->db->escape($gid) : 'cs.gexp_caiss';
             $date_sel = $escale ? 'd.date_depens AS date_arret, COUNT(*) AS nb_ops,' : '';
@@ -1005,9 +1008,11 @@
             $caisseSql = '';
             $bind = array($cid);
             if (!$escale) {
-                $caisseSql = 'AND ' . sous_caisse_predicat('d.idcaisse_depens', $idcais)
-                    . ' AND cs.gexp_caiss = ?' . sous_caisse_scope_sql('cs');
-                $bind[] = $gid;
+                $caisseSql = 'AND ' . sous_caisse_predicat('d.idcaisse_depens', $idcais);
+                if (!(function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($idcais))) {
+                    $caisseSql .= ' AND cs.gexp_caiss = ?' . sous_caisse_scope_sql('cs');
+                    $bind[] = $gid;
+                }
             }
             $bind[] = $today;
             return $this->db->query(
