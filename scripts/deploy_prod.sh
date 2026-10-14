@@ -112,7 +112,8 @@ DB_PORT="${DB_LINES[4]:-3306}"
   || die "hôte DB refusé ($DB_HOST) — deploy_prod réservé à localhost"
 
 MYSQL=(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "-p${DB_PASS}" "$DB_NAME")
-MYSQLDUMP=(mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "-p${DB_PASS}" --single-transaction --routines --triggers "$DB_NAME")
+# --no-tablespaces : évite PROCESS privilege ; --skip-routines : compte prod sans SHOW CREATE PROCEDURE
+MYSQLDUMP=(mysqldump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "-p${DB_PASS}" --single-transaction --no-tablespaces --skip-routines --triggers "$DB_NAME")
 
 log "=== deploy_prod (code + SQL même ref) ==="
 log "root=$ROOT"
