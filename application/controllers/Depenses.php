@@ -352,19 +352,27 @@
                     return;
                 }
 
-                if($this->input->post('datereception')!= '')
+                $role = (string) $this->session->agent->userole;
+                $est_chef = ($role === '5' || $role === '16');
+                if ($est_chef || $this->input->post('datereception') != '')
                 {
-                    $arraydep = array(
-                        'id_genre_depense' => $this->input->post('genredep'),
-                        'type_depense' => $this->input->post('internedep'),
-                        'compkey_dep' => $this->input->post('_compag'),
-                        'typpersonel' => $this->input->post('typerson'),
-                        'nom_perso' => $this->input->post('nomdepmodifier'),
-                        'montant_depens' => $this->input->post('montantversedep'),
-                        'commentaire' => $this->input->post('commentdep'),
-                        'motif' => $this->input->post('motifs'),
-                        'date_depens' => $this->input->post('datereception'),
-                    );
+                    if ($est_chef) {
+                        $arraydep = array(
+                            'commentaire' => $this->input->post('commentdep'),
+                        );
+                    } else {
+                        $arraydep = array(
+                            'id_genre_depense' => $this->input->post('genredep'),
+                            'type_depense' => $this->input->post('internedep'),
+                            'compkey_dep' => $this->input->post('_compag'),
+                            'typpersonel' => $this->input->post('typerson'),
+                            'nom_perso' => $this->input->post('nomdepmodifier'),
+                            'montant_depens' => $this->input->post('montantversedep'),
+                            'commentaire' => $this->input->post('commentdep'),
+                            'motif' => $this->input->post('motifs'),
+                            'date_depens' => $this->input->post('datereception'),
+                        );
+                    }
                     $depens = $this->m_depense->update($dep, $arraydep);
                     
                     if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
@@ -397,19 +405,27 @@
                     redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                     return;
                 }
-                if($this->input->post('datereception')!= '')
+                $role = (string) $this->session->agent->userole;
+                $est_chef = ($role === '5' || $role === '16');
+                if ($est_chef || $this->input->post('datereception') != '')
                 {
+                    if ($est_chef) {
                         $arraydep = array(
-                        'id_genre_depense' => $this->input->post('genredep'),
-                        'type_depense' => $this->input->post('internedep'),
-                        'compkey_dep' => $this->input->post('_compag'),
-                        'typpersonel' => $this->input->post('typerson'),
-                        'nom_perso' => $this->input->post('nomdepmodifier'),
-                        'montant_depens' => $this->input->post('montantversedep'),
-                        'commentaire' => $this->input->post('commentdep'),
-                        'motif' => $this->input->post('motifs'),
-                        'date_depens' => $this->input->post('datereception'),
-                    );
+                            'commentaire' => $this->input->post('commentdep'),
+                        );
+                    } else {
+                        $arraydep = array(
+                            'id_genre_depense' => $this->input->post('genredep'),
+                            'type_depense' => $this->input->post('internedep'),
+                            'compkey_dep' => $this->input->post('_compag'),
+                            'typpersonel' => $this->input->post('typerson'),
+                            'nom_perso' => $this->input->post('nomdepmodifier'),
+                            'montant_depens' => $this->input->post('montantversedep'),
+                            'commentaire' => $this->input->post('commentdep'),
+                            'motif' => $this->input->post('motifs'),
+                            'date_depens' => $this->input->post('datereception'),
+                        );
+                    }
                     $depens = $this->m_depense->update($dep, $arraydep);
                     
                         $this->property['UPDATE_SUCCESS'] = TRUE;

@@ -1184,18 +1184,26 @@
                 redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                 return;
             }
-            if($this->input->post('daterecep')!= '')
+            $role = (string) $this->session->agent->userole;
+            $est_chef = ($role === '5' || $role === '16');
+            if ($est_chef || $this->input->post('daterecep') != '')
             {
-                $arrayrecette = array(
-                'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
-                'id_genre_recet' => $this->input->post('genre'),
-                'compkey_recet' => $this->input->post('_compag'),
-                'type_recet' => $this->input->post('interne'),
-                'nom' => $this->input->post('nom'),
-                'montant_recet' => $this->input->post('montantverse'),
-                'commentaire_recet' => $this->input->post('comment'),
-                'date_recet' => $this->input->post('daterecep'),
-                );
+                // Ne jamais réécrire idcaisse à la modification (garde la sous-caisse d'escale).
+                if ($est_chef) {
+                    $arrayrecette = array(
+                        'commentaire_recet' => $this->input->post('comment'),
+                    );
+                } else {
+                    $arrayrecette = array(
+                        'id_genre_recet' => $this->input->post('genre'),
+                        'compkey_recet' => $this->input->post('_compag'),
+                        'type_recet' => $this->input->post('interne'),
+                        'nom' => $this->input->post('nom'),
+                        'montant_recet' => $this->input->post('montantverse'),
+                        'commentaire_recet' => $this->input->post('comment'),
+                        'date_recet' => $this->input->post('daterecep'),
+                    );
+                }
                 $recette = $this->m_recette->update($recet, $arrayrecette);
                            
                 $this->property['UPDATE_SUCCESS'] = TRUE;
@@ -1227,18 +1235,25 @@
                 redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                 return;
             }
-            if($this->input->post('daterecep')!= '')
+            $role = (string) $this->session->agent->userole;
+            $est_chef = ($role === '5' || $role === '16');
+            if ($est_chef || $this->input->post('daterecep') != '')
             {
-                $arrayrecette = array(
-                    'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
-                    'id_genre_recet' => $this->input->post('genre'),
-                    'compkey_recet' => $this->input->post('_compag'),
-                    'type_recet' => $this->input->post('interne'),
-                    'nom' => $this->input->post('nommodifier'),
-                    'montant_recet' => $this->input->post('montantverse'),
-                    'commentaire_recet' => $this->input->post('comment'),
-                    'date_recet' => $this->input->post('daterecep'),
-                );
+                if ($est_chef) {
+                    $arrayrecette = array(
+                        'commentaire_recet' => $this->input->post('comment'),
+                    );
+                } else {
+                    $arrayrecette = array(
+                        'id_genre_recet' => $this->input->post('genre'),
+                        'compkey_recet' => $this->input->post('_compag'),
+                        'type_recet' => $this->input->post('interne'),
+                        'nom' => $this->input->post('nommodifier'),
+                        'montant_recet' => $this->input->post('montantverse'),
+                        'commentaire_recet' => $this->input->post('comment'),
+                        'date_recet' => $this->input->post('daterecep'),
+                    );
+                }
                 $recette = $this->m_recette->update($recet, $arrayrecette);
                            
                 $this->property['UPDATE_SUCCESS'] = TRUE;
