@@ -1931,6 +1931,71 @@
                 );
             }
 
+            // Caisse mère : la même période se ferme aussi sur les sous-caisses d'escale.
+            // Sinon les lignes d'escale restent dans le solde de la caissière après l'arrêt mensuel.
+            if (!caissier_escale_ops_from_request()
+                && function_exists('sous_caisse_colonnes_ok')
+                && sous_caisse_colonnes_ok()
+            ) {
+                $enfants = $this->db->query(
+                    "SELECT id_caiss FROM caisse
+                     WHERE parent_caiss = ?
+                       AND escale_cle LIKE 'escale~%'",
+                    array($idc)
+                )->result();
+                foreach ($enfants as $enfant) {
+                    $eid = (int) $enfant->id_caiss;
+                    if ($eid <= 0) {
+                        continue;
+                    }
+                    $this->db->query(
+                        "UPDATE recette SET arret_caisrecet = 1, ferme_caisrecet = 1,
+                         date_ferme_caisrecet = IFNULL(date_ferme_caisrecet, ?)
+                         WHERE idcaisse = ?
+                           AND operavalid = ?
+                           AND is_validerecet = 1
+                           AND ferme_caisrecet = 0
+                           AND date_recet BETWEEN ? AND ?
+                           AND IFNULL(type_recet, '') <> 'Courrier'",
+                        array($date_envoi_arret, $eid, $iduser, $db, $df)
+                    );
+                    $this->db->query(
+                        "UPDATE depense SET arret_caisdep = 1, ferme_caisdep = 1,
+                         date_ferme_caisdep = IFNULL(date_ferme_caisdep, ?)
+                         WHERE idcaisse_depens = ?
+                           AND opevalid = ?
+                           AND is_validedep = 1
+                           AND ferme_caisdep = 0
+                           AND date_depens BETWEEN ? AND ?
+                           AND IFNULL(type_depense, '') <> 'Courrier'",
+                        array($date_envoi_arret, $eid, $iduser, $db, $df)
+                    );
+                    $this->db->query(
+                        "UPDATE depot SET arret_caisdepo = 1, ferme_caisdepo = 1,
+                         date_ferme_caisdepo = IFNULL(date_ferme_caisdepo, ?),
+                         active_depot = 1, is_actifdepo = 1
+                         WHERE idcaisse_depot = ?
+                           AND opvalid = ?
+                           AND is_validdepo = 1
+                           AND ferme_caisdepo = 0
+                           AND datedepot BETWEEN ? AND ?
+                           AND IFNULL(type_depot, '') <> 'Courrier'",
+                        array($date_envoi_arret, $eid, $iduser, $db, $df)
+                    );
+                    $this->db->query(
+                        "UPDATE versements SET ferme_caisvers = 1, arret_caisvers = 1,
+                         date_ferme_caisvers = IFNULL(date_ferme_caisvers, ?)
+                         WHERE idcaisse_versement = ?
+                           AND validop = ?
+                           AND valider_vers = 1
+                           AND ferme_caisvers = 0
+                           AND date_versement BETWEEN ? AND ?
+                           AND IFNULL(type_versement, '') <> 'Bordereau_bancairecourrier'",
+                        array($date_envoi_arret, $eid, $iduser, $db, $df)
+                    );
+                }
+            }
+
             $this->property['UPDATE_SUCCESS'] = TRUE;
             $this->session->set_flashdata('success', 'Arrêt de caisse enregistré pour la période sélectionnée.');
             redirect($back);
