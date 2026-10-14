@@ -8,8 +8,10 @@ import '../theme/tei_theme.dart';
 /// Vérifie version.json sur le serveur et propose l'installation de l'APK.
 class UpdateService {
   UpdateService({
-    this.manifestUrl =
-        'https://essaiticket.rakietabus.com/assets/tei/app/version.json',
+    this.manifestUrl = const String.fromEnvironment(
+      'TEI_UPDATE_URL',
+      defaultValue: 'https://ticket.rakietabus.com/assets/tei/app/version.json',
+    ),
   });
 
   final String manifestUrl;
@@ -65,7 +67,7 @@ class UpdateService {
       if (remoteCode <= currentCode) {
         if (notifyIfCurrent && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Rakieta Lab est à jour (${info.version})')),
+            SnackBar(content: Text('Rakieta est à jour (${info.version})')),
           );
         }
         return;
@@ -78,7 +80,7 @@ class UpdateService {
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            title: const Text('Mise à jour Rakieta Lab'),
+            title: const Text('Mise à jour Rakieta'),
             content: Text(
               'Une nouvelle version est disponible ($remoteName, code $remoteCode).\n'
               'Version installée : ${info.version} (${info.buildNumber}).\n\n'

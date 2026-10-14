@@ -89,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 10),
             const Flexible(
               child: Text(
-                'Rakieta Lab',
+                'Rakieta',
                 overflow: TextOverflow.ellipsis,
               ),
             ),

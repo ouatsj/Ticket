@@ -27,7 +27,7 @@ class TeiApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Rakieta Lab',
+        title: 'Rakieta',
         debugShowCheckedModeBanner: false,
         theme: TeiTheme.light(),
         locale: const Locale('fr', 'FR'),
@@ -69,7 +69,7 @@ class _Splash extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Rakieta Lab',
+              'Rakieta',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,

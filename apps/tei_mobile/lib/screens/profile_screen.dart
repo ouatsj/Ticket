@@ -80,7 +80,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Image.asset('assets/branding/rakieta_lab_logo.png', height: 72, fit: BoxFit.contain),
           const SizedBox(height: 12),
           Text(
-            'Rakieta Lab',
+            'Rakieta',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: TeiColors.brandBlue,

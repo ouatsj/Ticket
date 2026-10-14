@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Marque Rakieta Lab + seuils (vert / orange / rouge).
+/// Marque Rakieta + seuils (vert / orange / rouge).
 class TeiColors {
   static const brandBlue = Color(0xFF0B3D91);
   static const brandRed = Color(0xFFE31E24);

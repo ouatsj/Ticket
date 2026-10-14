@@ -1,7 +1,7 @@
 {
-  "versionName": "0.2.1",
-  "versionCode": 3,
-  "apkUrl": "https://essaiticket.rakietabus.com/assets/tei/app/rakieta-lab.apk",
-  "notes": "Ouverture directe sur l'accueil, marque Rakieta Lab, détection automatique des mises à jour.",
-  "publishedAt": "2026-10-14T15:46:04Z"
+  "versionName": "0.2.3",
+  "versionCode": 5,
+  "apkUrl": "https://ticket.rakietabus.com/assets/tei/app/rakieta.apk",
+  "notes": "Nom de l'application : Rakieta. Réinstallez si l'icône affiche encore l'ancien nom.",
+  "publishedAt": "2026-10-14T16:17:00Z"
 }

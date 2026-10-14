@@ -1,11 +1,11 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
 /**
- * Bannière téléchargement app Rakieta Lab (Android APK).
+ * Bannière téléchargement app Rakieta (Android APK).
  * Visible sur l'accueil guichet admin / superviseur.
  */
 $tei_url = base_url('assets/tei/');
-$tei_apk = base_url('assets/tei/app/rakieta-lab.apk');
+$tei_apk = base_url('assets/tei/app/rakieta.apk');
 $tei_icon = base_url('assets/tei/icon-app.png');
 ?>
 <style>
@@ -73,14 +73,14 @@ $tei_icon = base_url('assets/tei/icon-app.png');
 }
 </style>
 <div class="tei-dl-banner" id="tei-download-banner">
-  <img src="<?= html_escape($tei_icon); ?>" width="48" height="48" alt="Rakieta Lab" />
+  <img src="<?= html_escape($tei_icon); ?>" width="48" height="48" alt="Rakieta" />
   <div class="tei-dl-text">
-    <strong>Rakieta Lab (Android)</strong>
+    <strong>Rakieta (Android)</strong>
     <span>Application décideur — ouverture directe sur l’accueil, mises à jour automatiques.</span>
   </div>
   <div class="tei-dl-actions">
-    <a class="btn-tei-dl" href="<?= html_escape($tei_apk); ?>" download="rakieta-lab.apk">
-      <i class="fas fa-download"></i> Télécharger l’APK
+    <a class="btn-tei-dl" href="<?= html_escape($tei_apk); ?>" download="rakieta.apk">
+      <i class="fas fa-download"></i> Télécharger Rakieta
     </a>
     <a class="btn-tei-page" href="<?= html_escape($tei_url); ?>" target="_blank" rel="noopener">
       Page &amp; guide
