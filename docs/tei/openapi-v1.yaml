@@ -1,0 +1,238 @@
+openapi: 3.0.3
+info:
+  title: Transport Executive Intelligence API
+  version: 1.0.0
+  description: |
+    API séparée pour l'application mobile décideur.
+    CA principal = ventes (passager). Écart caisse = ventes − recettes.
+    Partition multi-compagnie = gare_dest.id_compaga (jamais id_compagd pour le CA).
+servers:
+  - url: https://tei-api.example.com/v1
+    description: Production (exemple)
+  - url: http://127.0.0.1:8091/v1
+    description: Développement local
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      security: []
+      summary: Connexion décideur (mobile uniquement)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: Jetons émis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '401':
+          description: Identifiants invalides ou non décideur
+  /auth/refresh:
+    post:
+      security: []
+      summary: Renouvellement access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '200':
+          description: Nouveaux jetons
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '401':
+          description: Refresh invalide
+  /auth/logout:
+    post:
+      summary: Révoque le refresh token courant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '204':
+          description: Déconnecté
+  /devices/register:
+    post:
+      summary: Enregistre le token FCM de l'appareil
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcm_token, platform]
+              properties:
+                fcm_token: { type: string }
+                platform: { type: string, enum: [android, ios, other] }
+                app_version: { type: string }
+      responses:
+        '200':
+          description: Appareil enregistré
+  /me:
+    get:
+      summary: Profil décideur et périmètre
+      responses:
+        '200':
+          description: Profil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+  /companies:
+    get:
+      summary: Compagnies autorisées
+      responses:
+        '200':
+          description: Liste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  companies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Company'
+  /dashboard/summary:
+    get:
+      summary: Indicateurs d'accueil
+      parameters:
+        - $ref: '#/components/parameters/ekey'
+        - $ref: '#/components/parameters/company'
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+          description: Jour de référence (défaut = aujourd'hui Europe/Berlin)
+      responses:
+        '200':
+          description: Résumé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+  /departures:
+    get:
+      summary: Départs du jour + remplissage
+      parameters:
+        - $ref: '#/components/parameters/ekey'
+        - $ref: '#/components/parameters/company'
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Liste des départs (taux, capacité, alertes)
+  /finance/sales:
+    get:
+      summary: CA ventes détaillé
+      parameters:
+        - $ref: '#/components/parameters/ekey'
+        - $ref: '#/components/parameters/company'
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Agrégats ventes + écart caisse + ventilation cie/ligne
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ekey:
+      name: ekey
+      in: query
+      required: true
+      schema: { type: integer }
+    company:
+      name: company
+      in: query
+      required: false
+      schema: { type: integer }
+      description: cle_compagnie ; omit = consolidé périmètre
+  schemas:
+    AuthTokens:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        expires_in: { type: integer }
+        token_type: { type: string, example: Bearer }
+        user:
+          $ref: '#/components/schemas/Me'
+    Me:
+      type: object
+      properties:
+        cpuser_id: { type: integer }
+        username: { type: string }
+        role: { type: string, example: Decideur }
+        scopes:
+          type: array
+          items:
+            type: object
+            properties:
+              ekey: { type: integer }
+              companies:
+                type: array
+                items: { type: integer }
+                description: vide = toutes les compagnies de ekey
+    Company:
+      type: object
+      properties:
+        cle_compagnie: { type: integer }
+        nom_compagnie: { type: string }
+        ekey: { type: integer }
+    DashboardSummary:
+      type: object
+      properties:
+        as_of: { type: string, format: date-time }
+        timezone: { type: string, example: Europe/Berlin }
+        source: { type: string, example: ventes }
+        ca_jour: { type: number }
+        ca_mois: { type: number }
+        ca_veille: { type: number }
+        ca_semaine_prec: { type: number }
+        billets_jour: { type: integer }
+        ca_bagages_jour: { type: number }
+        ca_courrier_jour: { type: number }
+        recettes_caisse_jour: { type: number }
+        ecart_caisse_jour: { type: number }
+        companies:
+          type: array
+          items:
+            type: object
+            properties:
+              cle_compagnie: { type: integer }
+              nom_compagnie: { type: string }
+              ca_jour: { type: number }
+        notes:
+          type: array
+          items: { type: string }

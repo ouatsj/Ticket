@@ -1,4 +1,12 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');?>
+<?php
+/* Bannière APK TEI : visible dès l'accueil (liste des gares), rôles dirigeant. */
+if (isset($agent_userole) && in_array((string) $agent_userole, array('1', '2', '7', '8', '13', '14'), true)) {
+    echo '<div class="row"><div class="col-12 px-4 mb-2">';
+    $this->load->view('beagle/pages/guichet/_tei_download_banner');
+    echo '</div></div>';
+}
+?>
 <?php if (!empty($show_onglet_escale) && !empty($escales_lieu)): ?>
 <div class="row">
     <div class="col-12 px-4 mb-3">
