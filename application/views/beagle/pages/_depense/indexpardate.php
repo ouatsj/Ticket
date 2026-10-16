@@ -62,6 +62,7 @@
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
                                     <? endif; ?>
+                                    <?= saisie_bouton_retrait('depense', $item->id_depense, $item->idop_dep, $item->ferme_caisdep, $item->validcptabledep); ?>
 
                                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="depense-edit-<?= $item->id_depense; ?>">
@@ -153,11 +154,16 @@
                                                     value="<?= $item->nom_perso; ?>" autocomplete="off"
                                                         placeholder="<?= $item->nom_perso; ?>">
                                                 </div>
+                                                <? if (saisie_depense_commentaire_seul($item)): ?>
+                                                <div class="form-group col-sm-12">
+                                                    <p class="text-muted mb-0">Seul le commentaire peut être modifié sur une ligne venue d'un arrêt.</p>
+                                                </div>
+                                                <? endif; ?>
                                                 <div class="form-group col-sm-4">
                                                     <label>MONTANT</label>
                                                     <input class="form-control form-control-sm" type="text" name="montantversedep" id="autremontantidentif"
                                                     value="<?= $item->montant_depens; ?>" autocomplete="off"
-                                                        placeholder="<?= $item->montant_depens; ?>" onkeyup="verifautredepense()" required>
+                                                        placeholder="<?= $item->montant_depens; ?>" onkeyup="verifautredepense()" <?= saisie_depense_commentaire_seul($item) ? 'readonly' : 'required'; ?>>
                                                 </div>
                                                 <div class="form-group col-sm-4">
                                                     <label>MOTIF</label>

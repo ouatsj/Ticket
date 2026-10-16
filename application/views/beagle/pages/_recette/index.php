@@ -160,6 +160,7 @@
                                             <span class="fas fa-edit text-warning"></span>
                                         </a>
                                     <?endif;?>
+                                    <?= saisie_bouton_retrait('recette', $item->id_recette, $item->idopera, $item->ferme_caisrecet, $item->valid_cptablerecet); ?>
                                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="recette-edit-<?= $item->id_recette; ?>">
 

@@ -1190,15 +1190,28 @@
             {
                 // Ne jamais réécrire idcaisse à la modification (garde la sous-caisse d'escale).
                 if ($est_chef) {
-                    $arrayrecette = array(
-                        'commentaire_recet' => $this->input->post('comment'),
-                    );
+                    $patch = saisie_recette_champs_chef($ligne);
+                    if (empty($patch['ok'])) {
+                        $this->session->set_flashdata('error', $patch['error']);
+                        $retour = saisie_url_retour();
+                        if ($retour !== '') {
+                            redirect($retour);
+                            return;
+                        }
+                        redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/recette_adjoint/'. $sgid.'/' . mdate("%d/%m/%Y", now('UTC')));
+                        return;
+                    }
+                    $arrayrecette = $patch['data'];
                 } else {
+                    $nomRecette = trim((string) $this->input->post('nommodifier'));
+                    if ($nomRecette === '') {
+                        $nomRecette = $this->input->post('nom');
+                    }
                     $arrayrecette = array(
                         'id_genre_recet' => $this->input->post('genre'),
                         'compkey_recet' => $this->input->post('_compag'),
                         'type_recet' => $this->input->post('interne'),
-                        'nom' => $this->input->post('nom'),
+                        'nom' => $nomRecette,
                         'montant_recet' => $this->input->post('montantverse'),
                         'commentaire_recet' => $this->input->post('comment'),
                         'date_recet' => $this->input->post('daterecep'),
@@ -1240,9 +1253,18 @@
             if ($est_chef || $this->input->post('daterecep') != '')
             {
                 if ($est_chef) {
-                    $arrayrecette = array(
-                        'commentaire_recet' => $this->input->post('comment'),
-                    );
+                    $patch = saisie_recette_champs_chef($ligne);
+                    if (empty($patch['ok'])) {
+                        $this->session->set_flashdata('error', $patch['error']);
+                        $retour = saisie_url_retour();
+                        if ($retour !== '') {
+                            redirect($retour);
+                            return;
+                        }
+                        redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                        return;
+                    }
+                    $arrayrecette = $patch['data'];
                 } else {
                     $arrayrecette = array(
                         'id_genre_recet' => $this->input->post('genre'),
@@ -1263,6 +1285,35 @@
             else
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                     
+        }
+
+        public function retirerrecette($ckey, $recet)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company || (string) $this->session->agent->userole !== '1') {
+                show_error('Seul le compte admin peut retirer une recette.', 403);
+                return;
+            }
+            $ligne = $this->db->query(
+                'SELECT * FROM recette WHERE id_recette = ? LIMIT 1',
+                array((int) $recet)
+            )->row();
+            $retour = saisie_url_retour();
+            if (!$ligne || !saisie_peut_retirer(
+                isset($ligne->idopera) ? $ligne->idopera : 0,
+                isset($ligne->ferme_caisrecet) ? $ligne->ferme_caisrecet : 0,
+                isset($ligne->valid_cptablerecet) ? $ligne->valid_cptablerecet : 0
+            )) {
+                $this->session->set_flashdata('error', 'Cette recette ne peut pas être retirée.');
+            } else {
+                $this->m_recette->update($recet, array('actif_rect' => 1));
+                $this->session->set_flashdata('success', 'La recette a été retirée. Son auteur peut la ressaisir.');
+            }
+            if ($retour !== '') {
+                redirect($retour);
+                return;
+            }
+            redirect('gares/'.$this->session->company->ekey);
         }
 
         /**

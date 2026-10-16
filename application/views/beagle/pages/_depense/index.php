@@ -113,6 +113,7 @@
                                             <span class="fas fa-edit text-warning"></span>
                                         </a>
                                     <?endif;?>
+                                    <?= saisie_bouton_retrait('depense', $item->id_depense, $item->idop_dep, $item->ferme_caisdep, $item->validcptabledep); ?>
                                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="depense-edit-<?= $item->id_depense; ?>">
 

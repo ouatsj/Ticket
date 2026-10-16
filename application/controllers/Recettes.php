@@ -362,11 +362,25 @@
                 redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
                 return;
             }
-            if($this->input->post('daterecep')!= '')
+            $role = (string) $this->session->agent->userole;
+            $est_chef = ($role === '5' || $role === '16');
+            if ($est_chef || $this->input->post('daterecep')!= '')
             {
-               
+                if ($est_chef) {
+                    $patch = saisie_recette_champs_chef($ligne);
+                    if (empty($patch['ok'])) {
+                        $this->session->set_flashdata('error', $patch['error']);
+                        $retour = saisie_url_retour();
+                        if ($retour !== '') {
+                            redirect($retour);
+                            return;
+                        }
+                        redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/recette_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                        return;
+                    }
+                    $arrayrecette = $patch['data'];
+                } else {
                 $arrayrecette = array(
-                    'idcaisse' => $this->input->post('idcaisse'),
                     'id_genre_recet' => $this->input->post('genre'),
                     'compkey_recet' => $this->input->post('_compag'),
                     'type_recet' => $this->input->post('interne'),
@@ -375,6 +389,7 @@
                     'commentaire_recet' => $this->input->post('comment'),
                     'date_recet' => $this->input->post('daterecep'),
                 );
+                }
                 $recette = $this->m_recette->update($recet, $arrayrecette);
                         
                 $this->property['UPDATE_SUCCESS'] = TRUE;

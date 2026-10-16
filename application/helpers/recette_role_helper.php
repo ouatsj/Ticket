@@ -674,11 +674,64 @@ if (!function_exists('saisie_ligne_arret_valide')) {
     }
 }
 
-if (!function_exists('saisie_depense_modifiable')) {
-    function saisie_depense_modifiable($row, $roleattribut = null, $userole = null)
+if (!function_exists('saisie_userole_de_role')) {
+    function saisie_userole_de_role($roleattribut)
     {
+        static $cache = array();
+        $id = (int) $roleattribut;
+        if ($id < 1) {
+            return '';
+        }
+        if (isset($cache[$id])) {
+            return $cache[$id];
+        }
+        $CI =& get_instance();
+        $row = $CI->db->query(
+            'SELECT userole FROM attributions_role WHERE roleattribut = ? LIMIT 1',
+            array($id)
+        )->row();
+        $cache[$id] = ($row && isset($row->userole)) ? (string) $row->userole : '';
+        return $cache[$id];
+    }
+}
+
+if (!function_exists('saisie_montant_positif')) {
+    function saisie_montant_positif($raw)
+    {
+        $raw = trim((string) $raw);
+        if ($raw === '' || !preg_match('/^[0-9]+$/', $raw)) {
+            return 0;
+        }
+        return (int) $raw;
+    }
+}
+
+if (!function_exists('saisie_ligne_fermee')) {
+    function saisie_ligne_fermee($row, $ferme, $comptable)
+    {
+        if (!$row) {
+            return true;
+        }
+        $fermee = isset($row->{$ferme}) && (int) $row->{$ferme} === 1;
+        $comptee = isset($row->{$comptable}) && (int) $row->{$comptable} === 1;
+        return $fermee || $comptee;
+    }
+}
+
+if (!function_exists('saisie_recette_mode')) {
+    /**
+     * complet, commentaire, ou false.
+     */
+    function saisie_recette_mode($row, $roleattribut = null, $userole = null)
+    {
+        if (!$row) {
+            return false;
+        }
+        if (saisie_ligne_fermee($row, 'ferme_caisrecet', 'valid_cptablerecet')) {
+            return false;
+        }
         if (saisie_tri_est_admin($userole)) {
-            return (bool) $row;
+            return 'complet';
         }
         if ($userole === null) {
             $CI =& get_instance();
@@ -688,55 +741,249 @@ if (!function_exists('saisie_depense_modifiable')) {
         if ($roleattribut === null && function_exists('roleattribut_guard_session_ra')) {
             $roleattribut = roleattribut_guard_session_ra();
         }
+        $owner = isset($row->idopera) ? (int) $row->idopera : 0;
+        if (recette_role_is_saisie($userole)) {
+            if (saisie_auteur_est_personne($owner, $roleattribut)) {
+                return 'complet';
+            }
+            $chef = isset($row->operavalidchef) ? (int) $row->operavalidchef : 0;
+            if ($chef > 0 && saisie_auteur_est_personne($chef, $roleattribut)) {
+                return 'commentaire';
+            }
+            return false;
+        }
+        if (!saisie_auteur_est_personne($owner, $roleattribut)) {
+            return false;
+        }
+        if (saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
+            'is_validerecet',
+            'is_actifrecet',
+            'is_actifrecetad',
+            'ferme_caisrecet',
+            'valid_cptablerecet',
+        ))) {
+            return false;
+        }
+        return 'complet';
+    }
+}
+
+if (!function_exists('saisie_depense_mode')) {
+    function saisie_depense_mode($row, $roleattribut = null, $userole = null)
+    {
         if (!$row) {
             return false;
         }
+        if (saisie_ligne_fermee($row, 'ferme_caisdep', 'validcptabledep')) {
+            return false;
+        }
+        if (saisie_tri_est_admin($userole)) {
+            return 'complet';
+        }
+        if ($userole === null) {
+            $CI =& get_instance();
+            $agent = $CI->session->userdata('agent') ? $CI->session->agent : null;
+            $userole = ($agent && !empty($agent->userole)) ? $agent->userole : '';
+        }
+        if ($roleattribut === null && function_exists('roleattribut_guard_session_ra')) {
+            $roleattribut = roleattribut_guard_session_ra();
+        }
         $owner = isset($row->idop_dep) ? (int) $row->idop_dep : 0;
         $ra = (int) $roleattribut;
+        if (recette_role_is_saisie($userole)) {
+            if (saisie_auteur_est_personne($owner, $ra)) {
+                return 'complet';
+            }
+            $chef = isset($row->opevalidchef) ? (int) $row->opevalidchef : 0;
+            if ($chef > 0 && saisie_auteur_est_personne($chef, $ra)) {
+                return 'commentaire';
+            }
+            return false;
+        }
         if (recette_role_is_validateur_principal($userole)) {
             $validateur = isset($row->opevalid) ? (int) $row->opevalid : 0;
             if ($ra <= 0 || (!saisie_auteur_est_personne($owner, $ra) && $validateur !== $ra)) {
                 return false;
             }
-            if ((isset($row->ferme_caisdep) && (int) $row->ferme_caisdep === 1)
-                || (isset($row->validcptabledep) && (int) $row->validcptabledep === 1)) {
-                return false;
-            }
-            return true;
+            return 'complet';
         }
         if (!saisie_auteur_est_personne($owner, $ra)) {
             return false;
         }
-        return !saisie_ligne_arret_valide($row, 'arret_caisdep', array(
+        if (saisie_ligne_arret_valide($row, 'arret_caisdep', array(
             'is_validedep',
             'is_actifdep',
             'is_actifdepad',
             'ferme_caisdep',
             'validcptabledep',
-        ));
+        ))) {
+            return false;
+        }
+        return 'complet';
+    }
+}
+
+if (!function_exists('saisie_recette_commentaire_seul')) {
+    function saisie_recette_commentaire_seul($row)
+    {
+        return saisie_recette_mode($row) === 'commentaire';
+    }
+}
+
+if (!function_exists('saisie_depense_commentaire_seul')) {
+    function saisie_depense_commentaire_seul($row)
+    {
+        return saisie_depense_mode($row) === 'commentaire';
+    }
+}
+
+if (!function_exists('saisie_recette_champs_chef')) {
+    function saisie_recette_champs_chef($ligne)
+    {
+        $CI =& get_instance();
+        if (saisie_recette_mode($ligne) === 'commentaire') {
+            return array(
+                'ok' => true,
+                'data' => array('commentaire_recet' => $CI->input->post('comment')),
+            );
+        }
+        $montant = saisie_montant_positif($CI->input->post('montantverse'));
+        if ($montant < 1) {
+            return array(
+                'ok' => false,
+                'error' => 'Le montant doit rester supérieur à zéro.',
+            );
+        }
+        $nom = trim((string) $CI->input->post('nommodifier'));
+        if ($nom === '') {
+            $nom = trim((string) $CI->input->post('nom'));
+        }
+        if ($nom === '' && $ligne && isset($ligne->nom)) {
+            $nom = (string) $ligne->nom;
+        }
+        $data = array(
+            'id_genre_recet' => $CI->input->post('genre'),
+            'compkey_recet' => $CI->input->post('_compag'),
+            'type_recet' => $CI->input->post('interne'),
+            'nom' => $nom,
+            'montant_recet' => $montant,
+            'commentaire_recet' => $CI->input->post('comment'),
+        );
+        $date = trim((string) $CI->input->post('daterecep'));
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            $data['date_recet'] = $date;
+        }
+        return array('ok' => true, 'data' => $data);
+    }
+}
+
+if (!function_exists('saisie_depense_champs_chef')) {
+    function saisie_depense_champs_chef($ligne)
+    {
+        $CI =& get_instance();
+        if (saisie_depense_mode($ligne) === 'commentaire') {
+            return array(
+                'ok' => true,
+                'data' => array('commentaire' => $CI->input->post('commentdep')),
+            );
+        }
+        $montant = saisie_montant_positif($CI->input->post('montantversedep'));
+        if ($montant < 1) {
+            return array(
+                'ok' => false,
+                'error' => 'Le montant doit rester supérieur à zéro.',
+            );
+        }
+        $nom = trim((string) $CI->input->post('nomdepmodifier'));
+        if ($nom === '') {
+            $nom = trim((string) $CI->input->post('nomdep'));
+        }
+        if ($nom === '' && $ligne && isset($ligne->nom_perso)) {
+            $nom = (string) $ligne->nom_perso;
+        }
+        $data = array(
+            'id_genre_depense' => $CI->input->post('genredep'),
+            'type_depense' => $CI->input->post('internedep'),
+            'compkey_dep' => $CI->input->post('_compag'),
+            'typpersonel' => $CI->input->post('typerson'),
+            'nom_perso' => $nom,
+            'montant_depens' => $montant,
+            'commentaire' => $CI->input->post('commentdep'),
+            'motif' => $CI->input->post('motifs'),
+        );
+        $date = trim((string) $CI->input->post('datereception'));
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            $data['date_depens'] = $date;
+        }
+        return array('ok' => true, 'data' => $data);
+    }
+}
+
+if (!function_exists('saisie_peut_retirer')) {
+    function saisie_peut_retirer($auteur, $ferme, $comptable)
+    {
+        if (!saisie_tri_est_admin()) {
+            return false;
+        }
+        if ((int) $ferme === 1 || (int) $comptable === 1) {
+            return false;
+        }
+        $role = saisie_userole_de_role($auteur);
+        return in_array($role, array('4', '5', '16', '18'), true);
+    }
+}
+
+if (!function_exists('saisie_bouton_retrait')) {
+    function saisie_bouton_retrait($type, $id, $auteur, $ferme, $comptable)
+    {
+        if (!saisie_peut_retirer($auteur, $ferme, $comptable)) {
+            return '';
+        }
+        $CI =& get_instance();
+        $ekey = isset($CI->session->company->ekey) ? $CI->session->company->ekey : '';
+        $id = (int) $id;
+        if ($type === 'depense') {
+            $action = 'Depenses/retirerdepense/' . $ekey . '/' . $id;
+            $texte = 'Retirer cette dépense ? La personne qui l\'a créée pourra la ressaisir.';
+        } else {
+            $action = 'Caisses/retirerrecette/' . $ekey . '/' . $id;
+            $texte = 'Retirer cette recette ? La personne qui l\'a créée pourra la ressaisir.';
+        }
+        $retour = htmlspecialchars(current_url(), ENT_QUOTES, 'UTF-8');
+        return form_open($action, array('style' => 'display:inline'))
+            . '<input type="hidden" name="retour" value="' . $retour . '">'
+            . '<button type="submit" class="btn btn-link p-0 ml-2" title="Retirer" onclick="return confirm('
+            . htmlspecialchars(json_encode($texte), ENT_QUOTES, 'UTF-8')
+            . ');"><span class="fas fa-trash text-danger"></span></button>'
+            . form_close();
+    }
+}
+
+if (!function_exists('saisie_url_retour')) {
+    function saisie_url_retour()
+    {
+        $CI =& get_instance();
+        $retour = trim((string) $CI->input->post('retour'));
+        $host = (string) $CI->input->server('HTTP_HOST');
+        $parts = parse_url($retour);
+        if ($retour !== '' && !empty($parts['host']) && strcasecmp($parts['host'], $host) === 0) {
+            return $retour;
+        }
+        return '';
+    }
+}
+
+if (!function_exists('saisie_depense_modifiable')) {
+    function saisie_depense_modifiable($row, $roleattribut = null, $userole = null)
+    {
+        return saisie_depense_mode($row, $roleattribut, $userole) !== false;
     }
 }
 
 if (!function_exists('saisie_recette_modifiable')) {
     function saisie_recette_modifiable($row, $roleattribut = null, $userole = null)
     {
-        if (saisie_tri_est_admin($userole)) {
-            return (bool) $row;
-        }
-        if ($roleattribut === null && function_exists('roleattribut_guard_session_ra')) {
-            $roleattribut = roleattribut_guard_session_ra();
-        }
-        $owner = ($row && isset($row->idopera)) ? (int) $row->idopera : 0;
-        if (!saisie_auteur_est_personne($owner, $roleattribut)) {
-            return false;
-        }
-        return !saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
-            'is_validerecet',
-            'is_actifrecet',
-            'is_actifrecetad',
-            'ferme_caisrecet',
-            'valid_cptablerecet',
-        ));
+        return saisie_recette_mode($row, $roleattribut, $userole) !== false;
     }
 }
 

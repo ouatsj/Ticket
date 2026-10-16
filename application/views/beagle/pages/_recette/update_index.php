@@ -70,6 +70,7 @@
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
                                     <? endif; ?>
+                                    <?= saisie_bouton_retrait('recette', $item->id_recette, $item->idopera, $item->ferme_caisrecet, $item->valid_cptablerecet); ?>
 
                                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="recette-edit-<?= $item->id_recette; ?>">
@@ -139,11 +140,16 @@
                                                     <input class="form-control form-control-sm" type="text" name="nommodifier"
                                                     value="<?= $item->nom; ?>" autocomplete="off" placeholder="<?= $item->nom; ?>">
                                                 </div>
+                                                <? if (saisie_recette_commentaire_seul($item)): ?>
+                                                <div class="form-group col-sm-12">
+                                                    <p class="text-muted mb-0">Seul le commentaire peut être modifié sur une ligne venue d'un arrêt.</p>
+                                                </div>
+                                                <? endif; ?>
                                                 <div class="form-group col-sm-4">
                                                     <label>MONTANT</label>
                                                     <input class="form-control form-control-sm" type="text" name="montantverse"
                                                     value="<?= $item->montant_recet; ?>" autocomplete="off"
-                                                        placeholder="<?= $item->montant_recet; ?>">
+                                                        placeholder="<?= $item->montant_recet; ?>" <?= saisie_recette_commentaire_seul($item) ? 'readonly' : ''; ?>>
                                                 </div>
                                                 <div class="form-group col-sm-4">
                                                     <label>OBSERVATION</label>
