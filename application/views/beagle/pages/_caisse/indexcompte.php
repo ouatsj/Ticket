@@ -691,6 +691,8 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
             </button>
         </div>
         <form id="arret-commentaire-form" method="post" action="" class="modal-body form">
+            <input type="hidden" name="<?= htmlspecialchars($this->security->get_csrf_token_name(), ENT_QUOTES, 'UTF-8'); ?>" value="<?= htmlspecialchars($this->security->get_csrf_hash(), ENT_QUOTES, 'UTF-8'); ?>">
+            <?= function_exists('caissier_escale_hidden_inputs') ? caissier_escale_hidden_inputs() : ''; ?>
             <div class="form-group">
                 <label>Commentaire, visible sur chaque ligne de cet arrêt</label>
                 <textarea class="form-control" name="commentaire_arret" id="arret-commentaire-note" rows="3"></textarea>
