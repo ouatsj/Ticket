@@ -421,6 +421,7 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                     <th>Montant</th>
                                     <th>Auteur (chef)</th>
                                     <th><?= $is_profil_adjoint ? 'Validé adjoint' : 'Arrêté par'; ?></th>
+                                    <th>Commentaire</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -432,6 +433,7 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                     <td class="text-right"><?= number_format((float) $op->montant_recet, 0, ',', ' '); ?> F</td>
                                     <td><?= htmlspecialchars(indexcompte_user_label($op->auteur_user, $op->auteur_prenom, $op->auteur_nom, $op->auteur_role), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?= htmlspecialchars(indexcompte_user_label($op->adjoint_user, $op->adjoint_prenom, $op->adjoint_nom, '18'), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= nl2br(htmlspecialchars(isset($op->commentaire_recet) ? (string) $op->commentaire_recet : (isset($op->commentaire) ? (string) $op->commentaire : ''), ENT_QUOTES, 'UTF-8')); ?></td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -468,6 +470,7 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                     <th>Montant</th>
                                     <th>Auteur (chef)</th>
                                     <th><?= $is_profil_adjoint ? 'Validé adjoint' : 'Arrêté par'; ?></th>
+                                    <th>Commentaire</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -479,6 +482,7 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                     <td class="text-right"><?= number_format((float) $op->montant_depens, 0, ',', ' '); ?> F</td>
                                     <td><?= htmlspecialchars(indexcompte_user_label($op->auteur_user, $op->auteur_prenom, $op->auteur_nom, $op->auteur_role), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?= htmlspecialchars(indexcompte_user_label($op->adjoint_user, $op->adjoint_prenom, $op->adjoint_nom, '18'), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td><?= nl2br(htmlspecialchars(isset($op->commentaire_recet) ? (string) $op->commentaire_recet : (isset($op->commentaire) ? (string) $op->commentaire : ''), ENT_QUOTES, 'UTF-8')); ?></td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -678,5 +682,48 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
             </div>
         </div>
     </div>
+<div class="modal-container colored-header colored-header-primary custom-width modal-effect-7" id="arret-commentaire" style="perspective: none;">
+    <div class="modal-content">
+        <div class="modal-header modal-header-colored">
+            <h3 class="modal-title" id="arret-commentaire-titre">Commentaire de l'arrêt</h3>
+            <button class="close modal-close" type="button" data-dismiss="modal" aria-hidden="true">
+                <span class="mdi mdi-close text-white"></span>
+            </button>
+        </div>
+        <form id="arret-commentaire-form" method="post" action="" class="modal-body form">
+            <div class="form-group">
+                <label>Commentaire, visible sur chaque ligne de cet arrêt</label>
+                <textarea class="form-control" name="commentaire_arret" id="arret-commentaire-note" rows="3"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-close" type="button" data-dismiss="modal">Annuler</button>
+                <button class="btn btn-success" type="submit" id="arret-commentaire-ok">Confirmer</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+(function () {
+    var links = document.querySelectorAll('a[href*="Arretcaisses/"]');
+    for (var i = 0; i < links.length; i++) {
+        (function (a) {
+            var href = a.getAttribute('href') || '';
+            if (!/\/Arretcaisses\/(ad)?(valide|rejet)/.test(href)) {
+                return;
+            }
+            a.classList.add('md-trigger');
+            a.setAttribute('data-modal', 'arret-commentaire');
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                var rejet = /rejet/i.test(href);
+                document.getElementById('arret-commentaire-titre').textContent = rejet ? 'Rejeter cet arrêt' : 'Valider cet arrêt';
+                document.getElementById('arret-commentaire-ok').textContent = rejet ? 'Rejeter' : 'Valider';
+                document.getElementById('arret-commentaire-note').value = '';
+                document.getElementById('arret-commentaire-form').setAttribute('action', href);
+            });
+        })(links[i]);
+    }
+})();
+</script>
 <!--End of file: indexcompte.php-->
 <!--File location: application/views/beagle/pages/_caisse/indexcompte.php-->

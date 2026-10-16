@@ -28,6 +28,8 @@
                 
         public function update($id_depot, array $data)
         {
+            $this->load->helper('compte_arret');
+            $data = arret_commentaire_fusionner('depot', 'id_depot', $id_depot, 'commentaire_depot', $data);
             return $this->db->where('id_depot', $id_depot)
             ->update($this->table, $data);
         }

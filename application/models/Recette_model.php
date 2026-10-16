@@ -26,6 +26,8 @@
         public function update($id_recette, array $data)
         {
             $data = $this->_nom_espaces_simples($data);
+            $this->load->helper('compte_arret');
+            $data = arret_commentaire_fusionner('recette', 'id_recette', $id_recette, 'commentaire_recet', $data);
             return $this->db->where('id_recette', $id_recette)
             ->update($this->table, $data);
         }
@@ -217,6 +219,7 @@
                 AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'" . sous_caisse_scope_sql('cs') . "
                 AND r.type_recet <> 'Courrier'
+                AND r.actif_rect = 0
                 AND r.date_recet BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
                 {$copSql}
                 {$ownerSql}
@@ -342,6 +345,7 @@
                 AND " . sous_caisse_predicat('cs.id_caiss', $idcais) . "
                 AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'" . sous_caisse_scope_sql('cs') . "
                 AND r.type_recet <> 'Courrier'
+                AND r.actif_rect = 0
                 AND r.date_recet BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
                 {$copSql}
                 {$ownerSql}

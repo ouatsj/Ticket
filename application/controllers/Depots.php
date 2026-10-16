@@ -100,7 +100,7 @@
                     $this->m_depot->update($depo, $updepos);
 
                     $this->property['UPDATE_SUCCESS'] = TRUE;
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                 }
 
                 if(recette_role_is_validateur_adjoint($this->session->agent->userole))
@@ -113,15 +113,15 @@
                     $this->m_depot->update($depo, $updepos);
 
                     $this->property['UPDATE_SUCCESS'] = TRUE;
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             
                 }
                 else
                 $this->property['UPDATE_SUCCESS'] = TRUE;
-                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
              
         }
 
@@ -162,7 +162,7 @@
                     );
                     $this->m_depot->update($depo, $updepos);
 
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
 
                 }
 
@@ -174,14 +174,14 @@
                     );
                     $this->m_depot->update($depo, $updepos);
 
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
 
                 }
                 else
-                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depot_adjoint/' . mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depot_adjoint/' . mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                      
         }
 
@@ -222,7 +222,7 @@
                     );
                     $this->m_depot->update($depo, $updepos);
 
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
 
                 }
 
@@ -234,16 +234,16 @@
                     );
                     $this->m_depot->update($depo, $updepos);
 
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
 
                 }
                 else
-                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depot_adjoint/'.$sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depot_adjoint/'.$sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         
             
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                      
         }
         //modification
@@ -276,13 +276,13 @@
                 
                 if(recette_role_is_validateur_principal($this->session->agent->userole) OR recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $idcmpt.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depot/'. $idcmpt.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                 }
                 else
-                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depot_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depot_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                 
         }
 
@@ -322,7 +322,7 @@
                 return;
             }
             
-                redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use). '/'.$identifiant_sousgare .'/'.($cashboxContext ? $cashboxContext['caissier_ra'] : $dop). '/' . mdate("%d/%m/%Y", now('UTC')));
+                redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use). '/'.$identifiant_sousgare .'/'.($cashboxContext ? $cashboxContext['caissier_ra'] : $dop). '/' . mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             
         }
 
@@ -359,7 +359,7 @@
                 return;
             }
             
-                redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use). '/'.$identifiant_sousgare.'/'. ($cashboxContext ? $cashboxContext['caissier_ra'] : $dop). '/' . mdate("%d/%m/%Y", now('UTC')));
+                redirect('utilisateurs/'.$this->session->company->ekey. '/caisseprincdepot/'. $identifiant_gare. '/'. ($cashboxContext ? $cashboxContext['consultant_ra'] : $identifiant_use). '/'.$identifiant_sousgare.'/'. ($cashboxContext ? $cashboxContext['caissier_ra'] : $dop). '/' . mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             
         }
 
@@ -453,7 +453,7 @@
                     $this->m_depot->update($depo, $updepos);
 
                     $this->property['UPDATE_SUCCESS'] = TRUE;
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             
                 }
                 if(recette_role_is_validateur_adjoint($this->session->agent->userole))
@@ -466,15 +466,15 @@
                     $this->m_depot->update($depo, $updepos);
 
                     $this->property['UPDATE_SUCCESS'] = TRUE;
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             
                 }
                 else
                     $this->property['UPDATE_SUCCESS'] = TRUE;
-                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
              
         }
 
@@ -508,13 +508,13 @@
 
                 if(recette_role_is_validateur_principal($this->session->agent->userole) OR recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $idcmpt.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $idcmpt.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                 }
                 else
-                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
              
 
         }
@@ -548,13 +548,13 @@
 
                 if(recette_role_is_validateur_principal($this->session->agent->userole) OR recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/autredepot/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                 }
                 else
-                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/autredepot_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
              
 
         }
@@ -599,7 +599,7 @@
                     $this->m_depot->update($depo, $updepos);
 
                     $this->property['UPDATE_SUCCESS'] = TRUE;
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depotsous/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depotsous/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         
                 }
 
@@ -614,17 +614,17 @@
                     $this->m_depot->update($depo, $updepos);
 
                     $this->property['UPDATE_SUCCESS'] = TRUE;
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depotsous/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depotsous/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         
                 }
 
                 else
                 $this->property['UPDATE_SUCCESS'] = TRUE;
-                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depotsous_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depotsous_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
 
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             
         }
 
@@ -659,13 +659,13 @@
 
                 if(recette_role_is_validateur_principal($this->session->agent->userole) OR recette_role_is_validateur_adjoint($this->session->agent->userole))
                 {
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depotsous/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depotsous/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                 }
                 else
-                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depotsous_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depotsous_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             
         }
 
@@ -704,7 +704,7 @@
             $versement = $this->m_versements->create($prouveversement);
             
             $this->property['UPDATE_SUCCESS'] = TRUE;
-            redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depotsous_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+            redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depotsous_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function approuv($ckey, $id)
@@ -749,7 +749,7 @@
                 $this->m_depot->update($id, $updepos);
 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
-                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versementcaisse/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versementcaisse/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
 
             }
 
@@ -763,12 +763,12 @@
                 $this->m_depot->update($id, $updepos);
 
                 $this->property['UPDATE_SUCCESS'] = TRUE;
-                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versementcaisse/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versementcaisse/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
 
             }
             else
             
-                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/versementcaisse_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/versementcaisse_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
         //tri depots
         public function listegenre($ty)

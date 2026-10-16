@@ -22,6 +22,8 @@
                 
         public function update($id_depense, array $data)
         {
+            $this->load->helper('compte_arret');
+            $data = arret_commentaire_fusionner('depense', 'id_depense', $id_depense, 'commentaire', $data);
             return $this->db->where('id_depense', $id_depense)
             ->update($this->table, $data);
         }
@@ -253,6 +255,7 @@
                 AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
                 AND cs.gexp_caiss = '" . $this->db->escape_str($gid) . "'" . sous_caisse_scope_sql('cs') . "
                 AND d.type_depense <> 'Courrier'
+                AND d.actif_deps = 0
                 AND d.date_depens BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
                 {$copSql}
                 {$ownerSql}
@@ -305,6 +308,7 @@
                 WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
                 AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
                 AND d.type_depense <> 'Courrier'
+                AND d.actif_deps = 0
                 AND d.date_depens BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
                 {$gidSql}
                 {$copSql}

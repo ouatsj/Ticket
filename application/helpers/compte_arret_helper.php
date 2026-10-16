@@ -2402,6 +2402,40 @@ if (!function_exists('caissier_escale_ops_from_request')) {
     }
 }
 
+if (!function_exists('arret_commentaire_fusionner')) {
+    /**
+     * Ajoute le commentaire saisi à la validation ou au rejet sur chaque ligne.
+     *
+     * @param string $table
+     * @param string $idColumn
+     * @param mixed $id
+     * @param string $commentColumn
+     * @param array $data
+     * @return array
+     */
+    function arret_commentaire_fusionner($table, $idColumn, $id, $commentColumn, array $data)
+    {
+        $CI =& get_instance();
+        $note = trim((string) $CI->input->post('commentaire_arret'));
+        if ($note === '' || array_key_exists($commentColumn, $data)) {
+            return $data;
+        }
+        foreach (array($table, $idColumn, $commentColumn) as $nom) {
+            if (!preg_match('/^[a-z_]+$/', (string) $nom)) {
+                return $data;
+            }
+        }
+        $row = $CI->db->query(
+            "SELECT `{$commentColumn}` AS c FROM `{$table}` WHERE `{$idColumn}` = ? LIMIT 1",
+            array($id)
+        )->row();
+        $prev = ($row && isset($row->c)) ? trim((string) $row->c) : '';
+        $data[$commentColumn] = ($prev === '') ? $note : ($prev . "\n" . $note);
+
+        return $data;
+    }
+}
+
 if (!function_exists('caissier_escale_query_suffix')) {
     function caissier_escale_query_suffix()
     {

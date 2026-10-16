@@ -18,6 +18,8 @@
                 
         public function update($id_versements, array $data)
         {
+            $this->load->helper('compte_arret');
+            $data = arret_commentaire_fusionner('versements', 'id_versements', $id_versements, 'commentaire', $data);
             return $this->db->where('id_versements', $id_versements)
             ->update($this->table, $data);
         }
