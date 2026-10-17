@@ -127,12 +127,22 @@
 
         public function getinfo($perso_mat)
         {
-            
-                return $this->db->query(
-                    "SELECT * FROM personnels per
-                    JOIN compagnies c ON per.compagnie_perso = c.cle_compagnie
-                    JOIN type_personnel tp ON per.type_perso = tp.idtyperso
-                    WHERE per.matricule = '$perso_mat'")->row();
+            $saisi = trim((string) $perso_mat);
+            if ($saisi === '') {
+                return null;
+            }
+
+            return $this->db->query(
+                "SELECT per.*, c.nom_compagnie, tp.type_personnel
+                FROM personnels per
+                LEFT JOIN compagnies c ON per.compagnie_perso = c.cle_compagnie
+                LEFT JOIN type_personnel tp ON per.type_perso = tp.idtyperso
+                WHERE UPPER(TRIM(per.matricule)) = ?
+                   OR TRIM(per.contact_perso) = ?
+                   OR TRIM(per.contact2) = ?
+                LIMIT 1",
+                array(strtoupper($saisi), $saisi, $saisi)
+            )->row();
         }
 
         public function infop()
