@@ -1302,7 +1302,9 @@
             if (!$ligne || !saisie_peut_retirer(
                 isset($ligne->idopera) ? $ligne->idopera : 0,
                 isset($ligne->ferme_caisrecet) ? $ligne->ferme_caisrecet : 0,
-                isset($ligne->valid_cptablerecet) ? $ligne->valid_cptablerecet : 0
+                isset($ligne->valid_cptablerecet) ? $ligne->valid_cptablerecet : 0,
+                isset($ligne->active_recet) ? $ligne->active_recet : 0,
+                isset($ligne->arret_caisrecet) ? $ligne->arret_caisrecet : 0
             )) {
                 $this->session->set_flashdata('error', 'Cette recette ne peut pas être retirée.');
             } else {
@@ -11986,6 +11988,37 @@
             else
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
             
+        }
+
+        public function retirerversement($ckey, $idvers)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company || (string) $this->session->agent->userole !== '1') {
+                show_error('Seul le compte admin peut retirer un versement.', 403);
+                return;
+            }
+            $ligne = $this->db->query(
+                'SELECT * FROM versements WHERE id_versements = ? LIMIT 1',
+                array((int) $idvers)
+            )->row();
+            $retour = saisie_url_retour();
+            if (!$ligne || !saisie_peut_retirer(
+                isset($ligne->idop_versement) ? $ligne->idop_versement : 0,
+                isset($ligne->ferme_caisvers) ? $ligne->ferme_caisvers : 0,
+                isset($ligne->valid_cptablevers) ? $ligne->valid_cptablevers : 0,
+                isset($ligne->active_verse) ? $ligne->active_verse : 0,
+                isset($ligne->arret_caisvers) ? $ligne->arret_caisvers : 0
+            )) {
+                $this->session->set_flashdata('error', 'Ce versement ne peut pas être retiré.');
+            } else {
+                $this->m_versements->update($idvers, array('actifvers' => 1));
+                $this->session->set_flashdata('success', 'Le versement a été retiré. Son auteur peut le ressaisir.');
+            }
+            if ($retour !== '') {
+                redirect($retour . (function_exists('caissier_escale_query_suffix') ? caissier_escale_query_suffix() : ''));
+                return;
+            }
+            redirect('gares/'.$this->session->company->ekey);
         }
 
         public function upautreversement($ckey, $idvers)

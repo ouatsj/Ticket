@@ -469,7 +469,9 @@
             if (!$ligne || !saisie_peut_retirer(
                 isset($ligne->idop_dep) ? $ligne->idop_dep : 0,
                 isset($ligne->ferme_caisdep) ? $ligne->ferme_caisdep : 0,
-                isset($ligne->validcptabledep) ? $ligne->validcptabledep : 0
+                isset($ligne->validcptabledep) ? $ligne->validcptabledep : 0,
+                isset($ligne->active_dep) ? $ligne->active_dep : 0,
+                isset($ligne->arret_caisdep) ? $ligne->arret_caisdep : 0
             )) {
                 $this->session->set_flashdata('error', 'Cette dépense ne peut pas être retirée.');
             } else {

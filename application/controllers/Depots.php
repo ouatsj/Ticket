@@ -247,6 +247,37 @@
                      
         }
         //modification
+        public function retirerdepot($ckey, $idpo)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company || (string) $this->session->agent->userole !== '1') {
+                show_error('Seul le compte admin peut retirer un dépôt.', 403);
+                return;
+            }
+            $ligne = $this->db->query(
+                'SELECT * FROM depot WHERE id_depot = ? LIMIT 1',
+                array((int) $idpo)
+            )->row();
+            $retour = saisie_url_retour();
+            if (!$ligne || !saisie_peut_retirer(
+                isset($ligne->idop_depot) ? $ligne->idop_depot : 0,
+                isset($ligne->ferme_caisdepo) ? $ligne->ferme_caisdepo : 0,
+                isset($ligne->valid_cptabledepo) ? $ligne->valid_cptabledepo : 0,
+                isset($ligne->active_depot) ? $ligne->active_depot : 0,
+                isset($ligne->arret_caisdepo) ? $ligne->arret_caisdepo : 0
+            )) {
+                $this->session->set_flashdata('error', 'Ce dépôt ne peut pas être retiré.');
+            } else {
+                $this->m_depot->update($idpo, array('actif_depo' => 1));
+                $this->session->set_flashdata('success', 'Le dépôt a été retiré. Son auteur peut le ressaisir.');
+            }
+            if ($retour !== '') {
+                redirect($retour . (function_exists('caissier_escale_query_suffix') ? caissier_escale_query_suffix() : ''));
+                return;
+            }
+            redirect('gares/'.$this->session->company->ekey);
+        }
+
         public function updatedepot($ckey, $idpo)
         {
 

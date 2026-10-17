@@ -93,6 +93,7 @@
                                         class="md-trigger" data-modal="autre-edit-<?= $item->id_versements; ?>">
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
+                                    <?= saisie_bouton_retrait('versement', $item->id_versements, $item->idop_versement, isset($item->ferme_caisvers) ? $item->ferme_caisvers : 0, isset($item->valid_cptablevers) ? $item->valid_cptablevers : 0, isset($item->active_verse) ? $item->active_verse : 0, isset($item->arret_caisvers) ? $item->arret_caisvers : 0); ?>
 
                                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="autre-edit-<?= $item->id_versements; ?>">

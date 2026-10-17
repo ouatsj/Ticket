@@ -591,6 +591,7 @@
                                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                                 WHERE e.ekey = '$cd'
                                 AND v.is_actifverser = 0
+                                AND IFNULL(v.actifvers, 0) = 0
                                 AND v.approuveversement = 1
                                 AND v.type_versement <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
@@ -632,6 +633,7 @@
                                 WHERE e.ekey = '$cd'
                                 AND d.active_dep = 0
                                 AND d.is_actifdep = 0
+                                AND IFNULL(d.actif_deps, 0) = 0
                                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
                                 AND d.type_depense <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
@@ -651,6 +653,7 @@
                                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                                 WHERE e.ekey = '$cd'
                                 AND dp.arret_caisdepo = 0
+                                AND IFNULL(dp.actif_depo, 0) = 0
                                 AND dp.type_depot <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
                                 AND (dp.idop_depot = '$conex->roleattribut' OR dp.opvalidchef = '$conex->roleattribut')

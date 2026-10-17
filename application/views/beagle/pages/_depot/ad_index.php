@@ -126,6 +126,7 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
                                 <?endif;?>
+                                    <?= saisie_bouton_retrait('depot', $alldepots->id_depot, $alldepots->idop_depot, isset($alldepots->ferme_caisdepo) ? $alldepots->ferme_caisdepo : 0, isset($alldepots->valid_cptabledepo) ? $alldepots->valid_cptabledepo : 0, isset($alldepots->active_depot) ? $alldepots->active_depot : 0, isset($alldepots->arret_caisdepo) ? $alldepots->arret_caisdepo : 0); ?>
                                         <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="depot-edit-<?= $alldepots->id_depot; ?>">
 

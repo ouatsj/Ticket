@@ -90,11 +90,11 @@ if (!function_exists('recette_role_pending_recette_sql')) {
     function recette_role_pending_recette_sql($userole = null, $alias = 'r')
     {
         if (recette_role_is_saisie($userole)) {
-            return "AND {$alias}.is_actifrecet = 0";
+            return "AND {$alias}.is_actifrecet = 0 AND {$alias}.actif_rect = 0";
         }
         if (recette_role_is_validateur_adjoint($userole)) {
             // Validé par l’adjoint, pas encore confirmé par le principal.
-            return "AND {$alias}.is_actifrecetad = 1 AND {$alias}.is_actifrecet = 0";
+            return "AND {$alias}.is_actifrecetad = 1 AND {$alias}.is_actifrecet = 0 AND {$alias}.actif_rect = 0";
         }
 
         return "AND {$alias}.actif_rect = 0";
@@ -120,10 +120,10 @@ if (!function_exists('recette_role_pending_depense_sql')) {
     function recette_role_pending_depense_sql($userole = null, $alias = 'd')
     {
         if (recette_role_is_saisie($userole)) {
-            return "AND {$alias}.is_actifdep = 0";
+            return "AND {$alias}.is_actifdep = 0 AND {$alias}.actif_deps = 0";
         }
         if (recette_role_is_validateur_adjoint($userole)) {
-            return "AND {$alias}.is_actifdepad = 1 AND {$alias}.is_actifdep = 0";
+            return "AND {$alias}.is_actifdepad = 1 AND {$alias}.is_actifdep = 0 AND {$alias}.actif_deps = 0";
         }
 
         return "AND {$alias}.actif_deps = 0";
@@ -149,10 +149,10 @@ if (!function_exists('recette_role_pending_depot_sql')) {
     function recette_role_pending_depot_sql($userole = null, $alias = 'd')
     {
         if (recette_role_is_saisie($userole)) {
-            return "AND {$alias}.is_actifdepo = 0";
+            return "AND {$alias}.is_actifdepo = 0 AND {$alias}.actif_depo = 0";
         }
         if (recette_role_is_validateur_adjoint($userole)) {
-            return "AND {$alias}.is_actifdepoad = 1 AND {$alias}.is_actifdepo = 0";
+            return "AND {$alias}.is_actifdepoad = 1 AND {$alias}.is_actifdepo = 0 AND {$alias}.actif_depo = 0";
         }
 
         return "AND {$alias}.actif_depo = 0";
@@ -537,6 +537,7 @@ if (!function_exists('recette_role_rd_open_recette_sql')) {
 
         return "AND {$alias}.active_recet = 0
             AND {$alias}.is_actifrecet = 0
+            AND {$alias}.actif_rect = 0
             AND ({$alias}.is_validerecet = 0 OR {$alias}.is_validerecet IS NULL)";
     }
 }
@@ -553,6 +554,7 @@ if (!function_exists('recette_role_rd_open_depense_sql')) {
 
         return "AND {$alias}.active_dep = 0
             AND {$alias}.is_actifdep = 0
+            AND {$alias}.actif_deps = 0
             AND ({$alias}.is_validedep = 0 OR {$alias}.is_validedep IS NULL)";
     }
 }
@@ -920,23 +922,31 @@ if (!function_exists('saisie_depense_champs_chef')) {
 }
 
 if (!function_exists('saisie_peut_retirer')) {
-    function saisie_peut_retirer($auteur, $ferme, $comptable)
+    /**
+     * Admin : toute saisie encore ouverte, quel que soit l'auteur.
+     * Une ligne déjà arrêtée, fermée ou validée par le comptable reste.
+     */
+    function saisie_peut_retirer($auteur, $ferme, $comptable, $active = 0, $arret = 0)
     {
+        unset($auteur);
         if (!saisie_tri_est_admin()) {
             return false;
         }
         if ((int) $ferme === 1 || (int) $comptable === 1) {
             return false;
         }
-        $role = saisie_userole_de_role($auteur);
-        return in_array($role, array('4', '5', '16', '18'), true);
+        if ((int) $active === 1 || (int) $arret === 1) {
+            return false;
+        }
+
+        return true;
     }
 }
 
 if (!function_exists('saisie_bouton_retrait')) {
-    function saisie_bouton_retrait($type, $id, $auteur, $ferme, $comptable)
+    function saisie_bouton_retrait($type, $id, $auteur, $ferme, $comptable, $active = 0, $arret = 0)
     {
-        if (!saisie_peut_retirer($auteur, $ferme, $comptable)) {
+        if (!saisie_peut_retirer($auteur, $ferme, $comptable, $active, $arret)) {
             return '';
         }
         $CI =& get_instance();
@@ -945,6 +955,12 @@ if (!function_exists('saisie_bouton_retrait')) {
         if ($type === 'depense') {
             $action = 'Depenses/retirerdepense/' . $ekey . '/' . $id;
             $texte = 'Retirer cette dépense ? La personne qui l\'a créée pourra la ressaisir.';
+        } elseif ($type === 'depot') {
+            $action = 'Depots/retirerdepot/' . $ekey . '/' . $id;
+            $texte = 'Retirer ce dépôt ? La personne qui l\'a créé pourra le ressaisir.';
+        } elseif ($type === 'versement') {
+            $action = 'Caisses/retirerversement/' . $ekey . '/' . $id;
+            $texte = 'Retirer ce versement ? La personne qui l\'a créé pourra le ressaisir.';
         } else {
             $action = 'Caisses/retirerrecette/' . $ekey . '/' . $id;
             $texte = 'Retirer cette recette ? La personne qui l\'a créée pourra la ressaisir.';
