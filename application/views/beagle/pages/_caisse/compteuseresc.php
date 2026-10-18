@@ -135,7 +135,7 @@ $consult_escale_seul = isset($this->session->agent->userole)
                                             </div>
                                             <div class="form-group col-sm-4">
                                                 <label>DATE</label>
-                                                <input class="form-control form-control-sm" type="date" name="daterecep">
+                                                <input class="form-control form-control-sm" type="date" name="daterecep" min="<?= mdate('%Y-%m-%d', now()); ?>" required>
                                             </div>
                                         </div>
                                         <div class="form-group row">
@@ -259,7 +259,7 @@ $consult_escale_seul = isset($this->session->agent->userole)
                                             </div>
                                             <div class="form-group col-sm-4">
                                                 <label>DATE</label>
-                                                <input class="form-control form-control-sm" type="date" name="daterecep">
+                                                <input class="form-control form-control-sm" type="date" name="daterecep" min="<?= mdate('%Y-%m-%d', now()); ?>" required>
                                             </div>
                                         </div>
                                         <div class="form-group row">
@@ -396,7 +396,7 @@ $consult_escale_seul = isset($this->session->agent->userole)
                                             </div>
                                             <div class="form-group col-sm-4">
                                                 <label>DATE</label>
-                                                <input class="form-control form-control-sm" type="date" name="daterecep">
+                                                <input class="form-control form-control-sm" type="date" name="daterecep" min="<?= mdate('%Y-%m-%d', now()); ?>" required>
                                             </div>
                                         </div>
                                         <div class="form-group row">

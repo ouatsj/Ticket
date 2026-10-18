@@ -16,6 +16,35 @@
         }
 
         /**
+         * Une validation ne peut pas être datée avant le jour courant.
+         *
+         * @param string $champ
+         * @return bool vrai si la demande est refusée
+         */
+        protected function _refuser_date_validation($champ)
+        {
+            $date = substr(trim((string) $this->input->post($champ)), 0, 10);
+            if ($date === '') {
+                return false;
+            }
+            $today = mdate('%Y-%m-%d', now());
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) && $date >= $today) {
+                return false;
+            }
+            $this->session->set_flashdata('error', 'La date de validation ne peut pas être antérieure à aujourd\'hui.');
+            $retour = trim((string) $this->input->server('HTTP_REFERER'));
+            $host = (string) $this->input->server('HTTP_HOST');
+            $parts = parse_url($retour);
+            if ($retour !== '' && !empty($parts['host']) && strcasecmp($parts['host'], $host) === 0) {
+                redirect($retour);
+                return true;
+            }
+            $ekey = isset($this->session->company->ekey) ? $this->session->company->ekey : '';
+            redirect('gares/' . $ekey);
+            return true;
+        }
+
+        /**
          * idopera = le compte arrêté. iduser_nav = le valideur connecté, pour les redirections.
          *
          * @return array{idopera:int,iduser_nav:string,operavalid:int|null}
@@ -1350,6 +1379,9 @@
                 return;
             }
             
+            if ($this->_refuser_date_validation('daterecep')) {
+                return;
+            }
             if($this->input->post('daterecep')!= '')
             {
 
@@ -1565,6 +1597,9 @@
                 return;
             }
 
+            if ($this->_refuser_date_validation('daterecep')) {
+                return;
+            }
             if($this->input->post('daterecep')!= '')
             {
 
@@ -1671,6 +1706,9 @@
             $idcmpt = $this->input->post('compconnected');           
             $caisi= $this->input->post('idgar');
             
+            if ($this->_refuser_date_validation('daterecep')) {
+                return;
+            }
             if($this->input->post('daterecep')!= '')
             {
 
@@ -1772,6 +1810,9 @@
             $idcmpt = $this->input->post('compconnected');           
             $caisi= $this->input->post('idgar');
             
+            if ($this->_refuser_date_validation('daterecep')) {
+                return;
+            }
             if($this->input->post('daterecep')!= '')
             {
 
@@ -1979,6 +2020,9 @@
                 return;
             }
 
+            if ($this->_refuser_date_validation('daterecep')) {
+                return;
+            }
             if($this->input->post('daterecep')!= '')
             {
                 if($sgares->sog == 1)
@@ -2207,6 +2251,9 @@
                 return;
             }
                 
+            if ($this->_refuser_date_validation('daterecepdep')) {
+                return;
+            }
             if($this->input->post('daterecepdep')!= '')
             {
                 
@@ -3240,6 +3287,9 @@
                 return;
             }
 
+            if ($this->_refuser_date_validation('daterecep')) {
+                return;
+            }
             if($this->input->post('daterecep')!= '')
             {
                 if($sgares->sog == 1)
@@ -3341,6 +3391,9 @@
                 return;
             }
             
+            if ($this->_refuser_date_validation('daterecep')) {
+                return;
+            }
             if($this->input->post('daterecep')!= '')
             {
 

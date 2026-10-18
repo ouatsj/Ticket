@@ -117,7 +117,7 @@
                                             </div>
                                             <div class="form-group col-sm-4">
                                                 <label>DATE</label>
-                                                <input class="form-control form-control-sm" type="date" name="daterecepdep">
+                                                <input class="form-control form-control-sm" type="date" name="daterecepdep" min="<?= mdate('%Y-%m-%d', now()); ?>" required>
                                             </div>
                                         </div>
                                         <div class="form-group row">
