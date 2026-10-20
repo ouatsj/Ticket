@@ -1,10 +1,11 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
 /**
- * Bannière téléchargement app Rakieta (Android APK).
+ * Bannière téléchargement app Rakieta (Android APK + iPhone web).
  * Visible sur l'accueil guichet admin / superviseur.
  */
 $tei_url = base_url('assets/tei/');
+$tei_ios = base_url('assets/tei/ios/');
 $tei_apk = base_url('assets/tei/app/rakieta.apk');
 $tei_icon = base_url('assets/tei/icon-app.png');
 ?>
@@ -71,16 +72,28 @@ $tei_icon = base_url('assets/tei/icon-app.png');
   border-radius: 8px;
   text-decoration: none !important;
 }
+.tei-dl-banner .btn-tei-ios {
+  background: #1a1c1e;
+  color: #fff !important;
+  border: none;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-decoration: none !important;
+}
 </style>
 <div class="tei-dl-banner" id="tei-download-banner">
   <img src="<?= html_escape($tei_icon); ?>" width="48" height="48" alt="Rakieta" />
   <div class="tei-dl-text">
-    <strong>Rakieta (Android)</strong>
-    <span>Application décideur — ouverture directe sur l’accueil, mises à jour automatiques.</span>
+    <strong>Rakieta</strong>
+    <span>Android (APK) · iPhone (app web) — ouverture directe, mises à jour automatiques.</span>
   </div>
   <div class="tei-dl-actions">
+    <a class="btn-tei-ios" href="<?= html_escape($tei_ios); ?>" target="_blank" rel="noopener">
+      iPhone
+    </a>
     <a class="btn-tei-dl" href="<?= html_escape($tei_apk); ?>" download="rakieta.apk">
-      <i class="fas fa-download"></i> Télécharger Rakieta
+      <i class="fas fa-download"></i> Android
     </a>
     <a class="btn-tei-page" href="<?= html_escape($tei_url); ?>" target="_blank" rel="noopener">
       Page &amp; guide

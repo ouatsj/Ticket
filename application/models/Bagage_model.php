@@ -2015,6 +2015,53 @@
         {
             return $this->db->where('id_bagage', $id)->delete($this->table);
         }
+
+        /**
+         * Prochain id_bagage = {cpuser}{lettre_gare}{n}-{yy}.
+         * Prend le plus grand n déjà présent pour ce préfixe, pour éviter
+         * les collisions après suppression ou trous de numérotation.
+         */
+        public function next_id_bagage($cpuserId, $codeGare, $yy = null)
+        {
+            $cpuserId = (int) $cpuserId;
+            $codeGare = preg_replace('/[^A-Za-z0-9]/', '', (string) $codeGare);
+            if ($cpuserId <= 0 || $codeGare === '') {
+                return '';
+            }
+            if ($yy === null || $yy === '') {
+                $yy = date('y');
+            }
+            $yy = preg_replace('/\D/', '', (string) $yy);
+            $prefix = $cpuserId . $codeGare;
+            $row = $this->db->query(
+                "SELECT MAX(CAST(SUBSTRING_INDEX(SUBSTRING(id_bagage, CHAR_LENGTH(?) + 1), '-', 1) AS UNSIGNED)) AS maxn
+                 FROM bagages
+                 WHERE id_bagage LIKE CONCAT(?, '%-', ?)",
+                array($prefix, $prefix, $yy)
+            )->row();
+            $next = ((int) ($row && $row->maxn !== null ? $row->maxn : 0)) + 1;
+            return $prefix . $next . '-' . $yy;
+        }
+
+        /**
+         * Retire la facturation et son suivi d'envoi, s'il existe.
+         */
+        public function supprimer_facturation($id)
+        {
+            $id = (string) $id;
+            if ($id === '') {
+                return false;
+            }
+            $row = $this->db->select('idoperabagage')->where('id_bagage', $id)->get($this->table)->row();
+            if (!$row) {
+                return false;
+            }
+            if (function_exists('guichet_totaux_cache_invalidate_from_row')) {
+                guichet_totaux_cache_invalidate_from_row(array('idoperabagage' => $row->idoperabagage));
+            }
+            $this->db->where('identbagas', $id)->delete('envoibagages');
+            return $this->del($id);
+        }
         
     }
     /** Bagage_model.php **/

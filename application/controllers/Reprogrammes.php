@@ -3013,12 +3013,7 @@
 
                     $annee = date("Y");
 
-
-                    $pascompt = $this->db->query("SELECT COUNT(b.id_bagage) AS id FROM
-                     bagages b WHERE b.idoperabagage = '$iduser' AND YEAR(b.lastbag_update) = '$annee'")->row();
-
-                    
-                    $codecptr = $idcmpt.$nugd.($pascompt->id + 1)."-".$aenc;
+                    $codecptr = $this->m_bagage->next_id_bagage($idcmpt, $nugd, $aenc);
 
                     $derniercrn = $this->db->query("SELECT b.couleurcarnet FROM bagages b
                         INNER JOIN lignes lg ON b.lgidbagage = lg.ident_ligne 
@@ -3169,11 +3164,7 @@
 
             $annee = date("Y");
 
-
-            $pascompt = $this->db->query("SELECT COUNT(b.id_bagage) AS id FROM
-                     bagages b WHERE b.idoperabagage = '$iduser' AND YEAR(b.lastbag_update) = '$annee'")->row();
-
-            $codecptr = $idcmpt.$nugd.($pascompt->id + 1) . "-" . $aenc;
+            $codecptr = $this->m_bagage->next_id_bagage($idcmpt, $nugd, $aenc);
             
             if($arcod3 == NULL)
             {
@@ -3344,11 +3335,7 @@
 
             $annee = date("Y");
 
-            $pascompt = $this->db->query("SELECT COUNT(b.id_bagage) AS id FROM
-                     bagages b WHERE b.idoperabagage = '$iduser' AND YEAR(b.lastbag_update) = '$annee'")->row();
-
-
-            $codecptr = $idcmpt.$nugd.($pascompt->id + 1) . "-" . $aenc;
+            $codecptr = $this->m_bagage->next_id_bagage($idcmpt, $nugd, $aenc);
 
             if($this->input->post('lignebag') != NULL AND $this->input->post('expclient_contactbag') != NULL AND $this->input->post('rclient_contactbag') != NULL AND $this->input->post('types_bagage') != NULL AND $this->input->post('naturebagage') != NULL AND $this->input->post('nombrebag') != NULL AND $this->input->post('fraisbag') != NULL)
             {
@@ -3759,10 +3746,7 @@
                             $annee = date("Y");
 
 
-                            $pascompt = $this->db->query("SELECT COUNT(b.id_bagage) AS id FROM
-                                bagages b WHERE b.idoperabagage = '$iduser' AND YEAR(b.lastbag_update) = '$annee'")->row();
-
-                            $codecptr = $idcmpt.$nugd.($pascompt->id + 1)."-" . $aenc;
+                            $codecptr = $this->m_bagage->next_id_bagage($idcmpt, $nugd, $aenc);
 
                             $passecompt = $this->db->query("SELECT COUNT(b.id_bagage) AS id FROM bagages b WHERE b.date_create = '$today' AND b.idoperabagage = '$iduser'")->row();
                                 
@@ -3912,10 +3896,7 @@
                             $annee = date("Y");
 
 
-                            $pascompt = $this->db->query("SELECT COUNT(b.id_bagage) AS id FROM
-                                bagages b WHERE b.idoperabagage = '$iduser' AND YEAR(b.lastbag_update) = '$annee'")->row();
-
-                            $codecptr = $idcmpt.$nugd.($pascompt->id + 1)."-".$aenc;               
+                            $codecptr = $this->m_bagage->next_id_bagage($idcmpt, $nugd, $aenc);               
                             $passecompt = $this->db->query("SELECT COUNT(b.id_bagage) AS id FROM bagages b WHERE b.date_create = '$today' AND b.idoperabagage = '$iduser'")->row();
                                 
                                     

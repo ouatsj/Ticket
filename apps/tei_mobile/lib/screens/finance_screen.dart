@@ -17,8 +17,12 @@ class _FinanceScreenState extends State<FinanceScreen> {
   String? _error;
   Map<String, dynamic>? _data;
 
-  static const _from = '2026-09-01';
-  static const _to = '2026-09-13';
+  String get _from {
+    final n = DateTime.now();
+    return DateFormat('yyyy-MM-dd').format(DateTime(n.year, n.month, 1));
+  }
+
+  String get _to => DateFormat('yyyy-MM-dd').format(DateTime.now());
 
   @override
   void initState() {

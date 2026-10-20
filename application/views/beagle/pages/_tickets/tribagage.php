@@ -26,6 +26,7 @@
                 <thead>
                 <tr>
                     <th></th>
+                    <th>N° reçu</th>
                     <th>Code</th>
                     <th>Client / Contact</th>
                     <th>Départ / Heure / Axe</th>
@@ -50,6 +51,10 @@
                             <? endif; ?>
                         </td>
 
+                        <td>
+                            <?php $recuParts = explode('-', (string) $item->id_bagage); $num_recu = $recuParts[0]; ?>
+                            <span><?= html_escape($num_recu); ?></span>
+                        </td>
                         <td>
                             <span><?= $item->codebag; ?></span>
                         </td>
@@ -82,55 +87,8 @@
                                 <i class="fas fa-print"></i>
                             <? endif; ?>&nbsp;&nbsp;&nbsp;
                             <? if ($this->session->agent->userole === '1'): ?>
-                            <a class="icon" title="ANNULER RECU"
-                                href="<?= site_url('Confirmation/annule/'.$this->session->company->ekey.'/'.$conex->roleattribut.'/'.$item->id_bagage.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare.'/'.$item->annulebag); ?>">
-                                <i class="fas fa-trash-alt text-warning"></i>
-                            </a>&nbsp;&nbsp;&nbsp;
-                            <a href="<?= "#?{$item->id_bagage}&bagage={$item->annulebag}"; ?>"
-                                    title="prix" class="md-trigger" data-modal="edite-<?= $item->id_bagage; ?>">
-                                <i class="fas fa-edit text-warning"></i>
-                            </a>&nbsp;
-                            
+                            <?php $this->load->view('beagle/pages/_tickets/_bagage_facture_actions', array('item' => $item, 'conex' => $conex, 'bus_stop' => $bus_stop, 'tri_bagage' => isset($tri_bagage) ? $tri_bagage : array(), 'num_recu' => $num_recu)); ?>
                             <?endif;?>
-
-                            <div
-                                class="modal-container colored-header colored-header-success custom-width modal-effect-7"
-                                id="edite-<?= $item->id_bagage; ?>" style="perspective: none;">
-
-                                <div class="modal-content">
-
-                                    <div class="modal-header modal-header-colored">
-                                        <h3 class="modal-title">MODIFICATION PRIX</h3>
-                                        <button class="close modal-close" type="button"
-                                        data-dismiss="modal" aria-hidden="true"><span
-                                            class="mdi mdi-close text-white"></span></button>
-                                    </div>
-
-                                    <?= form_open('Confirmation/updateprix/' . $this->session->company->ekey .'/'.$conex->roleattribut.'/'.$bus_stop->idengare.'/'.$bus_stop->idsousgare.'/'.$item->id_bagage, array('class' => 'modal-body form')); ?>
-
-                                    <div class="row">
-                                        <div class="form-group col-sm-4">
-                                            <label>Prix</label>
-                                            <input class="form-control form-control-sm" type="text"
-                                            name="prixbagage"
-                                            value="<?= $item->prix_bagage; ?>"
-                                            placeholder="<?= $item->prix_bagage; ?>"/>
-                                        </div>
-                                    </div>
-
-                                    <div class="modal-footer">
-                                        <button class="btn btn-secondary modal-close" type="button"
-                                                data-dismiss="modal">
-                                            <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
-                                        </button>
-                                        <button class="btn btn-success modal-close" type="submit"
-                                                data-dismiss="modal">
-                                            <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
-                                        </button>
-                                    </div>
-                                    <?= form_close(); ?>
-                                </div>
-                            </div>
                         </td>
                 <? endforeach; ?>        
                 </tbody>

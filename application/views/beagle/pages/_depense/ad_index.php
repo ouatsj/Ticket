@@ -220,7 +220,7 @@
                                                 </div>
                                                 <? if (saisie_depense_commentaire_seul($item)): ?>
                                                 <div class="form-group col-sm-12">
-                                                    <p class="text-muted mb-0">Seul le commentaire peut être modifié sur une ligne venue d'un arrêt.</p>
+                                                    <p class="text-muted mb-0">Sur une ligne venue d'un arrêt, vous pouvez modifier la date de réception et le commentaire que vous avez renseignés.</p>
                                                 </div>
                                                 <? endif; ?>
                                                 <div class="form-group col-sm-4">

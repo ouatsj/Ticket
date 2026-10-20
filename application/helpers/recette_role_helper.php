@@ -722,7 +722,9 @@ if (!function_exists('saisie_ligne_fermee')) {
 
 if (!function_exists('saisie_recette_mode')) {
     /**
-     * complet, commentaire, ou false.
+     * complet = tous les champs saisis,
+     * validation = date de réception + commentaire (champs du validateur, pas ceux de l'arrêt),
+     * false = pas de modification.
      */
     function saisie_recette_mode($row, $roleattribut = null, $userole = null)
     {
@@ -744,17 +746,56 @@ if (!function_exists('saisie_recette_mode')) {
             $roleattribut = roleattribut_guard_session_ra();
         }
         $owner = isset($row->idopera) ? (int) $row->idopera : 0;
+        $ra = (int) $roleattribut;
         if (recette_role_is_saisie($userole)) {
-            if (saisie_auteur_est_personne($owner, $roleattribut)) {
+            if (saisie_auteur_est_personne($owner, $ra)) {
                 return 'complet';
             }
             $chef = isset($row->operavalidchef) ? (int) $row->operavalidchef : 0;
-            if ($chef > 0 && saisie_auteur_est_personne($chef, $roleattribut)) {
-                return 'commentaire';
+            if ($chef > 0 && saisie_auteur_est_personne($chef, $ra)) {
+                return 'validation';
             }
             return false;
         }
-        if (!saisie_auteur_est_personne($owner, $roleattribut)) {
+        if (recette_role_is_validateur_principal($userole)) {
+            if (saisie_auteur_est_personne($owner, $ra)) {
+                if (saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
+                    'is_validerecet',
+                    'is_actifrecet',
+                    'is_actifrecetad',
+                    'ferme_caisrecet',
+                    'valid_cptablerecet',
+                ))) {
+                    return false;
+                }
+                return 'complet';
+            }
+            $validateur = isset($row->operavalid) ? (int) $row->operavalid : 0;
+            if ($ra > 0 && $validateur === $ra) {
+                return 'validation';
+            }
+            return false;
+        }
+        if (recette_role_is_validateur_adjoint($userole)) {
+            if (saisie_auteur_est_personne($owner, $ra)) {
+                if (saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
+                    'is_validerecet',
+                    'is_actifrecet',
+                    'is_actifrecetad',
+                    'ferme_caisrecet',
+                    'valid_cptablerecet',
+                ))) {
+                    return false;
+                }
+                return 'complet';
+            }
+            $validateur = isset($row->operavalidad) ? (int) $row->operavalidad : 0;
+            if ($ra > 0 && $validateur === $ra) {
+                return 'validation';
+            }
+            return false;
+        }
+        if (!saisie_auteur_est_personne($owner, $ra)) {
             return false;
         }
         if (saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
@@ -798,16 +839,47 @@ if (!function_exists('saisie_depense_mode')) {
             }
             $chef = isset($row->opevalidchef) ? (int) $row->opevalidchef : 0;
             if ($chef > 0 && saisie_auteur_est_personne($chef, $ra)) {
-                return 'commentaire';
+                return 'validation';
             }
             return false;
         }
         if (recette_role_is_validateur_principal($userole)) {
-            $validateur = isset($row->opevalid) ? (int) $row->opevalid : 0;
-            if ($ra <= 0 || (!saisie_auteur_est_personne($owner, $ra) && $validateur !== $ra)) {
-                return false;
+            if (saisie_auteur_est_personne($owner, $ra)) {
+                if (saisie_ligne_arret_valide($row, 'arret_caisdep', array(
+                    'is_validedep',
+                    'is_actifdep',
+                    'is_actifdepad',
+                    'ferme_caisdep',
+                    'validcptabledep',
+                ))) {
+                    return false;
+                }
+                return 'complet';
             }
-            return 'complet';
+            $validateur = isset($row->opevalid) ? (int) $row->opevalid : 0;
+            if ($ra > 0 && $validateur === $ra) {
+                return 'validation';
+            }
+            return false;
+        }
+        if (recette_role_is_validateur_adjoint($userole)) {
+            if (saisie_auteur_est_personne($owner, $ra)) {
+                if (saisie_ligne_arret_valide($row, 'arret_caisdep', array(
+                    'is_validedep',
+                    'is_actifdep',
+                    'is_actifdepad',
+                    'ferme_caisdep',
+                    'validcptabledep',
+                ))) {
+                    return false;
+                }
+                return 'complet';
+            }
+            $validateur = isset($row->opevalidad) ? (int) $row->opevalidad : 0;
+            if ($ra > 0 && $validateur === $ra) {
+                return 'validation';
+            }
+            return false;
         }
         if (!saisie_auteur_est_personne($owner, $ra)) {
             return false;
@@ -826,28 +898,44 @@ if (!function_exists('saisie_depense_mode')) {
 }
 
 if (!function_exists('saisie_recette_commentaire_seul')) {
+    /** @deprecated préférer saisie_recette_mode === validation */
     function saisie_recette_commentaire_seul($row)
     {
-        return saisie_recette_mode($row) === 'commentaire';
+        return saisie_recette_mode($row) === 'validation';
     }
 }
 
 if (!function_exists('saisie_depense_commentaire_seul')) {
     function saisie_depense_commentaire_seul($row)
     {
-        return saisie_depense_mode($row) === 'commentaire';
+        return saisie_depense_mode($row) === 'validation';
     }
 }
 
 if (!function_exists('saisie_recette_champs_chef')) {
+    /**
+     * Patch autorisé pour chef / caissier / adjoint selon le mode de la ligne.
+     */
     function saisie_recette_champs_chef($ligne)
     {
         $CI =& get_instance();
-        if (saisie_recette_mode($ligne) === 'commentaire') {
-            return array(
-                'ok' => true,
-                'data' => array('commentaire_recet' => $CI->input->post('comment')),
+        $mode = saisie_recette_mode($ligne);
+        if ($mode === 'validation' || $mode === 'commentaire') {
+            $data = array(
+                'commentaire_recet' => $CI->input->post('comment'),
             );
+            $date = trim((string) $CI->input->post('daterecep'));
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                return array(
+                    'ok' => false,
+                    'error' => 'Indiquez la date à laquelle vous avez reçu l\'arrêt.',
+                );
+            }
+            $data['date_recet'] = $date;
+            return array('ok' => true, 'data' => $data);
+        }
+        if ($mode !== 'complet') {
+            return array('ok' => false, 'error' => 'Cette recette ne peut plus être modifiée.');
         }
         $montant = saisie_montant_positif($CI->input->post('montantverse'));
         if ($montant < 1) {
@@ -883,11 +971,23 @@ if (!function_exists('saisie_depense_champs_chef')) {
     function saisie_depense_champs_chef($ligne)
     {
         $CI =& get_instance();
-        if (saisie_depense_mode($ligne) === 'commentaire') {
-            return array(
-                'ok' => true,
-                'data' => array('commentaire' => $CI->input->post('commentdep')),
+        $mode = saisie_depense_mode($ligne);
+        if ($mode === 'validation' || $mode === 'commentaire') {
+            $data = array(
+                'commentaire' => $CI->input->post('commentdep'),
             );
+            $date = trim((string) $CI->input->post('datereception'));
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                return array(
+                    'ok' => false,
+                    'error' => 'Indiquez la date à laquelle vous avez reçu l\'arrêt.',
+                );
+            }
+            $data['date_depens'] = $date;
+            return array('ok' => true, 'data' => $data);
+        }
+        if ($mode !== 'complet') {
+            return array('ok' => false, 'error' => 'Cette dépense ne peut plus être modifiée.');
         }
         $montant = saisie_montant_positif($CI->input->post('montantversedep'));
         if ($montant < 1) {

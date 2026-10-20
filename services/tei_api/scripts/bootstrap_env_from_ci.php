@@ -27,10 +27,16 @@ $c = $db['default'];
 $access = bin2hex(random_bytes(32));
 $refresh = bin2hex(random_bytes(32));
 
+// Node résout souvent « localhost » en ::1 ; MySQL n’écoute que 127.0.0.1 en prod.
+$dbHost = $c['hostname'];
+if ($dbHost === 'localhost' || $dbHost === '::1') {
+    $dbHost = '127.0.0.1';
+}
+
 $lines = array(
     'PORT=8091',
     'TZ=Europe/Berlin',
-    'DB_HOST=' . $c['hostname'],
+    'DB_HOST=' . $dbHost,
     'DB_PORT=' . (isset($c['port']) && $c['port'] !== '' ? $c['port'] : '3306'),
     'DB_USER=' . $c['username'],
     'DB_PASSWORD=' . $c['password'],

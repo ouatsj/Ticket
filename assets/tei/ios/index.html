@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Rakieta" />
+  <meta name="theme-color" content="#0B3D91" />
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+  <link rel="manifest" href="../manifest.webmanifest" />
+  <title>Rakieta — iPhone</title>
+  <style>
+    :root {
+      --blue: #0B3D91;
+      --red: #E31E24;
+      --ink: #1a1c1e;
+      --muted: #5c6370;
+      --bg: #f4f6f8;
+      --card: #fff;
+      --line: rgba(0,0,0,.08);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      padding-bottom: calc(72px + var(--safe-bottom));
+    }
+    header {
+      position: sticky; top: 0; z-index: 5;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 14px 8px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    header img { height: 36px; }
+    header h1 { font-size: 1.15rem; margin: 0; color: var(--blue); }
+    .grow { flex: 1; }
+    button.icon {
+      border: 0; background: transparent; font-size: 1.35rem; padding: 6px;
+    }
+    main { padding: 12px 14px 20px; }
+    .datebar {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .datebar input { border: 0; font-size: 1rem; font-weight: 600; flex: 1; background: transparent; }
+    .muted { color: var(--muted); font-size: .82rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .card.clickable { cursor: pointer; }
+    .card .label { color: var(--muted); font-size: .85rem; }
+    .card .value { font-size: 1.45rem; font-weight: 800; margin-top: 2px; }
+    .bar { width: 4px; height: 36px; background: var(--blue); border-radius: 2px; margin-right: 12px; }
+    .row { display: flex; align-items: center; }
+    nav.tabs {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      background: #fff;
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding-bottom: var(--safe-bottom);
+      z-index: 10;
+    }
+    nav.tabs button {
+      border: 0; background: transparent;
+      padding: 10px 4px 8px;
+      font-size: .72rem;
+      color: var(--muted);
+    }
+    nav.tabs button.active { color: var(--blue); font-weight: 700; }
+    nav.tabs button span { display: block; font-size: 1.2rem; margin-bottom: 2px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .err { color: var(--red); padding: 16px; }
+    .list-item {
+      display: flex; justify-content: space-between; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--line);
+      font-size: .95rem;
+    }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      color: #fff; font-size: .7rem; font-weight: 700;
+      background: var(--red);
+    }
+    .install {
+      background: #eef3fb; border: 1px solid var(--blue);
+      border-radius: 12px; padding: 12px; margin-bottom: 12px;
+      font-size: .9rem;
+    }
+    dialog {
+      border: 0; border-radius: 16px; padding: 0;
+      width: min(92vw, 420px);
+      max-height: 80vh;
+    }
+    dialog::backdrop { background: rgba(0,0,0,.35); }
+    .sheet { padding: 18px; overflow: auto; max-height: 80vh; }
+    .sheet h3 { margin: 0 0 8px; }
+    .toast {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+      background: var(--blue); color: #fff; padding: 8px 14px; border-radius: 20px;
+      font-size: .8rem; opacity: 0; transition: .2s; z-index: 20; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mini { background: #fff; border: 0; border-radius: 14px; padding: 12px; text-align: left; box-shadow: 0 4px 14px rgba(11,61,145,.06); font: inherit; color: inherit; width: 100%; }
+    .mini b { display: block; color: var(--blue); font-size: .95rem; }
+    .mini span { display: block; margin-top: 6px; color: var(--muted); font-size: .78rem; }
+    .back { margin: 0 0 10px; background: #fff; border: 0; border-radius: 999px; padding: 8px 12px; font-weight: 700; color: var(--blue); }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="../branding/rakieta_lab_logo.png" alt="Rakieta" />
+    <h1>Rakieta</h1>
+    <div class="grow"></div>
+    <button class="icon" id="btnRefresh" title="Actualiser">↻</button>
+  </header>
+  <main>
+    <div class="install" id="installHint">
+      <strong>iPhone — installer comme application</strong><br />
+      Safari → bouton Partager → <em>Sur l’écran d’accueil</em>.
+      L’icône <strong>Rakieta</strong> apparaîtra comme une app.
+    </div>
+    <div class="datebar">
+      <span>📅</span>
+      <input type="date" id="dateInput" />
+      <button type="button" id="btnToday" class="muted">Aujourd’hui</button>
+    </div>
+    <p class="muted" id="asOf">Chargement…</p>
+
+    <section class="panel active" id="panel-home"></section>
+    <section class="panel" id="panel-deps"></section>
+    <section class="panel" id="panel-fin"></section>
+    <section class="panel" id="panel-ana"></section>
+  </main>
+
+  <nav class="tabs">
+    <button class="active" data-tab="home"><span>🏠</span>Accueil</button>
+    <button data-tab="deps"><span>🚌</span>Départs</button>
+    <button data-tab="fin"><span>💶</span>Finances</button>
+    <button data-tab="ana"><span>📊</span>Analyse</button>
+  </nav>
+
+  <dialog id="sheet"><div class="sheet" id="sheetBody"></div></dialog>
+  <div class="toast" id="toast">Actualisé</div>
+
+  <script>
+  (() => {
+    const host = location.hostname;
+    const API = host.includes('ticket.rakietabus.com')
+      ? 'https://ticket.rakietabus.com/tei-api/v1'
+      : (host.includes('essaiticket') ? 'https://essaiticket.rakietabus.com/tei-api/v1' : 'https://ticket.rakietabus.com/tei-api/v1');
+    const USER = 'tei_decideur';
+    const PASS = 'TeiDecideur!2026';
+
+    let token = localStorage.getItem('tei_ios_token') || '';
+    let ekey = Number(localStorage.getItem('tei_ios_ekey') || 0);
+    let tab = 'home';
+    let timer = null;
+
+    const money = (v) => {
+      if (v == null || v === '') return 'n/d';
+      const n = Number(v) || 0;
+      return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n) + ' F';
+    };
+    const todayYmd = () => {
+      const d = new Date();
+      const z = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;
+    };
+    const monthStart = (ymd) => ymd.slice(0, 8) + '01';
+
+    const dateInput = document.getElementById('dateInput');
+    dateInput.value = todayYmd();
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg || 'Actualisé';
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1200);
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(API + path, {
+        ...opts,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
+          ...(opts.headers || {}),
+        },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        token = '';
+        localStorage.removeItem('tei_ios_token');
+        await login();
+        return api(path, opts);
+      }
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      return data;
+    }
+
+    async function login() {
+      const data = await api('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username: USER, password: PASS }),
+      });
+      token = data.access_token || '';
+      localStorage.setItem('tei_ios_token', token);
+      const scopes = (data.user && data.user.scopes) || data.scopes || [];
+      ekey = (scopes[0] && Number(scopes[0].ekey)) || 1000;
+      localStorage.setItem('tei_ios_ekey', String(ekey));
+    }
+
+    function openSheet(html) {
+      document.getElementById('sheetBody').innerHTML = html + '<p style="margin-top:16px"><button onclick="document.getElementById(\'sheet\').close()" style="width:100%;padding:12px;border:0;border-radius:10px;background:#0B3D91;color:#fff;font-weight:700">Fermer</button></p>';
+      document.getElementById('sheet').showModal();
+    }
+
+    function kpi(label, value, detailHtml) {
+      const id = 'k' + Math.random().toString(36).slice(2, 8);
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) el.onclick = () => openSheet(detailHtml || (`<h3>${label}</h3><p>${value}</p>`));
+      }, 0);
+      return `<div class="card clickable" id="${id}"><div class="row"><div class="bar"></div><div><div class="label">${label}</div><div class="value">${value}</div></div></div></div>`;
+    }
+
+    async function loadHome() {
+      const d = dateInput.value;
+      const s = await api(`/dashboard/summary?ekey=${ekey}&date=${d}`);
+      document.getElementById('asOf').textContent = `Actualisé : ${s.as_of || '—'} · données Ticket`;
+      const companies = (s.companies || []).map(c => `<div class="list-item"><span>${c.nom_compagnie}</span><strong>${money(c.ca_jour)}</strong></div>`).join('');
+      const detail = (key, title) => {
+        const block = (s.details && s.details[key]) || {};
+        const comp = (block.composition || []).map(r => `<div class="list-item"><span>${r.label}</span><strong>${r.unite==='F'?money(r.valeur):(r.valeur??'—')}</strong></div>`).join('');
+        return `<h3>${block.titre || title}</h3><p class="muted">${block.definition || ''}</p>${comp}<h4>Par compagnie</h4>${companies}`;
+      };
+      document.getElementById('panel-home').innerHTML =
+        kpi('CA billets', money(s.ca_jour), detail('ca_jour', 'CA billets')) +
+        kpi('CA du mois', money(s.ca_mois), detail('ca_mois', 'CA mois')) +
+        kpi('Billets', s.billets_jour ?? 0, detail('billets_jour', 'Billets')) +
+        kpi('Bagages', money(s.ca_bagages_jour), detail('ca_bagages_jour', 'Bagages')) +
+        kpi('Courrier', money(s.ca_courrier_jour), detail('ca_courrier_jour', 'Courrier')) +
+        kpi('Écart caisse', money(s.ecart_caisse_jour), detail('ecart_caisse_jour', 'Écart'));
+    }
+
+    let depNav = { cie: null, agence: null, cartes: [] };
+
+    function cartesDepuis(list) {
+      const cies = {};
+      list.forEach(x => {
+        const cie = x.compagnie || '—';
+        const ag = x.gare_depart || x.code_gare || '—';
+        if (!cies[cie]) cies[cie] = { compagnie: cie, count: 0, lieux: {} };
+        if (!cies[cie].lieux[ag]) cies[cie].lieux[ag] = { agence: ag, count: 0, complets: 0, departures: [] };
+        cies[cie].count += 1;
+        cies[cie].lieux[ag].count += 1;
+        if (x.alerte === 'COMPLET') cies[cie].lieux[ag].complets += 1;
+        cies[cie].lieux[ag].departures.push(x);
+      });
+      return Object.keys(cies).map(k => {
+        const lieux = Object.keys(cies[k].lieux).map(a => cies[k].lieux[a]);
+        return { compagnie: k, count: cies[k].count, agences: lieux.length, lieux };
+      });
+    }
+
+    function paintDeps() {
+      const box = document.getElementById('panel-deps');
+      const cartes = depNav.cartes;
+      if (!cartes.length) {
+        box.innerHTML = '<div class="card">Aucun départ pour cette date.</div>';
+        return;
+      }
+      if (depNav.agence) {
+        const deps = (depNav.agence.departures || []).slice().sort((a, b) => String(a.heure).localeCompare(String(b.heure)));
+        box.innerHTML = `<button class="back" type="button" id="depBack">← ${depNav.cie.compagnie}</button>` + deps.map(m => {
+          const alerte = m.alerte ? `<span class="badge">${m.alerte}</span>` : '';
+          return `<div class="card">
+            <div class="row" style="justify-content:space-between">
+              <strong style="font-size:1.2rem">${m.heure}</strong>${alerte}
+            </div>
+            <div>${m.ligne}</div>
+            <div class="muted">${m.gare_depart} → ${m.destination}</div>
+            <div style="margin-top:6px;font-weight:600">Places ${m.places_occupees}/${m.capacite} (${m.taux_remplissage ?? '—'} %) · ${m.billets_vendus} billets</div>
+          </div>`;
+        }).join('');
+        document.getElementById('depBack').onclick = () => { depNav.agence = null; paintDeps(); };
+        return;
+      }
+      if (depNav.cie) {
+        box.innerHTML = `<button class="back" type="button" id="depBack">← Compagnies</button>` + (depNav.cie.lieux || []).map((lieu, i) =>
+          `<button class="card" type="button" data-ag="${i}" style="width:100%;text-align:left;border:0;font:inherit">
+            <strong>${lieu.agence}</strong>
+            <div class="muted" style="margin-top:4px">${lieu.count} départs${lieu.complets ? ' · ' + lieu.complets + ' complet(s)' : ''}</div>
+          </button>`
+        ).join('');
+        document.getElementById('depBack').onclick = () => { depNav.cie = null; paintDeps(); };
+        box.querySelectorAll('[data-ag]').forEach(btn => {
+          btn.onclick = () => { depNav.agence = depNav.cie.lieux[Number(btn.getAttribute('data-ag'))]; paintDeps(); };
+        });
+        return;
+      }
+      box.innerHTML = `<div class="grid">${cartes.map((cie, i) =>
+        `<button class="mini" type="button" data-cie="${i}"><b>${cie.compagnie}</b><span>${cie.count} départs</span><span>${cie.agences} agences</span></button>`
+      ).join('')}</div>`;
+      box.querySelectorAll('[data-cie]').forEach(btn => {
+        btn.onclick = () => { depNav.cie = cartes[Number(btn.getAttribute('data-cie'))]; paintDeps(); };
+      });
+    }
+
+    async function loadDeps() {
+      const d = dateInput.value;
+      const s = await api(`/departures?ekey=${ekey}&date=${d}`);
+      const items = s.departures || [];
+      depNav.cartes = (s.cartes && s.cartes.length)
+        ? s.cartes.map(c => ({ compagnie: c.compagnie, count: c.count, agences: c.agences, lieux: c.lieux || [] }))
+        : cartesDepuis(items);
+      depNav.cie = null;
+      depNav.agence = null;
+      document.getElementById('asOf').textContent = `${items.length} départs le ${s.date || d} · compagnie, puis agence`;
+      paintDeps();
+    }
+
+    async function loadFin() {
+      const to = dateInput.value;
+      const from = monthStart(to);
+      const s = await api(`/finance/sales?ekey=${ekey}&from=${from}&to=${to}`);
+      const agences = (s.by_agence || []).map(a =>
+        `<div class="list-item"><span>${a.agence}<br><span class="muted">${a.billets} billets</span></span><strong>${money(a.ca)}</strong></div>`
+      ).join('');
+      const finDetail = (title, val) =>
+        `<h3>${title}</h3><p><strong>${typeof val === 'number' || String(val).match(/^\d/) ? money(val) : val}</strong></p><h4>Par agence</h4>${agences || '<p class="muted">Aucune agence</p>'}`;
+      document.getElementById('panel-fin').innerHTML =
+        `<p class="muted">Période ${from} → ${to}</p>` +
+        kpi('CA billets', money(s.ca_billets), finDetail('CA billets', s.ca_billets)) +
+        kpi('Billets', s.billets ?? 0, finDetail('Billets', s.billets)) +
+        kpi('Bagages', money(s.ca_bagages), finDetail('Bagages', s.ca_bagages)) +
+        kpi('Courrier', money(s.ca_courrier), finDetail('Courrier', s.ca_courrier)) +
+        kpi('Écart caisse', money(s.ecart_caisse), finDetail('Écart caisse', s.ecart_caisse)) +
+        `<div class="card"><strong>Par agence</strong>${agences}</div>`;
+    }
+
+    async function loadAna() {
+      const d = dateInput.value;
+      const s = await api(`/insights?ekey=${ekey}&date=${d}`);
+      const c = s.compare || {};
+      const recs = (s.recommendations || []).map(r =>
+        `<div class="card"><span class="badge" style="background:${r.priorite==='haute'?'#E31E24':(r.priorite==='moyenne'?'#C77800':'#0B3D91')}">${(r.priorite||'').toUpperCase()}</span>
+         <div style="margin-top:8px;font-weight:700">${r.probleme}</div>
+         <div class="muted" style="margin-top:6px">Action : ${r.action}</div></div>`
+      ).join('');
+      document.getElementById('panel-ana').innerHTML = `
+        <div class="card">
+          <div class="list-item"><span>Jour</span><strong>${money(c.jour && c.jour.ca)}</strong></div>
+          <div class="list-item"><span>Veille</span><strong>${money(c.veille && c.veille.ca)}</strong></div>
+          <div class="list-item"><span>Même jour S-1</span><strong>${money(c.meme_jour_semaine_prec && c.meme_jour_semaine_prec.ca)}</strong></div>
+          <div class="list-item"><span>Moyenne 14 j</span><strong>${money(c.moyenne_14j && c.moyenne_14j.ca)}</strong></div>
+        </div>
+        ${recs || '<div class="card">Aucun conseil pour cette date.</div>'}`;
+    }
+
+    async function refresh(showToast) {
+      try {
+        if (!token) await login();
+        if (tab === 'home') await loadHome();
+        else if (tab === 'deps') await loadDeps();
+        else if (tab === 'fin') await loadFin();
+        else await loadAna();
+        if (showToast) toast('Actualisé');
+      } catch (e) {
+        const el = document.getElementById('panel-' + (tab === 'home' ? 'home' : tab === 'deps' ? 'deps' : tab === 'fin' ? 'fin' : 'ana'));
+        el.innerHTML = `<div class="err">${e.message || e}</div>`;
+      }
+    }
+
+    document.querySelectorAll('nav.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tab = btn.dataset.tab;
+        document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel-' + tab).classList.add('active');
+        refresh(false);
+      });
+    });
+    document.getElementById('btnRefresh').onclick = () => refresh(true);
+    document.getElementById('btnToday').onclick = () => { dateInput.value = todayYmd(); refresh(true); };
+    dateInput.onchange = () => refresh(true);
+
+    // hide install hint if already standalone
+    if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+      document.getElementById('installHint').style.display = 'none';
+    }
+
+    refresh(false);
+    timer = setInterval(() => refresh(false), 45000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh(false);
+    });
+  })();
+  </script>
+</body>
+</html>

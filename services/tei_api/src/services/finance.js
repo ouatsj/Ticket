@@ -46,7 +46,7 @@ async function financeSales(scope, ekey, companyParam, fromYmd, toYmd) {
   const cie = companyFilterClause(scope, companyParam, 'dest');
   const { ids, all } = resolveIds(scope, companyParam);
 
-  const [tickets, byCie, byLigne, bag, cour, recettes] = await Promise.all([
+  const [tickets, byCie, byLigne, byAgence, bag, cour, recettes] = await Promise.all([
     query(
       `SELECT COALESCE(SUM(p.prixvente),0) AS ca, COUNT(p.code_passager) AS billets
        ${TICKET_JOINS} ${TICKET_WHERE} ${cie.sql}`,
@@ -68,6 +68,25 @@ async function financeSales(scope, ekey, companyParam, fromYmd, toYmd) {
        GROUP BY ident_ligne, nom_ligne
        ORDER BY ca DESC
        LIMIT 30`,
+      { ekey, d1: fromYmd, d2: toYmd, ...cie.params }
+    ),
+    // Répartition par agence (sous-gare de vente) — fallback gare programme
+    query(
+      `SELECT
+         COALESCE(
+           NULLIF(TRIM(sg.nomsousgare), ''),
+           CONCAT(COALESCE(ge.nom_gaep, pr.gareidentif, '—'), ' (gare principale)')
+         ) AS agence,
+         MAX(COALESCE(sg.idsousgare, 0)) AS idsousgare,
+         COALESCE(SUM(p.prixvente),0) AS ca,
+         COUNT(p.code_passager) AS billets
+       ${TICKET_JOINS}
+       LEFT JOIN sousgare sg ON sg.idsousgare = p.idsousgare_vente
+       LEFT JOIN gare_exp ge ON ge.code_gaexp = COALESCE(NULLIF(TRIM(p.code_gaexp_vendu), ''), pr.gareidentif)
+       ${TICKET_WHERE} ${cie.sql}
+       GROUP BY agence
+       ORDER BY ca DESC
+       LIMIT 50`,
       { ekey, d1: fromYmd, d2: toYmd, ...cie.params }
     ),
     (async () => {
@@ -133,6 +152,16 @@ async function financeSales(scope, ekey, companyParam, fromYmd, toYmd) {
   const caCour = cour.ca === null ? null : Number(cour.ca) || 0;
   const caCaisse = Number(recettes.ca) || 0;
 
+  const seriesRows = await query(
+    `SELECT DATE_FORMAT(p.datep_create, '%Y-%m-%d') AS jour,
+            COALESCE(SUM(p.prixvente),0) AS ca,
+            COUNT(p.code_passager) AS billets
+     ${TICKET_JOINS} ${TICKET_WHERE} ${cie.sql}
+     GROUP BY DATE_FORMAT(p.datep_create, '%Y-%m-%d')
+     ORDER BY jour ASC`,
+    { ekey, d1: fromYmd, d2: toYmd, ...cie.params }
+  );
+
   return {
     as_of: new Date().toISOString(),
     source: 'ventes',
@@ -146,9 +175,30 @@ async function financeSales(scope, ekey, companyParam, fromYmd, toYmd) {
     nb_colis: cour.n === null ? null : Number(cour.n) || 0,
     recettes_caisse: caCaisse,
     ecart_caisse: Number((caTickets - caCaisse).toFixed(2)),
+    composition: {
+      billets: { label: 'Ventes billets', ca: caTickets, quantite: Number(tickets[0].billets) || 0 },
+      bagages: { label: 'Bagages', ca: caBag, quantite: bag.n === null ? null : Number(bag.n) || 0 },
+      courrier: { label: 'Courrier', ca: caCour, quantite: cour.n === null ? null : Number(cour.n) || 0 },
+      recettes_caisse: { label: 'Recettes caisse (ledger)', ca: caCaisse },
+      total_activite: {
+        label: 'Total activité (billets + bagages + courrier)',
+        ca: Number(caTickets + (caBag || 0) + (caCour || 0)),
+      },
+    },
+    series: seriesRows.map((r) => ({
+      date: r.jour,
+      ca: Number(r.ca) || 0,
+      billets: Number(r.billets) || 0,
+    })),
     by_company: byCie.map((r) => ({
       cle_compagnie: Number(r.cle_compagnie),
       nom_compagnie: r.nom_compagnie,
+      ca: Number(r.ca) || 0,
+      billets: Number(r.billets) || 0,
+    })),
+    by_agence: byAgence.map((r) => ({
+      agence: r.agence,
+      idsousgare: Number(r.idsousgare) || null,
       ca: Number(r.ca) || 0,
       billets: Number(r.billets) || 0,
     })),
@@ -159,9 +209,9 @@ async function financeSales(scope, ekey, companyParam, fromYmd, toYmd) {
       billets: Number(r.billets) || 0,
     })),
     notes: [
-      'CA billets = passager.prixvente (id_compaga).',
+      'CA billets = passager.prixvente (compagnie via id_compaga).',
+      'Par agence = sous-gare de vente (idsousgare_vente), sinon gare du programme.',
       'Écart caisse = CA billets − recettes ledger (arrêt non synchrone possible).',
-      'Remboursements : non disponibles dans Ticket.',
     ],
   };
 }

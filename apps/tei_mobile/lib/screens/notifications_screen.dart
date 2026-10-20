@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../services/api_client.dart';
 import '../services/auth_state.dart';
@@ -60,7 +61,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final ekey = context.read<AuthState>().primaryEkey;
     if (ekey == null) return;
     try {
-      final r = await context.read<ApiClient>().scanAlerts(ekey: ekey, date: '2026-09-13');
+      final r = await context.read<ApiClient>().scanAlerts(
+            ekey: ekey,
+            date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Scan : ${r['emitted']} nouvelle(s) alerte(s) / ${r['scanned']} départs')),

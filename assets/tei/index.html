@@ -2,7 +2,12 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Rakieta" />
+  <meta name="theme-color" content="#0B3D91" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <title>Télécharger Rakieta</title>
   <style>
     :root {
@@ -101,22 +106,36 @@
     <p class="sub">Application décideur — téléchargement (staging). Ouverture directe sur l’accueil, sans écran de connexion.</p>
 
     <div class="card">
+      <a class="dl" href="ios/">
+        <img class="icon" src="apple-touch-icon.png" width="72" height="72" alt="Rakieta iPhone" />
+        <div>
+          <strong>iPhone — Ouvrir Rakieta</strong>
+          <div class="meta">Application web · Accueil, Départs, Finances, Analyse</div>
+        </div>
+      </a>
+      <a class="btn" href="ios/">Ouvrir sur iPhone</a>
+      <p class="note" style="margin-top:12px;margin-bottom:0">
+        Puis Safari → <strong>Partager</strong> → <em>Sur l’écran d’accueil</em>
+        pour l’icône <strong>Rakieta</strong> comme une app.
+      </p>
+    </div>
+
+    <div class="card">
       <a class="dl" href="app/rakieta.apk" download="rakieta.apk">
         <img class="icon" src="icon-app.png" width="72" height="72" alt="Rakieta" />
         <div>
           <strong>Android — Télécharger Rakieta</strong>
-          <div class="meta">Version 0.2.3 · arm64 · nom affiché : Rakieta</div>
+          <div class="meta">Version 0.3.1 · arm64 · nom affiché : Rakieta</div>
         </div>
       </a>
       <a class="btn" href="app/rakieta.apk" download="rakieta.apk">Télécharger Rakieta</a>
     </div>
 
     <div class="card warn">
-      <strong>iPhone / iOS</strong>
-      <p class="note">
-        Un fichier iOS ne s’installe pas librement comme un APK Android.
-        La distribution passe par <strong>TestFlight</strong> ou l’<strong>App Store</strong>
-        avec un compte développeur Apple et une archive signée.
+      <strong>App Store / TestFlight</strong>
+      <p class="note" style="margin-bottom:0">
+        Une version native App Store nécessite un Mac + compte développeur Apple.
+        En attendant, utilisez l’app web iPhone ci-dessus.
       </p>
     </div>
 

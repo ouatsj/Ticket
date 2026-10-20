@@ -208,9 +208,12 @@ async function buildSummary(scope, ekey, companyParam, dateYmd) {
   if (caBagagesJour === null) notes.push('CA bagages indisponible (schéma / jointure).');
   if (caCourrierJour === null) notes.push('CA courrier indisponible (schéma / jointure).');
 
+  const totalActivite =
+    jour.ca + (caBagagesJour || 0) + (caCourrierJour || 0);
+
   return {
     as_of: new Date().toISOString(),
-    timezone: process.env.TZ || 'Europe/Berlin',
+    timezone: process.env.TZ || 'Africa/Ouagadougou',
     source: 'ventes',
     date: day,
     ca_jour: jour.ca,
@@ -224,6 +227,50 @@ async function buildSummary(scope, ekey, companyParam, dateYmd) {
     ca_courrier_jour: caCourrierJour,
     recettes_caisse_jour: recettesCaisseJour,
     ecart_caisse_jour: Number((jour.ca - recettesCaisseJour).toFixed(2)),
+    total_activite_jour: Number(totalActivite.toFixed(2)),
+    details: {
+      ca_jour: {
+        titre: 'Chiffre d’affaires billets du jour',
+        definition: 'Somme de passager.prixvente (vendus, hors clones/remboursements) pour la date choisie.',
+        composition: [
+          { label: 'Billets vendus', valeur: jour.billets, unite: 'billets' },
+          { label: 'CA billets', valeur: jour.ca, unite: 'F' },
+          { label: 'CA veille', valeur: veilleAgg.ca, unite: 'F' },
+        ],
+      },
+      ca_mois: {
+        titre: 'CA billets du mois',
+        definition: `Ventes du ${moisDeb} au ${day}.`,
+        composition: [
+          { label: 'CA mois', valeur: mois.ca, unite: 'F' },
+          { label: 'CA jour', valeur: jour.ca, unite: 'F' },
+        ],
+      },
+      billets_jour: {
+        titre: 'Billets vendus du jour',
+        definition: 'Nombre de passagers statut vendu (hors statutvente=2 et confirmations gratuites).',
+        composition: [{ label: 'Billets', valeur: jour.billets, unite: 'billets' }],
+      },
+      ca_bagages_jour: {
+        titre: 'CA bagages du jour',
+        definition: 'Somme bagages.prix_bagage (non annulés) du jour.',
+        composition: [{ label: 'CA bagages', valeur: caBagagesJour, unite: 'F' }],
+      },
+      ca_courrier_jour: {
+        titre: 'CA courrier du jour',
+        definition: 'Somme courriers_exp.prixcolis du jour.',
+        composition: [{ label: 'CA courrier', valeur: caCourrierJour, unite: 'F' }],
+      },
+      ecart_caisse_jour: {
+        titre: 'Écart caisse du jour',
+        definition: 'CA billets − recettes caisse (ledger). Un écart ≠ 0 peut indiquer un arrêt non synchronisé.',
+        composition: [
+          { label: 'CA billets', valeur: jour.ca, unite: 'F' },
+          { label: 'Recettes caisse', valeur: recettesCaisseJour, unite: 'F' },
+          { label: 'Écart', valeur: Number((jour.ca - recettesCaisseJour).toFixed(2)), unite: 'F' },
+        ],
+      },
+    },
     companies: byCie.map((r) => ({
       cle_compagnie: Number(r.cle_compagnie),
       nom_compagnie: r.nom_compagnie,

@@ -1,7 +1,7 @@
 {
-  "versionName": "0.2.3",
-  "versionCode": 5,
+  "versionName": "0.3.4",
+  "versionCode": 10,
   "apkUrl": "https://ticket.rakietabus.com/assets/tei/app/rakieta.apk",
-  "notes": "Nom de l'application : Rakieta. Réinstallez si l'icône affiche encore l'ancien nom.",
-  "publishedAt": "2026-10-14T16:17:00Z"
+  "notes": "Désinstallez l'ancienne Rakieta, puis installez ce fichier. Départs par compagnie, puis par agence.",
+  "publishedAt": "2026-10-19T15:31:13Z"
 }

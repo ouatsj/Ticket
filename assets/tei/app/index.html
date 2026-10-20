@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Télécharger Rakieta</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --ink: #1a1c1e;
+      --muted: #5c6370;
+      --card: #ffffff;
+      --blue: #0b3d91;
+      --red: #e31e24;
+      --line: rgba(0,0,0,.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: linear-gradient(180deg, #fff 0%, var(--bg) 40%);
+      color: var(--ink);
+      line-height: 1.45;
+    }
+    main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .brand img {
+      height: 72px;
+      width: auto;
+      object-fit: contain;
+    }
+    h1 {
+      font-size: 1.75rem;
+      margin: 0;
+      color: var(--blue);
+      letter-spacing: -0.02em;
+    }
+    .sub { color: var(--muted); margin-bottom: 28px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .dl {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      text-decoration: none;
+      color: inherit;
+    }
+    img.icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      flex-shrink: 0;
+      object-fit: contain;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+    .dl strong { display: block; font-size: 1.1rem; }
+    .meta { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+    .btn {
+      display: inline-block;
+      margin-top: 12px;
+      background: var(--blue);
+      color: #fff;
+      text-decoration: none;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .note {
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+    .warn {
+      border-left: 4px solid #c77800;
+      padding-left: 12px;
+    }
+    ol { padding-left: 1.2rem; }
+    code { background: #eef1f4; padding: 1px 6px; border-radius: 4px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">
+      <img src="branding/rakieta_lab_logo.png" alt="Rakieta" />
+      <h1>Rakieta</h1>
+    </div>
+    <p class="sub">Application décideur — téléchargement (staging). Ouverture directe sur l’accueil, sans écran de connexion.</p>
+
+    <div class="card">
+      <a class="dl" href="app/rakieta.apk" download="rakieta.apk">
+        <img class="icon" src="icon-app.png" width="72" height="72" alt="Rakieta" />
+        <div>
+          <strong>Android — Télécharger Rakieta</strong>
+          <div class="meta">Version 0.3.0 · arm64 · nom affiché : Rakieta</div>
+        </div>
+      </a>
+      <a class="btn" href="app/rakieta.apk" download="rakieta.apk">Télécharger Rakieta</a>
+    </div>
+
+    <div class="card warn">
+      <strong>iPhone / iOS</strong>
+      <p class="note">
+        Un fichier iOS ne s’installe pas librement comme un APK Android.
+        La distribution passe par <strong>TestFlight</strong> ou l’<strong>App Store</strong>
+        avec un compte développeur Apple et une archive signée.
+      </p>
+    </div>
+
+    <div class="card">
+      <strong>Installation Android</strong>
+      <ol>
+        <li>Ouvrez cette page sur le téléphone (Chrome).</li>
+        <li>Touchez <em>Télécharger pour Android</em>.</li>
+        <li>Si demandé, autorisez l’installation depuis ce navigateur.</li>
+        <li>Ouvrez le fichier <code>rakieta.apk</code> et validez l’installation.</li>
+        <li>Sur l’écran d’accueil du téléphone, l’icône doit s’appeler <strong>Rakieta</strong> (désinstallez l’ancienne app si besoin).</li>
+        <li>À l’ouverture, l’accueil s’affiche directement (pas de login).</li>
+        <li>Lors d’une nouvelle version publiée, l’app propose automatiquement l’installation.</li>
+      </ol>
+      <p class="note">
+        Guide complet :
+        <a href="INSTALLATION.md">INSTALLATION.md</a>
+      </p>
+    </div>
+  </main>
+</body>
+</html>

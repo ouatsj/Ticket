@@ -23,6 +23,10 @@
          */
         protected function _refuser_date_validation($champ)
         {
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            if ($role === '5' || $role === '16') {
+                return false;
+            }
             $date = substr(trim((string) $this->input->post($champ)), 0, 10);
             if ($date === '') {
                 return false;

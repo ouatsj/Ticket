@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../services/api_client.dart';
 import '../services/auth_state.dart';
@@ -16,7 +17,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
   String? _error;
   Map<String, dynamic>? _data;
 
-  static const _date = '2026-09-13';
+  String get _date => DateFormat('yyyy-MM-dd').format(DateTime.now());
 
   @override
   void initState() {

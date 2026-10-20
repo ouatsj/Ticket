@@ -117,7 +117,7 @@
                                             </div>
                                             <div class="form-group col-sm-4">
                                                 <label>DATE</label>
-                                                <input class="form-control form-control-sm" type="date" name="daterecepdep" min="<?= mdate('%Y-%m-%d', now()); ?>" required>
+                                                <input class="form-control form-control-sm" type="date" name="daterecepdep"<?php if (!in_array((string) $this->session->agent->userole, array('5', '16'), true)): ?> min="<?= mdate('%Y-%m-%d', now()); ?>"<?php endif; ?> required>
                                             </div>
                                         </div>
                                         <div class="form-group row">

@@ -2417,8 +2417,24 @@
                 }
                 
                 $this->property['pagetitle'] .= "TRI BAGAGES FACTURER BAGAGES • <strong>{$this->company->nom_entreprise}•&nbsp;$bus_stop->garenom •&nbsp;$bus_stop->nomsousgare</strong>";
-            
+                $this->property['tri_bagage'] = array('ga' => $ga, 'd1' => $d1, 'd2' => $d2);
+
                 return $this->layout->view('_tickets/tribagage', $this->property);
+        }
+
+        protected function _retour_liste_bagage_facture($ckey, $uid, $gd, $sg)
+        {
+            $origine = $this->input->post('origine') ? $this->input->post('origine') : $this->input->get('origine');
+            $ga = $this->input->post('departgarbg') ? $this->input->post('departgarbg') : $this->input->get('ga');
+            $d1 = $this->input->post('datedebutbg') ? $this->input->post('datedebutbg') : $this->input->get('d1');
+            $d2 = $this->input->post('datefinbg') ? $this->input->post('datefinbg') : $this->input->get('d2');
+            if ($origine === 'tri' && $ga && $d1 && $d2) {
+                $_POST['departgarbg'] = $ga;
+                $_POST['datedebutbg'] = $d1;
+                $_POST['datefinbg'] = $d2;
+                return $this->voirbagaggetri($ckey, $uid, $gd, $sg);
+            }
+            redirect('confirmation/voirbagage/' . $this->session->company->ekey . '/' . $uid . '/' . $gd . '/' . $sg);
         }
         public function voirbagg($ckey, $uid, $gd, $sg)
         {
@@ -3907,27 +3923,14 @@
         }
         public function annule($ckey, $uid, $id, $gd, $sg, $statut)
         {
-            $company = $this->m_entreprises->get_key($ckey);
-
-                    if($statut == 1){
-
-                        $stat = 0;
-                    }
-                    else
-                    {
-
-                        $stat = 1;
-                    }
-
-                    $upbag = array(
-                        'annulebag' => $stat,
-                    );
-                    
-                    $this->m_bagage->update($id, $upbag);
-
-                    $this->property['UPDATE_SUCCESS'] = TRUE;
-
-            redirect('confirmation/voirbagage/'.$this->session->company->ekey.'/'.$uid.'/'.$gd.'/'.$sg);         
+            if (!isset($this->session->agent->userole) || (string) $this->session->agent->userole !== '1') {
+                redirect('confirmation/voirbagage/' . $this->session->company->ekey . '/' . $uid . '/' . $gd . '/' . $sg);
+                return;
+            }
+            $this->m_entreprises->get_key($ckey);
+            $this->m_bagage->supprimer_facturation($id);
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            return $this->_retour_liste_bagage_facture($ckey, $uid, $gd, $sg);
         }
 
         public function annulenf($ckey, $uid, $id, $gd, $sg, $statut)
@@ -3955,18 +3958,39 @@
 
         public function updateprix($ckey, $uid, $gd, $sg, $cd)
         {
-            $company = $this->m_entreprises->get_key($ckey);
-
-                    
-                    $upbagg = array(
-                        'prix_bagage' => $this->input->post('prixbagage'),
-                    );
-                    
-                    $this->m_bagage->update($cd, $upbagg);
-
-                    $this->property['UPDATE_SUCCESS'] = TRUE;
-
-            redirect('confirmation/voirbagage/'.$this->session->company->ekey.'/'.$uid.'/'.$gd.'/'.$sg);         
+            if (!isset($this->session->agent->userole) || (string) $this->session->agent->userole !== '1') {
+                redirect('confirmation/voirbagage/' . $this->session->company->ekey . '/' . $uid . '/' . $gd . '/' . $sg);
+                return;
+            }
+            $this->m_entreprises->get_key($ckey);
+            $row = $this->db->where('id_bagage', $cd)->get('bagages')->row();
+            if ($row) {
+                $date = trim((string) $this->input->post('datebagage'));
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                    $date = $row->date_create;
+                }
+                $this->m_bagage->update($cd, array(
+                    'codebag' => trim((string) $this->input->post('codebag')),
+                    'contactexpedi' => trim((string) $this->input->post('contactexpedi')),
+                    'typebagages' => trim((string) $this->input->post('typebagages')),
+                    'nombrebagage' => (int) $this->input->post('nombrebagage'),
+                    'contenubagage' => substr(trim((string) $this->input->post('contenubagage')), 0, 128),
+                    'valeurbagage' => (double) $this->input->post('valeurbagage'),
+                    'prix_bagage' => (double) $this->input->post('prixbagage'),
+                    'quartarr_bg' => trim((string) $this->input->post('quartarr_bg')),
+                    'date_create' => $date,
+                ));
+                $clientId = (int) $this->input->post('clientbag');
+                if ($clientId > 0 && $clientId === (int) $row->clientbag) {
+                    $this->db->where('id_client', $clientId)->update('client', array(
+                        'nom_client' => trim((string) $this->input->post('nom_client')),
+                        'prenom_client' => trim((string) $this->input->post('prenom_client')),
+                        'contact_client' => trim((string) $this->input->post('contact_client')),
+                    ));
+                }
+            }
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            return $this->_retour_liste_bagage_facture($ckey, $uid, $gd, $sg);
         }
 
         public function updateprixf($ckey, $uid, $gd, $sg, $cd)

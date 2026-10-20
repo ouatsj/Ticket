@@ -1184,52 +1184,24 @@
                 redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                 return;
             }
-            $role = (string) $this->session->agent->userole;
-            $est_chef = ($role === '5' || $role === '16');
-            if ($est_chef || $this->input->post('daterecep') != '')
-            {
-                // Ne jamais réécrire idcaisse à la modification (garde la sous-caisse d'escale).
-                if ($est_chef) {
-                    $patch = saisie_recette_champs_chef($ligne);
-                    if (empty($patch['ok'])) {
-                        $this->session->set_flashdata('error', $patch['error']);
-                        $retour = saisie_url_retour();
-                        if ($retour !== '') {
-                            redirect($retour);
-                            return;
-                        }
-                        redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/recette_adjoint/'. $sgid.'/' . mdate("%d/%m/%Y", now('UTC')));
-                        return;
-                    }
-                    $arrayrecette = $patch['data'];
-                } else {
-                    $nomRecette = trim((string) $this->input->post('nommodifier'));
-                    if ($nomRecette === '') {
-                        $nomRecette = $this->input->post('nom');
-                    }
-                    $arrayrecette = array(
-                        'id_genre_recet' => $this->input->post('genre'),
-                        'compkey_recet' => $this->input->post('_compag'),
-                        'type_recet' => $this->input->post('interne'),
-                        'nom' => $nomRecette,
-                        'montant_recet' => $this->input->post('montantverse'),
-                        'commentaire_recet' => $this->input->post('comment'),
-                        'date_recet' => $this->input->post('daterecep'),
-                    );
+            $patch = saisie_recette_champs_chef($ligne);
+            if (empty($patch['ok'])) {
+                $this->session->set_flashdata('error', $patch['error']);
+                $retour = saisie_url_retour();
+                if ($retour !== '') {
+                    redirect($retour);
+                    return;
                 }
-                $recette = $this->m_recette->update($recet, $arrayrecette);
-                           
-                $this->property['UPDATE_SUCCESS'] = TRUE;
-                if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
-                {
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
-                }
-                else
-                    redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/recette_adjoint/'. $sgid.'/' . mdate("%d/%m/%Y", now('UTC')));
+                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/recette_adjoint/'. $sgid.'/' . mdate("%d/%m/%Y", now('UTC')));
+                return;
             }
-            else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
-                    
+            $this->m_recette->update($recet, $patch['data']);
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            if ($this->session->agent->userole === '4' OR $this->session->agent->userole === '18') {
+                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
+            redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/recette_adjoint/'. $sgid.'/' . mdate("%d/%m/%Y", now('UTC')));
         }
 
         public function updatrecette($ckey, $recet)
@@ -1248,43 +1220,20 @@
                 redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                 return;
             }
-            $role = (string) $this->session->agent->userole;
-            $est_chef = ($role === '5' || $role === '16');
-            if ($est_chef || $this->input->post('daterecep') != '')
-            {
-                if ($est_chef) {
-                    $patch = saisie_recette_champs_chef($ligne);
-                    if (empty($patch['ok'])) {
-                        $this->session->set_flashdata('error', $patch['error']);
-                        $retour = saisie_url_retour();
-                        if ($retour !== '') {
-                            redirect($retour);
-                            return;
-                        }
-                        redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
-                        return;
-                    }
-                    $arrayrecette = $patch['data'];
-                } else {
-                    $arrayrecette = array(
-                        'id_genre_recet' => $this->input->post('genre'),
-                        'compkey_recet' => $this->input->post('_compag'),
-                        'type_recet' => $this->input->post('interne'),
-                        'nom' => $this->input->post('nommodifier'),
-                        'montant_recet' => $this->input->post('montantverse'),
-                        'commentaire_recet' => $this->input->post('comment'),
-                        'date_recet' => $this->input->post('daterecep'),
-                    );
+            $patch = saisie_recette_champs_chef($ligne);
+            if (empty($patch['ok'])) {
+                $this->session->set_flashdata('error', $patch['error']);
+                $retour = saisie_url_retour();
+                if ($retour !== '') {
+                    redirect($retour);
+                    return;
                 }
-                $recette = $this->m_recette->update($recet, $arrayrecette);
-                           
-                $this->property['UPDATE_SUCCESS'] = TRUE;
-                
                 redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+                return;
             }
-            else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
-                    
+            $this->m_recette->update($recet, $patch['data']);
+            $this->property['UPDATE_SUCCESS'] = TRUE;
+            redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/recette/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
         }
 
         public function retirerrecette($ckey, $recet)

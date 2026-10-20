@@ -26,32 +26,51 @@ async function loadThresholds(ekey) {
  * Détermine les seuils franchis pour un départ (du plus bas au plus haut).
  * Une alerte par seuil : anti-doublon via tei_alert_dedupe.alert_key.
  */
+function minutesUntilDeparture(dep) {
+  const heure = String(dep.heure || '');
+  const date = String(dep.date || '');
+  const hm = heure.match(/^(\d{1,2}):(\d{2})/);
+  const ymd = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!hm || !ymd) return null;
+  const when = new Date(
+    Number(ymd[1]),
+    Number(ymd[2]) - 1,
+    Number(ymd[3]),
+    Number(hm[1]),
+    Number(hm[2]),
+    0
+  );
+  return (when.getTime() - Date.now()) / 60000;
+}
+
 function thresholdsCrossed(dep, th) {
   const taux = dep.taux_remplissage;
   if (taux === null || taux === undefined) return [];
-  const out = [];
-  if (taux >= th.fill_orange_pct) {
-    out.push({
-      level: 'vigilance',
-      seuil: th.fill_orange_pct,
-      key: `occupancy:${dep.code_progr}:${th.fill_orange_pct}:${dep.date}`,
-    });
-  }
-  if (taux >= th.fill_priority_pct) {
-    out.push({
-      level: 'critique',
-      seuil: th.fill_priority_pct,
-      key: `occupancy:${dep.code_progr}:${th.fill_priority_pct}:${dep.date}`,
-    });
-  }
+  if (!dep.capacite || dep.capacite <= 0) return [];
+  if (!dep.places_occupees) return [];
+  const mins = minutesUntilDeparture(dep);
+  const fenetre = Number(th.minutes_before_depart) || 60;
+  // Un car encore loin ne justifie pas une alerte : les places se vendent jusqu'au départ.
+  if (mins === null || mins > fenetre || mins < -20) return [];
+
+  let level = null;
+  let seuil = null;
   if (taux >= 100 || dep.places_disponibles === 0) {
-    out.push({
-      level: 'critique',
-      seuil: 100,
-      key: `occupancy:${dep.code_progr}:100:${dep.date}`,
-    });
+    level = 'critique';
+    seuil = 100;
+  } else if (taux >= th.fill_priority_pct) {
+    level = 'critique';
+    seuil = th.fill_priority_pct;
+  } else if (taux >= th.fill_orange_pct) {
+    level = 'vigilance';
+    seuil = th.fill_orange_pct;
   }
-  return out;
+  if (!level) return [];
+  return [{
+    level,
+    seuil,
+    key: `occupancy:${dep.code_progr}:${seuil}:${dep.date}`,
+  }];
 }
 
 async function alreadyEmitted(alertKey) {

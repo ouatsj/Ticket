@@ -352,51 +352,24 @@
                     return;
                 }
 
-                $role = (string) $this->session->agent->userole;
-                $est_chef = ($role === '5' || $role === '16');
-                if ($est_chef || $this->input->post('datereception') != '')
-                {
-                    if ($est_chef) {
-                        $patch = saisie_depense_champs_chef($ligne);
-                        if (empty($patch['ok'])) {
-                            $this->session->set_flashdata('error', $patch['error']);
-                            $retour = saisie_url_retour();
-                            if ($retour !== '') {
-                                redirect($retour . caissier_escale_query_suffix());
-                                return;
-                            }
-                            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
-                            return;
-                        }
-                        $arraydep = $patch['data'];
-                    } else {
-                        $arraydep = array(
-                            'id_genre_depense' => $this->input->post('genredep'),
-                            'type_depense' => $this->input->post('internedep'),
-                            'compkey_dep' => $this->input->post('_compag'),
-                            'typpersonel' => $this->input->post('typerson'),
-                            'nom_perso' => $this->input->post('nomdepmodifier'),
-                            'montant_depens' => $this->input->post('montantversedep'),
-                            'commentaire' => $this->input->post('commentdep'),
-                            'motif' => $this->input->post('motifs'),
-                            'date_depens' => $this->input->post('datereception'),
-                        );
+                $patch = saisie_depense_champs_chef($ligne);
+                if (empty($patch['ok'])) {
+                    $this->session->set_flashdata('error', $patch['error']);
+                    $retour = saisie_url_retour();
+                    if ($retour !== '') {
+                        redirect($retour . caissier_escale_query_suffix());
+                        return;
                     }
-                    $depens = $this->m_depense->update($dep, $arraydep);
-                    
-                    if($this->session->agent->userole === '4' OR $this->session->agent->userole === '18')
-                    {
-                        $this->property['UPDATE_SUCCESS'] = TRUE;
-                        redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depense/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
-                    }
-                    else
-                        $this->property['UPDATE_SUCCESS'] = TRUE;
-                        redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depense_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
-        
+                    redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
+                    return;
                 }
-                else
-                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
-                
+                $this->m_depense->update($dep, $patch['data']);
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+                if ($this->session->agent->userole === '4' OR $this->session->agent->userole === '18') {
+                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depense/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
+                    return;
+                }
+                redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/depense_adjoint/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function up_datedepenses($ckey, $dep)
@@ -414,44 +387,20 @@
                     redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
                     return;
                 }
-                $role = (string) $this->session->agent->userole;
-                $est_chef = ($role === '5' || $role === '16');
-                if ($est_chef || $this->input->post('datereception') != '')
-                {
-                    if ($est_chef) {
-                        $patch = saisie_depense_champs_chef($ligne);
-                        if (empty($patch['ok'])) {
-                            $this->session->set_flashdata('error', $patch['error']);
-                            $retour = saisie_url_retour();
-                            if ($retour !== '') {
-                                redirect($retour . caissier_escale_query_suffix());
-                                return;
-                            }
-                            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
-                            return;
-                        }
-                        $arraydep = $patch['data'];
-                    } else {
-                        $arraydep = array(
-                            'id_genre_depense' => $this->input->post('genredep'),
-                            'type_depense' => $this->input->post('internedep'),
-                            'compkey_dep' => $this->input->post('_compag'),
-                            'typpersonel' => $this->input->post('typerson'),
-                            'nom_perso' => $this->input->post('nomdepmodifier'),
-                            'montant_depens' => $this->input->post('montantversedep'),
-                            'commentaire' => $this->input->post('commentdep'),
-                            'motif' => $this->input->post('motifs'),
-                            'date_depens' => $this->input->post('datereception'),
-                        );
+                $patch = saisie_depense_champs_chef($ligne);
+                if (empty($patch['ok'])) {
+                    $this->session->set_flashdata('error', $patch['error']);
+                    $retour = saisie_url_retour();
+                    if ($retour !== '') {
+                        redirect($retour . caissier_escale_query_suffix());
+                        return;
                     }
-                    $depens = $this->m_depense->update($dep, $arraydep);
-                    
-                        $this->property['UPDATE_SUCCESS'] = TRUE;
-                        redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depense/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
+                    redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
+                    return;
                 }
-                else
-                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
-                 
+                $this->m_depense->update($dep, $patch['data']);
+                $this->property['UPDATE_SUCCESS'] = TRUE;
+                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depense/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
         }
 
         public function retirerdepense($ckey, $dep)

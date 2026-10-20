@@ -95,12 +95,16 @@ async function listDepartures(scope, ekey, companyParam, dateYmd) {
     const capacite = Number(r.capacite) || 0;
     const placesOccupees = occMap[r.code_progr] || 0;
     const billetsVendus = venduMap[r.code_progr] || 0;
-    const disponibles = capacite > 0 ? Math.max(capacite - placesOccupees, 0) : null;
-    const taux = capacite > 0 ? Number(((placesOccupees / capacite) * 100).toFixed(1)) : null;
+    // Remplissage métier = max(sièges distincts, billets vendus) pour coller à la réalité guichet
+    const placesReference = Math.max(placesOccupees, billetsVendus);
+    const disponibles = capacite > 0 ? Math.max(capacite - placesReference, 0) : null;
+    const taux =
+      capacite > 0 ? Number(((placesReference / capacite) * 100).toFixed(1)) : null;
 
+    // Alertes uniquement si capacité connue et activité réelle (évite faux positifs)
     let alerte = null;
-    if (taux !== null) {
-      if (taux >= 100 || (disponibles !== null && disponibles === 0)) alerte = 'COMPLET';
+    if (taux !== null && capacite > 0 && placesReference > 0) {
+      if (taux >= 100 || disponibles === 0) alerte = 'COMPLET';
       else if (taux >= 90) alerte = 'prioritaire';
       else if (taux >= 80) alerte = 'vigilance';
     }
@@ -127,7 +131,8 @@ async function listDepartures(scope, ekey, companyParam, dateYmd) {
       ident_ligne: r.ident_ligne,
       categorie: r.categori,
       capacite,
-      places_occupees: placesOccupees,
+      places_occupees: placesReference,
+      sieges_distincts: placesOccupees,
       billets_vendus: billetsVendus,
       places_disponibles: disponibles,
       taux_remplissage: taux,
@@ -138,6 +143,7 @@ async function listDepartures(scope, ekey, companyParam, dateYmd) {
 
   // Arbre prêt à l'affichage mobile
   const tree = buildDepartureTree(out);
+  const cartes = buildCompanyCards(out);
 
   return {
     date: dateYmd,
@@ -145,7 +151,49 @@ async function listDepartures(scope, ekey, companyParam, dateYmd) {
     count: out.length,
     departures: out,
     tree,
+    cartes,
   };
+}
+
+/**
+ * Affichage décideur : compagnie → agence (la gare) → départs du jour.
+ */
+function buildCompanyCards(items) {
+  const byCie = new Map();
+  for (const d of items) {
+    const cie = d.compagnie || '—';
+    if (!byCie.has(cie)) {
+      byCie.set(cie, { cle: d.cle_compagnie, agences: new Map() });
+    }
+    const agence = d.gare_depart || d.code_gare || '—';
+    const bucket = byCie.get(cie);
+    if (!bucket.agences.has(agence)) bucket.agences.set(agence, []);
+    bucket.agences.get(agence).push(d);
+  }
+
+  return [...byCie.entries()].map(([compagnie, bucket]) => {
+    const agences = [...bucket.agences.entries()].map(([nom, departures]) => {
+      const vendus = departures.reduce((s, x) => s + (Number(x.billets_vendus) || 0), 0);
+      const complets = departures.filter((x) => x.alerte === 'COMPLET').length;
+      return {
+        agence: nom,
+        code_gare: departures[0]?.code_gare || '',
+        count: departures.length,
+        billets: vendus,
+        complets,
+        departures,
+      };
+    });
+    agences.sort((a, b) => b.count - a.count || a.agence.localeCompare(b.agence, 'fr'));
+    const count = agences.reduce((s, a) => s + a.count, 0);
+    return {
+      compagnie,
+      cle_compagnie: bucket.cle,
+      count,
+      agences: agences.length,
+      lieux: agences,
+    };
+  }).sort((a, b) => b.count - a.count || a.compagnie.localeCompare(b.compagnie, 'fr'));
 }
 
 function buildDepartureTree(items) {

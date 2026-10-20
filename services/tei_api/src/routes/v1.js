@@ -102,7 +102,7 @@ router.get('/insights', requireAuth, async (req, res) => {
     const ekey = Number(req.query.ekey);
     if (!ekey) return res.status(400).json({ error: 'ekey requis' });
     const scope = assertEkeyAllowed(req.user.scopes, ekey);
-    const date = req.query.date ? ymd(req.query.date) : '2026-09-13';
+    const date = req.query.date ? ymd(req.query.date) : ymd(new Date());
     const data = await buildInsights(scope, ekey, req.query.company, date);
     res.json(data);
   } catch (e) {
@@ -140,7 +140,7 @@ router.post('/alerts/scan', requireAuth, async (req, res) => {
     const ekey = Number((req.body && req.body.ekey) || req.query.ekey);
     if (!ekey) return res.status(400).json({ error: 'ekey requis' });
     const scope = assertEkeyAllowed(req.user.scopes, ekey);
-    const date = ymd((req.body && req.body.date) || req.query.date || '2026-09-13');
+    const date = ymd((req.body && req.body.date) || req.query.date || new Date());
     const result = await scanOccupancyAlerts(scope, ekey, date);
     res.json(result);
   } catch (e) {

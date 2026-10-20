@@ -50,10 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _error = null;
     });
     try {
-      // Staging : dernière période métier riche = 2026-09-13
       final data = await context.read<ApiClient>().dashboardSummary(
             ekey: ekey,
-            date: '2026-09-13',
+            date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
           );
       if (!mounted) return;
       setState(() {
