@@ -412,7 +412,8 @@
                                                     <i class="icon icon-left mdi mdi-undo"></i>&nbsp;ANNULER&nbsp;
                                                 </button>
                                                 <button class="btn btn-success md-trigger" type="submit"
-                                                        data-dismiss="modal">
+                                                        data-dismiss="modal"
+                                                        onclick="if(this.dataset.submitted==='1'){return false;} this.dataset.submitted='1'; var b=this; setTimeout(function(){b.disabled=true;},0);">
                                                     <i class="icon icon-left mdi mdi-check-all"></i>&nbsp;OK&nbsp;
                                                 </button>
                                             </div>

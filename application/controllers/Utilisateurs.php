@@ -382,6 +382,43 @@
         }
 
         /**
+         * Réserve atomiquement un bordereau bagage (anti double-POST / double validation).
+         * @return object|null ligne compte_bagage, ou null si erreur déjà affichée
+         */
+        protected function _claim_bordereau_bagage($idcptvers)
+        {
+            $id = (int) $idcptvers;
+            $row = $this->db->query(
+                "SELECT idcpguichetbg, montcomtptebg, is_validcomptebg
+                 FROM compte_bagage
+                 WHERE idcpguichetbg = ?
+                 LIMIT 1",
+                array($id)
+            )->row();
+            if (!$row) {
+                show_error('Bordereau bagage introuvable.', 404, 'Validation impossible');
+                return null;
+            }
+            if ((int) $row->is_validcomptebg === 1) {
+                show_error('Ce bordereau bagage est déjà validé.', 409, 'Validation impossible');
+                return null;
+            }
+            $this->db->query(
+                "UPDATE compte_bagage
+                 SET is_validcomptebg = 1
+                 WHERE idcpguichetbg = ?
+                   AND is_validcomptebg = 0",
+                array($id)
+            );
+            if ((int) $this->db->affected_rows() !== 1) {
+                show_error('Ce bordereau bagage est déjà validé.', 409, 'Validation impossible');
+                return null;
+            }
+
+            return $row;
+        }
+
+        /**
          * Montant reçu vs bordereau à la validation chef.
          * Sans case : égalité stricte. Manquant : reçu < bordereau. Surplus : reçu > bordereau.
          *
@@ -1715,6 +1752,9 @@
             }
             if($this->input->post('daterecep')!= '')
             {
+                if ($this->_claim_bordereau_bagage($idcptvers) === null) {
+                    return;
+                }
 
                 if($sgares->sog == 1){
                     
@@ -1766,12 +1806,6 @@
                 if ($flagsValidateur) {
                     $this->m_recette->update($recette, $flagsValidateur);
                 }
-                           
-                $arraycompb = array(
-                    'is_validcomptebg'=> 1,
-
-                );
-                $this->m_comptes_bagage->update($idcptvers, $arraycompb);
 
                 if($this->session->agent->userole === '4')
                 {
@@ -1819,6 +1853,9 @@
             }
             if($this->input->post('daterecep')!= '')
             {
+                if ($this->_claim_bordereau_bagage($idcptvers) === null) {
+                    return;
+                }
 
                 if($sgares->sog == 1){
                     
@@ -1870,12 +1907,6 @@
                 if ($flagsValidateur) {
                     $this->m_recette->update($recette, $flagsValidateur);
                 }
-                           
-                $arraycompb = array(
-                    'is_validcomptebg'=> 1,
-
-                );
-                $this->m_comptes_bagage->update($idcptvers, $arraycompb);
 
                 if($this->session->agent->userole === '4')
                 {
@@ -3400,6 +3431,9 @@
             }
             if($this->input->post('daterecep')!= '')
             {
+                if ($this->_claim_bordereau_bagage($idcptvers) === null) {
+                    return;
+                }
 
                 if($sgares->sog == 1){
                     
@@ -3451,12 +3485,6 @@
                 if ($flagsValidateur) {
                     $this->m_recette->update($recette, $flagsValidateur);
                 }
-                           
-                $arraycompb = array(
-                    'is_validcomptebg'=> 1,
-
-                );
-                $this->m_comptes_bagage->update($idcptvers, $arraycompb);
 
                 if($this->session->agent->userole === '4')
                 {
