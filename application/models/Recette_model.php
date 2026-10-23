@@ -111,10 +111,14 @@
                 AND r.actif_rect = 0
                 ORDER BY r.id_recette DESC")->row();
         }
-        public function getrecet($cid, $idcais, $gid, $sg, $conect,$pk = FALSE)
+        public function getrecet($cid, $idcais, $gid, $sg, $conect, $pk = FALSE, $periode_ouverte = false)
         {
             $today = mdate('%Y-%m-%d', now());
             $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
+            // Admin/superviseur : même périmètre que le solde carte (ouvert, pas seulement aujourd'hui).
+            $filtre_periode = $periode_ouverte
+                ? "AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1 AND r.is_validerecet = 1"
+                : "AND r.active_recet = 1 AND r.arret_caisrecet = 0 AND r.actif_rect = 0 AND r.date_recet = '{$today}'";
             if ($pk === FALSE) {
                 return $this->db->query(
                     "SELECT * FROM recette r
@@ -124,12 +128,9 @@
                     JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND r.active_recet = 1
-                    AND r.arret_caisrecet = 0
-                    AND r.actif_rect = 0
+                    {$filtre_periode}
                     AND " . sous_caisse_filtre_page('cs.id_caiss', $idcais, $gid) . "
                     AND r.recetsgid = '$sg'
-                    AND r.date_recet = '$today'
                     AND r.type_recet <> 'Courrier'
                     AND r.operavalid = '$conect'
                     {$hors}
@@ -143,23 +144,23 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND r.active_recet = 1
+                {$filtre_periode}
                 AND " . sous_caisse_filtre_page('cs.id_caiss', $idcais, $gid) . "
                 AND r.recetsgid = '$sg'
-                AND r.arret_caisrecet = 0
                 AND r.id_recette = '$pk'
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalid = '$conect'
-                AND r.date_recet = '$today'
-                AND r.actif_rect = 0
                 {$hors}
                 ORDER BY r.id_recette DESC")->row();
         }
 
-        public function adgetrecet($cid, $idcais, $gid, $sg, $conect,$pk = FALSE)
+        public function adgetrecet($cid, $idcais, $gid, $sg, $conect,$pk = FALSE, $periode_ouverte = false)
         {
             $today = mdate('%Y-%m-%d', now());
             $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
+            $filtre_periode = $periode_ouverte
+                ? "AND r.ferme_caisrecet = 0 AND r.is_actifrecetad = 1 AND r.is_validerecet = 1"
+                : "AND r.active_recet = 1 AND r.arret_caisrecet = 0 AND r.actif_rect = 0 AND r.date_recet = '{$today}'";
             if ($pk === FALSE) {
                 return $this->db->query(
                     "SELECT * FROM recette r
@@ -169,12 +170,9 @@
                     JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND r.active_recet = 1
-                    AND r.arret_caisrecet = 0
-                    AND r.actif_rect = 0
+                    {$filtre_periode}
                     AND " . sous_caisse_filtre_page('cs.id_caiss', $idcais, $gid) . "
                     AND r.recetsgid = '$sg'
-                    AND r.date_recet = '$today'
                     AND r.type_recet <> 'Courrier'
                     AND r.operavalidad = '$conect'
                     {$hors}
@@ -188,15 +186,12 @@
                 JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND r.active_recet = 1
+                {$filtre_periode}
                 AND " . sous_caisse_filtre_page('cs.id_caiss', $idcais, $gid) . "
                 AND r.recetsgid = '$sg'
-                AND r.arret_caisrecet = 0
                 AND r.id_recette = '$pk'
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalidad = '$conect'
-                AND r.date_recet = '$today'
-                AND r.actif_rect = 0
                 {$hors}
                 ORDER BY r.id_recette DESC")->row();
         }

@@ -235,6 +235,80 @@
             $this->property = array_merge($this->property, scripts_bundle_property('accueil'));
             $this->layout->view('index1', $this->property);
         }
+
+        /**
+         * Téléchargement APK Rakieta — réservé au compte admin (rôle 1).
+         */
+        public function download_apk()
+        {
+            if (!$this->_tei_admin_only()) {
+                return;
+            }
+
+            $path = FCPATH . 'assets/tei/app/rakieta.apk';
+            if (!is_file($path) || !is_readable($path)) {
+                show_404();
+                return;
+            }
+
+            // Flux disque (APK ~50 Mo) — pas de file_get_contents en mémoire.
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            header('Content-Description: File Transfer');
+            header('Content-Type: application/vnd.android.package-archive');
+            header('Content-Disposition: attachment; filename="rakieta.apk"');
+            header('Content-Transfer-Encoding: binary');
+            header('Content-Length: ' . (string) filesize($path));
+            header('Cache-Control: private, no-store, no-cache, must-revalidate');
+            header('Pragma: no-cache');
+            readfile($path);
+            exit;
+        }
+
+        /**
+         * Page guide TEI — admin uniquement.
+         */
+        public function tei_guide()
+        {
+            if (!$this->_tei_admin_only()) {
+                return;
+            }
+            redirect(base_url('assets/tei/'));
+        }
+
+        /**
+         * Page iPhone TEI — admin uniquement.
+         */
+        public function tei_ios()
+        {
+            if (!$this->_tei_admin_only()) {
+                return;
+            }
+            redirect(base_url('assets/tei/ios/'));
+        }
+
+        /**
+         * @return bool true si admin autorisé
+         */
+        protected function _tei_admin_only()
+        {
+            if (!$this->session->userdata('agent') || !$this->session->userdata('company')) {
+                $this->session->set_flashdata('login_error', 1);
+                redirect('login/ins');
+                return false;
+            }
+            if ((string) $this->session->agent->userole !== '1') {
+                $this->session->set_flashdata(
+                    'error',
+                    'Le téléchargement de l\'application Android est réservé au compte administrateur.'
+                );
+                redirect('home/main1');
+                return false;
+            }
+
+            return true;
+        }
     }
     
     /** End of file: Home.php **/

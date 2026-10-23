@@ -1373,18 +1373,17 @@
                     GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
         }
 
+        /**
+         * DECLARER retours : même périmètre que RECAP EX (reporticketretourcpt) + exonp = 1.
+         */
         public function reporticketretourcptd($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
-            
-            if ($algn === '') 
+            $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
+
+            if ($algn === '')
             {
                 return $this->db->query(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
-                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
@@ -1392,10 +1391,18 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.statvente = 1
+                    {$filtreLettres}
                     AND np.exonp = 1
                     AND dest.id_compaga = '$cp'
-                    AND (
+                    AND EXISTS (
+                      SELECT 1 FROM user_login ul
+                      WHERE ul.uid_login = (
+                          SELECT ar.idgestcompte
+                          FROM attributions_role ar
+                          WHERE ar.roleattribut = np.cptus
+                          LIMIT 1
+                      )
+                      AND (
  (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
  OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
  OR EXISTS (
@@ -1405,15 +1412,11 @@
   AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
  )
 )
+                     )
                     GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
                 return $this->db->query(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
-                    JOIN attributions_role ar ON np.cptus = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN gares g ON ul.guser = g.idengare
-                    JOIN utilisateurs u ON cu.userlog_id = u.uid
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
@@ -1421,10 +1424,19 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.statvente = 1
+                    {$filtreLettres}
                     AND np.exonp = 1
                     AND dest.id_compaga = '$cp'
-                    AND (
+                    AND lg.ident_ligne = '$algn'
+                    AND EXISTS (
+                      SELECT 1 FROM user_login ul
+                      WHERE ul.uid_login = (
+                          SELECT ar.idgestcompte
+                          FROM attributions_role ar
+                          WHERE ar.roleattribut = np.cptus
+                          LIMIT 1
+                      )
+                      AND (
  (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
  OR (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = np.cptus LIMIT 1) = '$gid'
  OR EXISTS (
@@ -1434,17 +1446,21 @@
   AND (ge_v.code_gaexp = '$gid' OR ge_v.garesid = '$gid')
  )
 )
-                    AND lg.ident_ligne = '$algn'
+                     )
                     GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
         }
+
+        /**
+         * DECLARATION retours : mêmes tickets que RECAP EX, non encore déclarés.
+         */
         public function reporticketretourcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
-        $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
-            
-            if ($algn === '') 
+            $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
+
+            if ($algn === '')
             {
                 return $this->db->query(
-                    "SELECT * FROM non_passager np
+                    "SELECT np.* FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
@@ -1452,8 +1468,8 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.statvente = 1
                     {$filtreLettres}
+                    AND IFNULL(np.exonp, 0) = 0
                     AND dest.id_compaga = '$cp'
                     AND EXISTS (
                       SELECT 1 FROM user_login ul
@@ -1476,7 +1492,7 @@
                      )")->result();
             }
                 return $this->db->query(
-                    "SELECT * FROM non_passager np
+                    "SELECT np.* FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
@@ -1484,8 +1500,8 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND np.datevente >= '$dt1' AND np.datevente < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND np.statvente = 1
                     {$filtreLettres}
+                    AND IFNULL(np.exonp, 0) = 0
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
                     AND EXISTS (

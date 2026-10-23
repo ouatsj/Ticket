@@ -2,11 +2,11 @@
 <?php
 /**
  * Bannière téléchargement app Rakieta (Android APK + iPhone web).
- * Visible sur l'accueil guichet admin / superviseur.
+ * Réservée au compte admin (rôle 1) — APK servi via Home/download_apk.
  */
-$tei_url = base_url('assets/tei/');
-$tei_ios = base_url('assets/tei/ios/');
-$tei_apk = base_url('assets/tei/app/rakieta.apk');
+$tei_url = site_url('home/tei_guide');
+$tei_ios = site_url('home/tei_ios');
+$tei_apk = site_url('home/download_apk');
 $tei_icon = base_url('assets/tei/icon-app.png');
 ?>
 <style>

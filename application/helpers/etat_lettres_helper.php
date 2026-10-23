@@ -66,13 +66,15 @@ function etat_lettre_ensure($db = null)
             cle_compagnie VARCHAR(32) NOT NULL,
             famille VARCHAR(32) NOT NULL,
             mois CHAR(7) NOT NULL,
+            code_gare VARCHAR(32) NOT NULL DEFAULT '',
             lettres VARCHAR(32) NOT NULL DEFAULT '',
             toutes TINYINT(1) NOT NULL DEFAULT 0,
             declared_at DATETIME NOT NULL,
             PRIMARY KEY (id),
-            UNIQUE KEY uq_etat_lettre_declaration (entreprise_ekey, cle_compagnie, famille, mois)
+            UNIQUE KEY uq_etat_lettre_declaration (entreprise_ekey, cle_compagnie, famille, mois, code_gare)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
     );
+    etat_lettre_ensure_declaration_gare($db);
     $ok = $db->table_exists('etat_lettre_regle');
     if ($ok) {
         $n = $db->query('SELECT COUNT(*) AS n FROM etat_lettre_regle')->row();
@@ -116,6 +118,207 @@ function etat_lettre_ensure_index($db, $table, $index, $column)
         return;
     }
     $db->query('ALTER TABLE `' . $table . '` ADD INDEX `' . $index . '` (`' . $column . '`)');
+}
+
+/**
+ * Verrou déclaration : compagnie + famille + mois + gare (plus compagnie seule).
+ */
+function etat_lettre_ensure_declaration_gare($db)
+{
+    if (!$db->table_exists('etat_lettre_declaration')) {
+        return;
+    }
+    $prev = $db->db_debug;
+    $db->db_debug = false;
+    if (!$db->field_exists('code_gare', 'etat_lettre_declaration')) {
+        $db->query(
+            "ALTER TABLE etat_lettre_declaration
+             ADD COLUMN code_gare VARCHAR(32) NOT NULL DEFAULT '' AFTER mois"
+        );
+        $idx = $db->query(
+            "SHOW INDEX FROM etat_lettre_declaration WHERE Key_name = 'uq_etat_lettre_declaration'"
+        );
+        if ($idx && $idx->num_rows() > 0) {
+            $db->query('ALTER TABLE etat_lettre_declaration DROP INDEX uq_etat_lettre_declaration');
+        }
+        $db->query(
+            "ALTER TABLE etat_lettre_declaration
+             ADD UNIQUE KEY uq_etat_lettre_declaration
+             (entreprise_ekey, cle_compagnie, famille, mois, code_gare)"
+        );
+    }
+    // Anciens verrous sans gare : rattacher à la gare qui a réellement déclaré.
+    $orphelins = $db->query(
+        "SELECT id, entreprise_ekey, cle_compagnie, famille, mois
+         FROM etat_lettre_declaration
+         WHERE code_gare = '' OR code_gare IS NULL"
+    );
+    if ($orphelins && $orphelins->num_rows() > 0) {
+        $CI = function_exists('get_instance') ? get_instance() : null;
+        foreach ($orphelins->result() as $row) {
+            $gare = ($CI && isset($CI->db))
+                ? etat_declaration_inferer_gare($CI, $row)
+                : '';
+            if ($gare !== '') {
+                $db->query(
+                    'UPDATE etat_lettre_declaration SET code_gare = ? WHERE id = ? AND (code_gare = \'\' OR code_gare IS NULL)',
+                    array($gare, (int) $row->id)
+                );
+            }
+        }
+    }
+    $db->db_debug = $prev;
+}
+
+function etat_declaration_normaliser_gare($CI, $codeGare)
+{
+    $raw = trim((string) $codeGare);
+    if ($raw === '' || $raw === '0') {
+        return '';
+    }
+    $row = $CI->db->query(
+        'SELECT code_gaexp, garesid FROM gare_exp
+         WHERE code_gaexp = ? OR garesid = ?
+         LIMIT 1',
+        array($raw, $raw)
+    )->row();
+    if ($row) {
+        $code = trim((string) $row->code_gaexp);
+        if ($code !== '') {
+            return $code;
+        }
+        $sid = trim((string) $row->garesid);
+        if ($sid !== '') {
+            return $sid;
+        }
+    }
+    return $raw;
+}
+
+function etat_declaration_sql_match_gare($CI, $codeGare)
+{
+    $code = etat_declaration_normaliser_gare($CI, $codeGare);
+    if ($code === '') {
+        return '';
+    }
+    $esc = $CI->db->escape($code);
+    return "(SELECT gx_lv.garesid FROM gare_exp gx_lv
+             WHERE gx_lv.code_gaexp = {$esc} OR gx_lv.garesid = {$esc}
+             LIMIT 1)";
+}
+
+function etat_lettre_expr_gare_passager($alias = 'p')
+{
+    return "COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = {$alias}.idsousgare_vente LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = {$alias}.idcptuser LIMIT 1),
+ (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = {$alias}.departclient_idgare LIMIT 1)
+)";
+}
+
+function etat_lettre_expr_gare_non_passager($alias = 'np')
+{
+    return "COALESCE(
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = {$alias}.cptus LIMIT 1),
+ (SELECT ge_v.garesid FROM sousgare sg_v JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_v.gareprinceid WHERE sg_v.idsousgare = {$alias}.sousgareidentif LIMIT 1)
+)";
+}
+
+function etat_lettre_expr_gare_escal($alias = 'esp')
+{
+    return "COALESCE(
+ (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = {$alias}.departsgescal LIMIT 1),
+ (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = {$alias}.iduseescal LIMIT 1)
+)";
+}
+
+/**
+ * Devine la gare d'un ancien verrou (sans code_gare) via les tickets déjà flaggés.
+ */
+function etat_declaration_inferer_gare($CI, $row)
+{
+    $ekey = (int) $row->entreprise_ekey;
+    $cle = trim((string) $row->cle_compagnie);
+    $famille = trim((string) $row->famille);
+    $mois = trim((string) $row->mois);
+    if ($mois === '' || !preg_match('/^\d{4}-\d{2}$/', $mois)) {
+        return '';
+    }
+    $debut = $mois . '-01';
+    $fin = date('Y-m-d', strtotime($debut . ' +1 month'));
+    $cleSql = $CI->db->escape($cle);
+    $debutSql = $CI->db->escape($debut);
+    $finSql = $CI->db->escape($fin);
+    $sql = '';
+    if ($famille === 'ticket_etats') {
+        $expr = etat_lettre_expr_gare_passager('p');
+        $sql = "SELECT {$expr} AS g, COUNT(*) AS n
+            FROM passager p
+            JOIN programme pr ON p.code_pro = pr.code_progr
+            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
+            AND p.datep_create >= {$debutSql} AND p.datep_create < {$finSql}
+            AND p.exop = 1
+            GROUP BY g HAVING g IS NOT NULL AND g <> ''
+            ORDER BY n DESC LIMIT 1";
+    } elseif ($famille === 'ticket_escal') {
+        $expr = etat_lettre_expr_gare_escal('esp');
+        $sql = "SELECT {$expr} AS g, COUNT(*) AS n
+            FROM escalclients esp
+            JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
+            AND esp.datedepescal >= {$debutSql} AND esp.datedepescal < {$finSql}
+            AND esp.exopes = 1
+            GROUP BY g HAVING g IS NOT NULL AND g <> ''
+            ORDER BY n DESC LIMIT 1";
+    } elseif ($famille === 'bagage') {
+        $sql = "SELECT ex.code_gaexp AS g, COUNT(*) AS n
+            FROM bagages bg
+            JOIN programme pr ON bg.progidbagage = pr.code_progr
+            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+            JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            WHERE e.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
+            AND bg.date_create >= {$debutSql} AND bg.date_create < {$finSql}
+            AND bg.exobg = 1
+            GROUP BY ex.code_gaexp HAVING g IS NOT NULL AND g <> ''
+            ORDER BY n DESC LIMIT 1";
+    } elseif ($famille === 'courrier') {
+        $sql = "SELECT ex.code_gaexp AS g, COUNT(*) AS n
+            FROM courriers_exp ce
+            JOIN code_courriers cd ON ce.id_codecourrier = cd.codecolisid
+            JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+            JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+            WHERE ep.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
+            AND ce.dateenvoi >= {$debutSql} AND ce.dateenvoi < {$finSql}
+            AND ce.exocr = 1
+            GROUP BY ex.code_gaexp HAVING g IS NOT NULL AND g <> ''
+            ORDER BY n DESC LIMIT 1";
+    }
+    if ($sql === '') {
+        return '';
+    }
+    $prev = $CI->db->db_debug;
+    $CI->db->db_debug = false;
+    $q = $CI->db->query($sql);
+    $CI->db->db_debug = $prev;
+    if (!$q || !$q->row() || trim((string) $q->row()->g) === '') {
+        return '';
+    }
+    return etat_declaration_normaliser_gare($CI, $q->row()->g);
 }
 
 function etat_lettre_colonnes()
@@ -366,7 +569,10 @@ function etat_lettre_effective($cle, $famille, $jour, $ekey)
     return etat_lettre_regle_au($cle, $famille, $jour, $regles, $ekey);
 }
 
-function etat_declaration_deja($ekey, $cle, $famille, $dt1, $dt2)
+/**
+ * @param string $codeGare code_gaexp / garesid ; vide = n'importe quelle gare (param lettres)
+ */
+function etat_declaration_deja($ekey, $cle, $famille, $dt1, $dt2, $codeGare = '')
 {
     $debut = etat_lettre_date($dt1);
     $fin = etat_lettre_date($dt2);
@@ -378,23 +584,34 @@ function etat_declaration_deja($ekey, $cle, $famille, $dt1, $dt2)
     }
     $CI = get_instance();
     $cle = trim((string) $cle);
+    $gare = etat_declaration_normaliser_gare($CI, $codeGare);
     foreach (etat_lettre_mois_entre($debut, $fin) as $mois) {
-        $snap = $CI->db->query(
-            'SELECT id FROM etat_lettre_declaration
-             WHERE entreprise_ekey = ? AND cle_compagnie = ? AND famille = ? AND mois = ? LIMIT 1',
-            array((int) $ekey, $cle, $famille, $mois)
-        )->row();
+        if ($gare !== '') {
+            $snap = $CI->db->query(
+                'SELECT id FROM etat_lettre_declaration
+                 WHERE entreprise_ekey = ? AND cle_compagnie = ? AND famille = ? AND mois = ? AND code_gare = ?
+                 LIMIT 1',
+                array((int) $ekey, $cle, $famille, $mois, $gare)
+            )->row();
+        } else {
+            $snap = $CI->db->query(
+                'SELECT id FROM etat_lettre_declaration
+                 WHERE entreprise_ekey = ? AND cle_compagnie = ? AND famille = ? AND mois = ?
+                 LIMIT 1',
+                array((int) $ekey, $cle, $famille, $mois)
+            )->row();
+        }
         if ($snap) {
             return true;
         }
-        if (etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois)) {
+        if (etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois, $gare)) {
             return true;
         }
     }
     return false;
 }
 
-function etat_declaration_figer($ekey, $cle, $famille, $dt1, $dt2, $acteur = null)
+function etat_declaration_figer($ekey, $cle, $famille, $dt1, $dt2, $acteur = null, $codeGare = '')
 {
     if (!etat_lettre_ensure()) {
         return;
@@ -406,18 +623,24 @@ function etat_declaration_figer($ekey, $cle, $famille, $dt1, $dt2, $acteur = nul
     }
     $CI = get_instance();
     $cle = trim((string) $cle);
+    $gare = etat_declaration_normaliser_gare($CI, $codeGare);
+    if ($gare === '') {
+        // Sans gare le verrou redeviendrait global : on refuse de figer.
+        return;
+    }
     $now = date('Y-m-d H:i:s');
     foreach (etat_lettre_mois_entre($debut, $fin) as $mois) {
         $regle = etat_lettre_effective($cle, $famille, $mois . '-01', $ekey);
         $CI->db->query(
             'INSERT IGNORE INTO etat_lettre_declaration
-             (entreprise_ekey, cle_compagnie, famille, mois, lettres, toutes, declared_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)',
+             (entreprise_ekey, cle_compagnie, famille, mois, code_gare, lettres, toutes, declared_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             array(
                 (int) $ekey,
                 $cle,
                 $famille,
                 $mois,
+                $gare,
                 implode(',', $regle['lettres']),
                 !empty($regle['toutes']) ? 1 : 0,
                 $now,
@@ -426,12 +649,31 @@ function etat_declaration_figer($ekey, $cle, $famille, $dt1, $dt2, $acteur = nul
     }
 }
 
-function etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois)
+function etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois, $codeGare = '')
 {
     $debut = $mois . '-01';
     $fin = date('Y-m-d', strtotime($debut . ' +1 month'));
     $ekey = (int) $ekey;
     $cleSql = $CI->db->escape($cle);
+    $debutSql = $CI->db->escape($debut);
+    $finSql = $CI->db->escape($fin);
+    $gareMatch = etat_declaration_sql_match_gare($CI, $codeGare);
+    $filtreGarePassager = ($gareMatch !== '')
+        ? ' AND ' . etat_lettre_expr_gare_passager('p') . ' = ' . $gareMatch
+        : '';
+    $filtreGareNp = ($gareMatch !== '')
+        ? ' AND ' . etat_lettre_expr_gare_non_passager('np') . ' = ' . $gareMatch
+        : '';
+    $filtreGareEscal = ($gareMatch !== '')
+        ? ' AND ' . etat_lettre_expr_gare_escal('esp') . ' = ' . $gareMatch
+        : '';
+    $filtreGareExp = '';
+    if ($gareMatch !== '') {
+        $code = etat_declaration_normaliser_gare($CI, $codeGare);
+        $codeEsc = $CI->db->escape($code);
+        $filtreGareExp = " AND (ex.code_gaexp = {$codeEsc} OR ex.garesid = {$codeEsc}
+             OR ex.garesid = {$gareMatch})";
+    }
     $map = array(
         'ticket_etats' => array(
             "SELECT 1 FROM passager p
@@ -442,18 +684,22 @@ function etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois)
              JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
              JOIN entreprise e ON c.id_entrep = e.id_entreprise
              WHERE e.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
-             AND p.datep_create >= " . $CI->db->escape($debut) . "
-             AND p.datep_create < " . $CI->db->escape($fin) . "
-             AND p.exop = 1 LIMIT 1",
+             AND p.datep_create >= {$debutSql}
+             AND p.datep_create < {$finSql}
+             AND p.exop = 1
+             {$filtreGarePassager}
+             LIMIT 1",
             "SELECT 1 FROM non_passager np
              JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
              JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
              JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
              JOIN entreprise e ON c.id_entrep = e.id_entreprise
              WHERE e.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
-             AND np.datevente >= " . $CI->db->escape($debut) . "
-             AND np.datevente < " . $CI->db->escape($fin) . "
-             AND np.exonp = 1 LIMIT 1",
+             AND np.datevente >= {$debutSql}
+             AND np.datevente < {$finSql}
+             AND np.exonp = 1
+             {$filtreGareNp}
+             LIMIT 1",
         ),
         'ticket_escal' => array(
             "SELECT 1 FROM escalclients esp
@@ -462,60 +708,69 @@ function etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois)
              JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
              JOIN entreprise e ON c.id_entrep = e.id_entreprise
              WHERE e.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
-             AND esp.datedepescal >= " . $CI->db->escape($debut) . "
-             AND esp.datedepescal < " . $CI->db->escape($fin) . "
-             AND esp.exopes = 1 LIMIT 1",
+             AND esp.datedepescal >= {$debutSql}
+             AND esp.datedepescal < {$finSql}
+             AND esp.exopes = 1
+             {$filtreGareEscal}
+             LIMIT 1",
         ),
         'bagage' => array(
             "SELECT 1 FROM bagages bg
              JOIN programme pr ON bg.progidbagage = pr.code_progr
              JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
              JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+             JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
              JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
              JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
              JOIN entreprise e ON c.id_entrep = e.id_entreprise
              WHERE e.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
-             AND bg.date_create >= " . $CI->db->escape($debut) . "
-             AND bg.date_create < " . $CI->db->escape($fin) . "
-             AND bg.exobg = 1 LIMIT 1",
+             AND bg.date_create >= {$debutSql}
+             AND bg.date_create < {$finSql}
+             AND bg.exobg = 1
+             {$filtreGareExp}
+             LIMIT 1",
             "SELECT 1 FROM bagagesesc bg
-             JOIN lignes lg ON bg.id_lgeheuresc IS NOT NULL AND lg.ident_ligne = lg.ident_ligne
-             WHERE 1 = 0",
-        ),
-    );
-    if ($famille === 'bagage') {
-        $map['bagage'][1] = "SELECT 1 FROM bagagesesc bg
              JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
              JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+             JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
              JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
              JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
              JOIN entreprise e ON c.id_entrep = e.id_entreprise
              WHERE e.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
-             AND bg.date_createesc >= " . $CI->db->escape($debut) . "
-             AND bg.date_createesc < " . $CI->db->escape($fin) . "
-             AND bg.exobagesc = 1 LIMIT 1";
-    }
-    $map['courrier'] = array(
-        "SELECT 1 FROM courriers_exp e
-         JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
-         JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-         JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-         JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-         WHERE ep.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
-         AND e.dateenvoi >= " . $CI->db->escape($debut) . "
-         AND e.dateenvoi < " . $CI->db->escape($fin) . "
-         AND e.exocr = 1 LIMIT 1",
-        "SELECT 1 FROM courriers_expesc es
-         JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
-         JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-         JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-         JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-         WHERE ep.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
-         AND es.dateenvoiesc >= " . $CI->db->escape($debut) . "
-         AND es.dateenvoiesc < " . $CI->db->escape($fin) . "
-         AND es.exocresc = 1 LIMIT 1",
+             AND bg.date_createesc >= {$debutSql}
+             AND bg.date_createesc < {$finSql}
+             AND bg.exobagesc = 1
+             {$filtreGareExp}
+             LIMIT 1",
+        ),
+        'courrier' => array(
+            "SELECT 1 FROM courriers_exp e
+             JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
+             JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+             JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+             JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+             JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+             JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+             WHERE ep.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
+             AND e.dateenvoi >= {$debutSql}
+             AND e.dateenvoi < {$finSql}
+             AND e.exocr = 1
+             {$filtreGareExp}
+             LIMIT 1",
+            "SELECT 1 FROM courriers_expesc es
+             JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
+             JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+             JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+             JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+             JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+             JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+             WHERE ep.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
+             AND es.dateenvoiesc >= {$debutSql}
+             AND es.dateenvoiesc < {$finSql}
+             AND es.exocresc = 1
+             {$filtreGareExp}
+             LIMIT 1",
+        ),
     );
     if (!isset($map[$famille])) {
         return false;

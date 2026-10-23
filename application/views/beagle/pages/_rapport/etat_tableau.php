@@ -119,7 +119,12 @@ $colCount = max(1, count($columns));
                 <?php endif; ?>
             </div>
             <div class="card-body table-responsive">
-                <?php if (empty($lignes)): ?>
+                <?php
+                $etatMessage = isset($etat_message) ? trim((string) $etat_message) : '';
+                ?>
+                <?php if ($etatMessage !== ''): ?>
+                    <div class="alert alert-danger mb-0"><?= htmlspecialchars($etatMessage); ?></div>
+                <?php elseif (empty($lignes)): ?>
                     <div class="alert alert-warning mb-0">Aucun résultat pour ces critères.</div>
                 <?php else: ?>
                     <table class="table table-sm table-striped table-bordered mb-0">

@@ -58,6 +58,106 @@ if (!function_exists('roleattribut_guard_can_consult_main_cashbox')) {
     }
 }
 
+if (!function_exists('caisse_carte_profil_ra')) {
+    /**
+     * roleattribut du profil caisse (ex. caissier=4, adjoint=18) sur une gare.
+     * Admin/superviseur : ne jamais utiliser leur propre RA pour le solde / les liens carte.
+     *
+     * @param string     $gare_code code_gaexp / idengare
+     * @param int|string $profil_userole 4 ou 18
+     * @return int
+     */
+    function caisse_carte_profil_ra($gare_code, $profil_userole)
+    {
+        $gare_code = trim((string) $gare_code);
+        $profil_userole = (int) $profil_userole;
+        if ($gare_code === '' || $profil_userole <= 0) {
+            return 0;
+        }
+
+        $CI =& get_instance();
+        $ekey = '';
+        if ($CI->session->userdata('company') && !empty($CI->session->company->ekey)) {
+            $ekey = (string) $CI->session->company->ekey;
+        }
+        $gare_norm = ($ekey !== '' && function_exists('roleattribut_guard_normalize_gare_id'))
+            ? roleattribut_guard_normalize_gare_id($ekey, $gare_code)
+            : $gare_code;
+        $gares = array_values(array_unique(array_filter(array($gare_norm, $gare_code))));
+
+        foreach ($gares as $guser) {
+            $row = $CI->db->query(
+                "SELECT ar.roleattribut
+                 FROM attributions_role ar
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 WHERE ul.guser = ?
+                   AND ar.userole = ?
+                   AND ar.activer_role = 0
+                   AND ul.comptactif = 0
+                 ORDER BY ar.activeattrib DESC, ar.roleattribut ASC
+                 LIMIT 1",
+                array($guser, $profil_userole)
+            )->row();
+            if ($row && !empty($row->roleattribut)) {
+                return (int) $row->roleattribut;
+            }
+        }
+
+        return 0;
+    }
+}
+
+if (!function_exists('roleattribut_guard_caisse_profil_consult')) {
+    /**
+     * Admin/superviseur (ou consultant 13/14) : si l'URL vise un caissier (4)
+     * ou adjoint caisse (18) de la gare, retourne ce profil pour la lecture
+     * des opérations (sans basculer la session via connect_gare_exclusive).
+     *
+     * @return array{roleattribut:int,conex:object,userole:string}|null
+     */
+    function roleattribut_guard_caisse_profil_consult($ekey, $gare_id, $hint)
+    {
+        if (!roleattribut_guard_is_supervisor() && !roleattribut_guard_is_cashbox_consultant()) {
+            return null;
+        }
+
+        $hint = (int) $hint;
+        if ($hint <= 0) {
+            return null;
+        }
+
+        $cible = roleattribut_guard_attribution_on_gare(
+            $ekey,
+            $gare_id,
+            $hint,
+            array('4', '18'),
+            false
+        );
+        if (!$cible) {
+            return null;
+        }
+
+        $CI =& get_instance();
+        if (!isset($CI->m_compte_user)) {
+            $CI->load->model('Compte_user_model', 'm_compte_user');
+        }
+        $gare_norm = roleattribut_guard_normalize_gare_id($ekey, $gare_id);
+        $conex = $CI->m_compte_user->getusergar_any($ekey, $gare_norm, (int) $cible->roleattribut);
+        if (!$conex) {
+            $conex = $CI->m_compte_user->getusergar_any($ekey, $gare_id, (int) $cible->roleattribut);
+        }
+        if (!$conex) {
+            return null;
+        }
+
+        return array(
+            'roleattribut' => (int) $cible->roleattribut,
+            'conex' => $conex,
+            'userole' => (string) $cible->userole,
+        );
+    }
+}
+
 if (!function_exists('roleattribut_guard_normalize_gare_id')) {
     /**
      * Résout code_gaexp (BOB1) vers idengare utilisé dans user_login.guser.
@@ -577,7 +677,7 @@ if (!function_exists('roleattribut_guard_main_cashbox_supervisor_bind')) {
             $ekey,
             $gare_id,
             $caissier_hint,
-            array('4'),
+            array('4', '18'),
             false
         );
         if (!$caissier) {

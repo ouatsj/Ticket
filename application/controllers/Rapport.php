@@ -1492,6 +1492,7 @@
             $this->property['signature_convoyeur'] = isset($payload['signature_convoyeur']) ? $payload['signature_convoyeur'] : '';
             $this->property['bordereau_envoi'] = !empty($payload['bordereau_envoi']);
             $this->property['depart_affiche'] = isset($payload['depart_affiche']) ? trim((string) $payload['depart_affiche']) : '';
+            $this->property['etat_message'] = isset($payload['etat_message']) ? trim((string) $payload['etat_message']) : '';
             $this->property['bundle_datatables'] = false;
             return $this->layout->view('_rapport/etat_tableau', $this->property);
         }
@@ -3375,6 +3376,7 @@
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
+            // Référence métier : tickets A/C/D de la période (à déclarer). DECLARATION/DECLARER doivent coller à ce total.
             $isAdmin = ($this->session->agent->userole === '1' || $this->session->agent->userole === '2');
             if ($isAdmin) {
                 if ($comp == 5002) {
@@ -3465,19 +3467,60 @@
         }
 
 
-        protected function _declaration_deja($comp, $famille, $dt1, $dt2)
+        protected function _declaration_deja($comp, $famille, $dt1, $dt2, $gid = '')
         {
             $this->load->helper('etat_lettres');
             $ekey = isset($this->entreprise->ekey) ? (int) $this->entreprise->ekey : 0;
-            return etat_declaration_deja($ekey, $comp, $famille, $dt1, $dt2);
+            return etat_declaration_deja($ekey, $comp, $famille, $dt1, $dt2, $gid);
         }
 
-        protected function _declaration_figer($comp, $famille, $dt1, $dt2)
+        protected function _declaration_figer($comp, $famille, $dt1, $dt2, $gid = '')
         {
             $this->load->helper('etat_lettres');
             $ekey = isset($this->entreprise->ekey) ? (int) $this->entreprise->ekey : 0;
             $acteur = isset($this->session->agent->roleattribut) ? $this->session->agent->roleattribut : null;
-            etat_declaration_figer($ekey, $comp, $famille, $dt1, $dt2, $acteur);
+            etat_declaration_figer($ekey, $comp, $famille, $dt1, $dt2, $acteur, $gid);
+        }
+
+        /**
+         * Payload DECLARER si la période n'est pas encore déclarée pour la gare.
+         */
+        protected function _declaration_etat_non_declaree(
+            $ckey,
+            $g,
+            $gid,
+            $titre,
+            $exportAction,
+            array $filters
+        ) {
+            $qs = http_build_query(array_filter(array_merge($filters, array(
+                'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
+                'userconnected' => trim((string) $this->input->get_post('userconnected')),
+                'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+            ))));
+            return array(
+                'titre' => $titre . ' — NON DECLAREE',
+                'etat_message' => 'Cette période n\'a pas encore été déclarée pour cette gare et cette compagnie. '
+                    . 'Utilisez le bouton DECLARATION avant d\'afficher l\'état.',
+                'lignes' => array(),
+                'total' => 0.0,
+                'filters_qs' => $qs,
+                'retour_url' => $this->_etat_retour_url(
+                    $ckey,
+                    trim((string) $this->input->get_post('gareconnect')),
+                    trim((string) $this->input->get_post('userconnected')),
+                    trim((string) $this->input->get_post('sousgareconnect'))
+                ),
+                'columns' => array(
+                    array('key' => 'ligne', 'label' => 'Ligne', 'align' => 'left'),
+                    array('key' => 'nbr', 'label' => 'Nombre', 'align' => 'center'),
+                    array('key' => 'pu', 'label' => 'Prix unitaire', 'align' => 'right', 'money' => true),
+                    array('key' => 'montant', 'label' => 'Prix total', 'align' => 'right', 'money' => true),
+                ),
+                'export_base' => site_url(
+                    'Rapport/' . $exportAction . '/' . rawurlencode($ckey) . '/' . rawurlencode($gid !== '' ? $gid : $g)
+                ),
+            );
         }
 
         protected function _exerclarer_payload($ckey, $g, $doUpdate = true)
@@ -3501,7 +3544,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'ticket_etats', $dt1, $dt2));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'ticket_etats', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 if ($comp == 5002) {
                     $reportick = $this->m_passager->reporticketgr($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
@@ -3529,7 +3572,7 @@
                 }
                 $ok = ($pa !== false && $nbr > 0);
                 if ($ok) {
-                    $this->_declaration_figer($comp, 'ticket_etats', $dt1, $dt2);
+                    $this->_declaration_figer($comp, 'ticket_etats', $dt1, $dt2, $gid);
                 }
             } else {
                 $ok = ($saved === 'REUSSIE');
@@ -3597,6 +3640,23 @@
             $ngrd = $this->m_gare_depart->getno($gid);
             $garNom = ($ngrd && isset($ngrd->garenom)) ? $ngrd->garenom : $gid;
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
+            $titreDecl = 'ETATS DES DECLARATION DES TICKETS ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1;
+            if (!$this->_declaration_deja($comp, 'ticket_etats', $dt1, $dt2, $gid)) {
+                return $this->_declaration_etat_non_declaree(
+                    $ckey,
+                    $g,
+                    $gid,
+                    $titreDecl,
+                    'exerdeclarer_export',
+                    array(
+                        'datedebutd' => $dt1,
+                        'datefind' => $dt2,
+                        'axeligned' => $lign,
+                        '_compagd' => $comp,
+                        'departgard' => $gid,
+                    )
+                );
+            }
             $reportick = $this->m_passager->reporticketcptd($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
             $reportickretors = $this->m_non_passager->reporticketretourcptd($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
             if (!is_array($reportick)) {
@@ -3642,7 +3702,7 @@
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
             )));
             return array(
-                'titre' => 'ETATS DES DECLARATION DES TICKETS ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => $titreDecl,
                 'lignes' => $lignes,
                 'total' => $total,
                 'filters_qs' => $qs,
@@ -3694,7 +3754,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'bagage', $dt1, $dt2));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'bagage', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $reportbag = $this->m_bagage->reportbagcptgr($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                 if (!is_array($reportbag)) {
@@ -3708,7 +3768,7 @@
                 }
                 $ok = ($pab !== false && $nbr > 0);
                 if ($ok) {
-                    $this->_declaration_figer($comp, 'bagage', $dt1, $dt2);
+                    $this->_declaration_figer($comp, 'bagage', $dt1, $dt2, $gid);
                 }
             } else {
                 $ok = ($saved === 'REUSSIE');
@@ -3778,7 +3838,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'bagage', $dt1, $dt2));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'bagage', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $reportbag = $this->m_bagageesc->reportbagcptgr($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $lign);
                 if (!is_array($reportbag)) {
@@ -3792,7 +3852,7 @@
                 }
                 $ok = ($pab !== false && $nbr > 0);
                 if ($ok) {
-                    $this->_declaration_figer($comp, 'bagage', $dt1, $dt2);
+                    $this->_declaration_figer($comp, 'bagage', $dt1, $dt2, $gid);
                 }
             } else {
                 $ok = ($saved === 'REUSSIE');
@@ -3859,6 +3919,23 @@
             $ngrd = $this->m_gare_depart->getno($gid);
             $garNom = ($ngrd && isset($ngrd->garenom)) ? $ngrd->garenom : $gid;
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
+            $titreDecl = 'ETATS DES DECLARATION BAGAGES ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1;
+            if (!$this->_declaration_deja($comp, 'bagage', $dt1, $dt2, $gid)) {
+                return $this->_declaration_etat_non_declaree(
+                    $ckey,
+                    $g,
+                    $gid,
+                    $titreDecl,
+                    'exerdeclarerbg_export',
+                    array(
+                        'datedebutdbg' => $dt1,
+                        'datefindbg' => $dt2,
+                        'axelignedbg' => $lign,
+                        '_compagdbg' => $comp,
+                        'departgardbg' => $gid,
+                    )
+                );
+            }
             $reportbaga = $this->m_bagage->reportbagcptd($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $lign);
             if (!is_array($reportbaga)) {
                 $reportbaga = array();
@@ -3888,7 +3965,7 @@
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
             )));
             return array(
-                'titre' => 'ETATS DES DECLARATION BAGAGES ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => $titreDecl,
                 'lignes' => $lignes,
                 'total' => $total,
                 'filters_qs' => $qs,
@@ -3936,6 +4013,23 @@
             $ngrd = $this->m_gare_depart->getno($gid);
             $garNom = ($ngrd && isset($ngrd->garenom)) ? $ngrd->garenom : $gid;
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
+            $titreDecl = 'ETATS DES DECLARATION BAGAGES ESCAL ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1;
+            if (!$this->_declaration_deja($comp, 'bagage', $dt1, $dt2, $gid)) {
+                return $this->_declaration_etat_non_declaree(
+                    $ckey,
+                    $g,
+                    $gid,
+                    $titreDecl,
+                    'exerdeclarerbgesc_export',
+                    array(
+                        'datedebutdbgesc' => $dt1,
+                        'datefindbgesc' => $dt2,
+                        'axelignedbgesc' => $lign,
+                        '_compagdbgesc' => $comp,
+                        'departgardbgesc' => $gid,
+                    )
+                );
+            }
             $reportbaga = $this->m_bagageesc->reportbagcptd($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $lign);
             if (!is_array($reportbaga)) {
                 $reportbaga = array();
@@ -3965,7 +4059,7 @@
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
             )));
             return array(
-                'titre' => 'ETATS DES DECLARATION BAGAGES ESCAL ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => $titreDecl,
                 'lignes' => $lignes,
                 'total' => $total,
                 'filters_qs' => $qs,
@@ -4029,7 +4123,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'courrier', $dt1, $dt2));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'courrier', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $recapcourrier = $this->m_courrier_expedier->recaptexopligr($this->entreprise->ekey, $dt1, $dt2, $gid, $comp, $tyc, $lign);
                 if (!is_array($recapcourrier)) {
@@ -4043,7 +4137,7 @@
                 }
                 $ok = ($pacr !== false && $nbr > 0);
                 if ($ok) {
-                    $this->_declaration_figer($comp, 'courrier', $dt1, $dt2);
+                    $this->_declaration_figer($comp, 'courrier', $dt1, $dt2, $gid);
                 }
             } else {
                 $ok = ($saved === 'REUSSIE');
@@ -4124,7 +4218,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'courrier', $dt1, $dt2));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'courrier', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $recapcourrier = $this->m_courrier_expedieresc->recaptexopligr($this->entreprise->ekey, $dt1, $dt2, $gid, $comp, $tyc, $lign);
                 if (!is_array($recapcourrier)) {
@@ -4138,7 +4232,7 @@
                 }
                 $ok = ($pacr !== false && $nbr > 0);
                 if ($ok) {
-                    $this->_declaration_figer($comp, 'courrier', $dt1, $dt2);
+                    $this->_declaration_figer($comp, 'courrier', $dt1, $dt2, $gid);
                 }
             } else {
                 $ok = ($saved === 'REUSSIE');
@@ -4215,6 +4309,24 @@
             } else {
                 $ty3 = $tyc;
             }
+            $titreDecl = 'ETATS DES DECLARATION  ' . $cieNom . ' ' . $garNom . ' ' . $ty3 . ' DU ' . $days . ' AU ' . $days1;
+            if (!$this->_declaration_deja($comp, 'courrier', $dt1, $dt2, $gid)) {
+                return $this->_declaration_etat_non_declaree(
+                    $ckey,
+                    $g,
+                    $gid,
+                    $titreDecl,
+                    'exodeclarercourrier_export',
+                    array(
+                        'datedebutcrcld' => $dt1,
+                        'datefincrcld' => $dt2,
+                        'axelignecrcld' => $lign,
+                        '_compagcrcld' => $comp,
+                        'departgarcrcld' => $gid,
+                        'typcourscld' => $tyc,
+                    )
+                );
+            }
             $recapcourrier = $this->m_courrier_expedier->recaptexoplid($this->entreprise->ekey, $dt1, $dt2, $gid, $comp, $tyc, $lign);
             if (!is_array($recapcourrier)) {
                 $recapcourrier = array();
@@ -4245,7 +4357,7 @@
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
             )));
             return array(
-                'titre' => 'ETATS DES DECLARATION  ' . $cieNom . ' ' . $garNom . ' ' . $ty3 . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => $titreDecl,
                 'lignes' => $lignes,
                 'total' => $total,
                 'filters_qs' => $qs,
@@ -4303,6 +4415,24 @@
             } else {
                 $ty3 = $tyc;
             }
+            $titreDecl = 'ETATS DES DECLARATION ESCAL ' . $cieNom . ' ' . $garNom . ' ' . $ty3 . ' DU ' . $days . ' AU ' . $days1;
+            if (!$this->_declaration_deja($comp, 'courrier', $dt1, $dt2, $gid)) {
+                return $this->_declaration_etat_non_declaree(
+                    $ckey,
+                    $g,
+                    $gid,
+                    $titreDecl,
+                    'exodeclarercourrieresc_export',
+                    array(
+                        'datedebutcrcldesc' => $dt1,
+                        'datefincrcldesc' => $dt2,
+                        'axelignecrcldesc' => $lign,
+                        '_compagcrcldesc' => $comp,
+                        'departgarcrcldesc' => $gid,
+                        'typcourscldesc' => $tyc,
+                    )
+                );
+            }
             $recapcourrier = $this->m_courrier_expedieresc->recaptexoplid($this->entreprise->ekey, $dt1, $dt2, $gid, $comp, $tyc, $lign);
             if (!is_array($recapcourrier)) {
                 $recapcourrier = array();
@@ -4333,7 +4463,7 @@
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
             )));
             return array(
-                'titre' => 'ETATS DES DECLARATION ESCAL ' . $cieNom . ' ' . $garNom . ' ' . $ty3 . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => $titreDecl,
                 'lignes' => $lignes,
                 'total' => $total,
                 'filters_qs' => $qs,
@@ -4466,7 +4596,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'ticket_escal', $dt1, $dt2));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'ticket_escal', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $reportick = $this->m_escalclients->reporticketcptgr($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                 if (!is_array($reportick)) {
@@ -4480,7 +4610,7 @@
                 }
                 $ok = ($paes !== false && $nbr > 0);
                 if ($ok) {
-                    $this->_declaration_figer($comp, 'ticket_escal', $dt1, $dt2);
+                    $this->_declaration_figer($comp, 'ticket_escal', $dt1, $dt2, $gid);
                 }
             } else {
                 $ok = ($saved === 'REUSSIE');
@@ -4548,6 +4678,23 @@
             $ngrd = $this->m_gare_depart->getno($gid);
             $garNom = ($ngrd && isset($ngrd->garenom)) ? $ngrd->garenom : $gid;
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
+            $titreDecl = 'ETATS DES DECLARATION DES TICKETS ESCAL ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1;
+            if (!$this->_declaration_deja($comp, 'ticket_escal', $dt1, $dt2, $gid)) {
+                return $this->_declaration_etat_non_declaree(
+                    $ckey,
+                    $g,
+                    $gid,
+                    $titreDecl,
+                    'exerdeclareres_export',
+                    array(
+                        'datedebutdes' => $dt1,
+                        'datefindes' => $dt2,
+                        'axelignedes' => $lign,
+                        '_compagdes' => $comp,
+                        'departgardes' => $gid,
+                    )
+                );
+            }
             $reportick = $this->m_escalclients->reporticketcptd($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $lign);
             if (!is_array($reportick)) {
                 $reportick = array();
@@ -4577,7 +4724,7 @@
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
             )));
             return array(
-                'titre' => 'ETATS DES DECLARATION DES TICKETS ESCAL ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => $titreDecl,
                 'lignes' => $lignes,
                 'total' => $total,
                 'filters_qs' => $qs,

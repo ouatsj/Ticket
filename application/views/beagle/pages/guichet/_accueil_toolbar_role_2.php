@@ -1,6 +1,5 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php $this->load->view('beagle/pages/guichet/_accueil_tabs_styles'); ?>
-<?php $this->load->view('beagle/pages/guichet/_tei_download_banner'); ?>
 <div class="guichet-accueil-toolbar card card-border-color card-border-color-primary mb-3">
   <div class="card-body p-2">
     <div class="guichet-retour-row">

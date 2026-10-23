@@ -21,11 +21,12 @@ CREATE TABLE IF NOT EXISTS etat_lettre_declaration (
     cle_compagnie VARCHAR(32) NOT NULL,
     famille VARCHAR(32) NOT NULL,
     mois CHAR(7) NOT NULL,
+    code_gare VARCHAR(32) NOT NULL DEFAULT '',
     lettres VARCHAR(32) NOT NULL DEFAULT '',
     toutes TINYINT(1) NOT NULL DEFAULT 0,
     declared_at DATETIME NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_etat_lettre_declaration (entreprise_ekey, cle_compagnie, famille, mois)
+    UNIQUE KEY uq_etat_lettre_declaration (entreprise_ekey, cle_compagnie, famille, mois, code_gare)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- Règle d'origine (entreprise_ekey 0, applicable_depuis 1970-01-01).

@@ -78,11 +78,14 @@
                 ORDER BY d.id_depense DESC")->row();
         }
 
-        public function getdepen($cid, $idcais, $gid, $sg, $usc, $pk = FALSE)
+        public function getdepen($cid, $idcais, $gid, $sg, $usc, $pk = FALSE, $periode_ouverte = false)
         {
            
             $today = mdate('%Y-%m-%d', now());
             $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
+            $filtre_periode = $periode_ouverte
+                ? "AND d.ferme_caisdep = 0 AND d.is_actifdep = 1 AND d.is_validedep = 1"
+                : "AND d.active_dep = 1 AND d.arret_caisdep = 0 AND d.actif_deps = 0 AND d.date_depens = '{$today}'";
             if ($pk === FALSE) {
                 return $this->db->query(
                 "SELECT * FROM depense d
@@ -94,11 +97,8 @@
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND d.active_dep = 1
-                AND d.arret_caisdep = 0
+                {$filtre_periode}
                 AND cs.id_caiss = '$idcais'
-                AND d.date_depens = '$today'
-                AND d.actif_deps = 0
                 AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
@@ -116,12 +116,9 @@
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND d.active_dep = 1
+                {$filtre_periode}
                 AND cs.id_caiss = '$idcais'
-                AND d.arret_caisdep = 0
                 AND d.id_depense = '$pk'
-                AND d.date_depens = '$today'
-                AND d.actif_deps = 0
                 AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
@@ -130,11 +127,14 @@
                 ORDER BY d.id_depense DESC")->row();
         }
 
-        public function adgetdepen($cid, $idcais, $gid, $sg, $usc, $pk = FALSE)
+        public function adgetdepen($cid, $idcais, $gid, $sg, $usc, $pk = FALSE, $periode_ouverte = false)
         {
            
             $today = mdate('%Y-%m-%d', now());
             $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
+            $filtre_periode = $periode_ouverte
+                ? "AND d.ferme_caisdep = 0 AND d.is_actifdepad = 1 AND d.is_validedep = 1"
+                : "AND d.active_dep = 1 AND d.is_actifdepad = 1 AND d.arret_caisdep = 0 AND d.actif_deps = 0 AND d.date_depens = '{$today}'";
 
             if ($pk === FALSE) {
                 return $this->db->query(
@@ -147,12 +147,8 @@
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND d.active_dep = 1
-                AND d.is_actifdepad = 1
-                AND d.arret_caisdep = 0
+                {$filtre_periode}
                 AND cs.id_caiss = '$idcais'
-                AND d.date_depens = '$today'
-                AND d.actif_deps = 0
                 AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
@@ -170,13 +166,9 @@
                 JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND d.active_dep = 1
-                AND d.is_actifdepad = 1
+                {$filtre_periode}
                 AND cs.id_caiss = '$idcais'
-                AND d.arret_caisdep = 0
                 AND d.id_depense = '$pk'
-                AND d.date_depens = '$today'
-                AND d.actif_deps = 0
                 AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'

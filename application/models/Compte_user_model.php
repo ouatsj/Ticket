@@ -1747,6 +1747,9 @@
             }
             $in_gares = implode(',', $quoted_gares);
             $adjoint = ($userole === '18');
+            // Admin / superviseur : total gare = profil caissier (4), toutes sous-gares
+            // + caisses escale rattachées (même gexp_caiss / parent).
+            $superviseur = in_array((string) $userole, array('1', '2'), true);
 
             $valid_versement = $adjoint ? 'v.validopad' : 'v.validop';
             $valid_recette = $adjoint ? 'r.operavalidad' : 'r.operavalid';
@@ -1761,19 +1764,44 @@
                 ? 'dp.is_validdepo = 1 AND dp.is_actifdepoad = 1'
                 : 'dp.is_validdepo = 1';
 
-            $attrib = "JOIN attributions_role ar ON ar.roleattribut = %s
-                JOIN user_login ul ON ar.idgestcompte = ul.uid_login AND ul.guser = cs.gexp_caiss
-                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                WHERE cu.cpuser_id = '{$cpuser_id}'
-                AND ar.activer_role = 0
-                AND ul.comptactif = 0";
+            if ($superviseur) {
+                // Uniquement le caissier principal actif de la gare (même règle que la carte caisse).
+                // Pas les anciens caissiers désactivés, ni le RA admin.
+                $attrib = "JOIN attributions_role ar ON ar.roleattribut = %s
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login AND ul.guser = cs.gexp_caiss
+                    WHERE ar.userole = 4
+                    AND ar.activer_role = 0
+                    AND ul.comptactif = 0
+                    AND ar.roleattribut = (
+                        SELECT ar2.roleattribut
+                        FROM attributions_role ar2
+                        JOIN user_login ul2 ON ar2.idgestcompte = ul2.uid_login
+                        WHERE ul2.guser = cs.gexp_caiss
+                          AND ar2.userole = 4
+                          AND ar2.activer_role = 0
+                          AND ul2.comptactif = 0
+                        ORDER BY ar2.activeattrib DESC, ar2.roleattribut ASC
+                        LIMIT 1
+                    )";
+            } else {
+                $attrib = "JOIN attributions_role ar ON ar.roleattribut = %s
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login AND ul.guser = cs.gexp_caiss
+                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                    WHERE cu.cpuser_id = '{$cpuser_id}'
+                    AND ar.activer_role = 0
+                    AND ul.comptactif = 0";
+            }
 
             $entreprise = "JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise";
 
+            // Toutes les caisses de la gare (principale + escales enfants).
             $filtre = "AND e.ekey = '{$ekey}'
                 AND cs.gexp_caiss IN ({$in_gares})";
+
+            $valid_flag_recette = $adjoint ? '' : 'AND r.is_validerecet = 1';
+            $valid_flag_depense = $adjoint ? '' : 'AND d.is_validedep = 1';
 
             $versements = $this->db->query(
                 "SELECT cs.gexp_caiss AS gare_id, SUM(v.montant_verser) AS montant
@@ -1784,6 +1812,7 @@
                 {$filtre}
                 AND v.ferme_caisvers = 0
                 AND {$actif_versement}
+                AND v.type_versement <> 'Courrier'
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
@@ -1797,6 +1826,7 @@
                 {$filtre}
                 AND r.ferme_caisrecet = 0
                 AND {$actif_recette}
+                {$valid_flag_recette}
                 AND r.type_recet <> 'Courrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
@@ -1810,6 +1840,7 @@
                 {$filtre}
                 AND d.ferme_caisdep = 0
                 AND {$actif_depense}
+                {$valid_flag_depense}
                 AND d.type_depense <> 'Courrier'
                 GROUP BY cs.gexp_caiss"
             )->result();

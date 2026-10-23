@@ -264,22 +264,49 @@
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $idsg);
             $this->property['bus_stop'] = $bus_stop;
             $cpr_requested = $cpr;
-            $operateur = $this->_gare_connexion_operateur($this->company->ekey, $cdg, $cpr);
-            $cpr = $operateur['roleattribut'];
             $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
-            roleattribut_guard_redirect_if_url_mismatch(
-                'caisses/' . $this->company->ekey . '/gTv/' . $cdg . '/' . $cid . '/' . $type . '/' . $cpr . '/' . $idsg . '/' . $date_seg,
-                $cpr_requested,
-                $cpr
-            );
-            $conex = $operateur['conex'];
-            $userole = $operateur['userole'];
+
+            // Admin / superviseur / consultant : lire la caisse du profil URL (4/18),
+            // sans remapper vers le RA session (connect_gare_exclusive).
+            $consult = function_exists('roleattribut_guard_caisse_profil_consult')
+                ? roleattribut_guard_caisse_profil_consult($this->company->ekey, $cdg, $cpr_requested)
+                : null;
+            $consult_profil = is_array($consult) && (int) $consult['roleattribut'] > 0;
+
+            if ($consult_profil) {
+                $cpr = (int) $consult['roleattribut'];
+                $conex = $consult['conex'];
+                $userole = $consult['userole'];
+            } else {
+                $operateur = $this->_gare_connexion_operateur($this->company->ekey, $cdg, $cpr);
+                $cpr = $operateur['roleattribut'];
+                roleattribut_guard_redirect_if_url_mismatch(
+                    'caisses/' . $this->company->ekey . '/gTv/' . $cdg . '/' . $cid . '/' . $type . '/' . $cpr . '/' . $idsg . '/' . $date_seg,
+                    $cpr_requested,
+                    $cpr
+                );
+                $conex = $operateur['conex'];
+                $userole = $operateur['userole'];
+            }
             if (!$conex || (int) $cpr <= 0) {
                 roleattribut_guard_fail_redirect_gare_caisse($this->company->ekey, $cdg);
             }
             $this->property['conex'] = $conex;
             $this->property['caisse_operateur_roleattribut'] = $cpr;
             $this->property['caisse_operateur_userole'] = $userole;
+            $this->property['caisse_consult_profil'] = $consult_profil;
+            // Sélection des requêtes caissier vs adjoint selon le profil consulté.
+            $role_vue = $consult_profil
+                ? (string) $userole
+                : (string) $this->session->agent->userole;
+            $voir_adjoint = $consult_profil
+                ? ($role_vue === '18')
+                : in_array($role_vue, array('18', '1', '2'), true);
+            $voir_caissier = $consult_profil
+                ? ($role_vue === '4')
+                : in_array($role_vue, array('4', '1', '2'), true);
+            $periode_ouverte_superviseur = $consult_profil
+                || (function_exists('roleattribut_guard_is_supervisor') && roleattribut_guard_is_supervisor());
             $ref = $this->_caisse_ref_data();
 
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
@@ -305,74 +332,31 @@
                     ) as $cle_vide) {
                         $this->property[$cle_vide] = array();
                     }
-                    $today_arret = mdate('%Y-%m-%d', now());
-                    $gid_sql = $this->db->escape($cdg);
-                    $cpr_sql = (int) $cpr;
-                    $cid_sql = (int) $cid;
-                    $caisse_pred = sous_caisse_predicat('cs.id_caiss', $cid_sql);
-                    $fr = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('r.nom', 'r.idopera', 'r.commentaire_recet') : '';
-                    $fd = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep') : '';
-                    $fp = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_pre', 'd.idop_depot') : '';
-                    $fv = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
-                    if ($fr === '') {
-                        $fr = recette_role_ops_ou_nom_sql(array('r.idopera'), 'r.nom', $escale_ops_arret);
-                    }
-                    if ($fd === '') {
-                        $fd = recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $escale_ops_arret);
-                    }
-                    if ($fp === '') {
-                        $fp = recette_role_ops_ou_nom_sql(array('d.idop_depot'), 'd.nom_pre', $escale_ops_arret);
-                    }
-                    if ($fv === '') {
-                        $fv = recette_role_ops_ou_nom_sql(array('v.idop_versement'), 'v.nom_beneficiaire', $escale_ops_arret);
-                    }
-                    $qui_recette = function_exists('caissier_escale_validateur_sql')
-                        ? caissier_escale_validateur_sql('r.operavalid')
-                        : "AND r.operavalid = {$cpr_sql}";
-                    $qui_depense = function_exists('caissier_escale_validateur_sql')
-                        ? caissier_escale_validateur_sql('d.opevalid')
-                        : "AND d.opevalid = {$cpr_sql}";
-                    $qui_depot = function_exists('caissier_escale_validateur_sql')
-                        ? caissier_escale_validateur_sql('d.opvalid')
-                        : "AND d.opvalid = {$cpr_sql}";
-                    $qui_vers = function_exists('caissier_escale_validateur_sql')
-                        ? caissier_escale_validateur_sql('v.validop')
-                        : "AND v.validop = {$cpr_sql}";
-                    $this->property['recettescaisse'] = $this->db->query(
-                        "SELECT SUM(r.montant_recet) AS total FROM recette r
-                        JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                        WHERE {$caisse_pred}
-                        AND r.is_actifrecet = 1 AND r.ferme_caisrecet = 0 AND r.actif_rect = 0
-                        AND r.date_recet <= '{$today_arret}'
-                        {$qui_recette} {$fr}"
-                    )->row();
+                    // Mêmes listes / filtres que les boutons RECETTES / DEPENSES / DEPOTS / VERSEMENT escale
+                    // (évite l'écart Courrier / actif_rect / périmètre caisse du vieux SQL dédié).
+                    $niveau_escale = $this->_escale_niveau_caisse();
+                    $lignes_recettes = $this->m_recette->liste_caisse_escale(
+                        $this->company->ekey, $cdg, $escale_ops_arret, $niveau_escale, 'ticket'
+                    );
+                    $lignes_depenses = $this->m_depense->liste_caisse_escale(
+                        $this->company->ekey, $cdg, $escale_ops_arret, $niveau_escale
+                    );
+                    $lignes_depots = $this->m_depot->liste_caisse_escale(
+                        $this->company->ekey, $cdg, $escale_ops_arret, $niveau_escale, 'bancaire'
+                    );
+                    $lignes_versements = $this->m_versements->liste_caisse_escale(
+                        $this->company->ekey, $cdg, $escale_ops_arret, $niveau_escale, 'banque'
+                    );
+                    $total_rec = $this->_total_lignes($lignes_recettes, 'montant_recet');
+                    $total_dep = $this->_total_lignes($lignes_depenses, 'montant_depens');
+                    $total_depo = $this->_total_lignes($lignes_depots, 'montant_depot');
+                    $total_vers = $this->_total_lignes($lignes_versements, 'montant_verser');
+                    $this->property['recettescaisse'] = (object) array('total' => $total_rec);
                     $this->property['recettes'] = $this->property['recettescaisse'];
-                    $this->property['depensescaisse'] = $this->db->query(
-                        "SELECT SUM(d.montant_depens) AS total FROM depense d
-                        JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                        WHERE {$caisse_pred}
-                        AND d.is_actifdep = 1 AND d.actif_deps = 0 AND d.ferme_caisdep = 0
-                        AND d.date_depens <= '{$today_arret}'
-                        {$qui_depense} {$fd}"
-                    )->row();
+                    $this->property['depensescaisse'] = (object) array('total' => $total_dep);
                     $this->property['depenses'] = $this->property['depensescaisse'];
-                    $this->property['depots'] = $this->db->query(
-                        "SELECT SUM(d.montant_depot) AS total FROM depot d
-                        JOIN caisse cs ON d.idcaisse_depot = cs.id_caiss
-                        WHERE {$caisse_pred}
-                        AND d.is_validdepo = 1 AND d.ferme_caisdepo = 0 AND d.actif_depo = 0
-                        AND d.datedepot <= '{$today_arret}'
-                        {$qui_depot} {$fp}"
-                    )->row();
-                    $this->property['montanttotal'] = $this->db->query(
-                        "SELECT SUM(v.montant_verser) AS montant_solde FROM versements v
-                        JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
-                        WHERE {$caisse_pred}
-                        AND v.is_actifverser = 1 AND v.ferme_caisvers = 0 AND v.actifvers = 0
-                        AND v.date_versement <= '{$today_arret}'
-                        AND v.type_versement <> 'Bordereau_bancairecourrier'
-                        {$qui_vers} {$fv}"
-                    )->row();
+                    $this->property['depots'] = (object) array('total' => $total_depo);
+                    $this->property['montanttotal'] = (object) array('montant_solde' => $total_vers);
                     $this->property['pagetitle'] .= "• ARRÊT COMPTE ESCALE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_caisse/caisseprincipale', $this->property);
                 }
@@ -461,7 +445,7 @@
                             $total_escale = $this->_total_lignes($this->property['recettes'], 'montant_recet');
                             $this->property['sommerecettes'] = (object) array('total' => $total_escale);
                             $this->property['totalrecettes'] = (object) array('total' => $total_escale);
-                        } elseif (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
+                        } elseif (!$consult_profil && (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2')) {
                             $this->_bind_compte_recettes_depenses_pending($cpr, $cdg, $conex);
                             $this->property['recettes'] = $this->m_recette->ad_getrecet($this->company->ekey, $cdg, $idsg, $cid, $cpr, FALSE, $userole, true);
                             if (empty($this->property['recettes'])) {
@@ -470,14 +454,17 @@
                             $this->property['sommerecettes'] = $this->m_recette->ad_getmontant($this->company->ekey, $cdg, $cid, $cpr, $userole, true);
                             $this->property['totalrecettes'] = $this->m_recette->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $cpr, $userole, true);
                         }
-                        if (!$escale_ops && ($this->session->agent->userole === '18' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2')){
-                            $this->property['recettes'] = $this->m_recette->adgetrecet($this->company->ekey, $cid, $cdg, $idsg, $cpr);
+                        if (!$escale_ops && $voir_adjoint){
+                            $this->property['recettes'] = $this->m_recette->adgetrecet(
+                                $this->company->ekey, $cid, $cdg, $idsg, $cpr, FALSE, $periode_ouverte_superviseur
+                            );
                             $this->property['sommerecettes'] = $this->m_recette->adgetmontant($this->company->ekey, $cid, $cdg);
                             $this->property['totalrecettes'] = $this->m_recette->adgetmontant1($this->company->ekey, $cid, $cdg, $idsg, $cpr);
                     }
-                    if (!$escale_ops && ($this->session->agent->userole === '4' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2')){
-
-                        $this->property['recettes'] = $this->m_recette->getrecet($this->company->ekey, $cid, $cdg, $idsg, $cpr);
+                    if (!$escale_ops && $voir_caissier){
+                        $this->property['recettes'] = $this->m_recette->getrecet(
+                            $this->company->ekey, $cid, $cdg, $idsg, $cpr, FALSE, $periode_ouverte_superviseur
+                        );
                         $this->property['sommerecettes'] = $this->m_recette->getmontant($this->company->ekey, $cid, $cdg);
                         $this->property['totalrecettes'] = $this->m_recette->getmontant1($this->company->ekey, $cid, $cdg, $idsg, $cpr);
                     }
@@ -495,7 +482,7 @@
                 case 'depense':
                     $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
 
-                    if (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
+                    if (!$consult_profil && (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2')) {
                         $this->_bind_compte_recettes_depenses_pending($cpr, $cdg, $conex);
                         $this->property['depenses'] = $this->m_depense->ad_getdepen($this->company->ekey, $cdg, $idsg, $cid, $cpr, FALSE, $userole, true);
                         if (empty($this->property['depenses'])) {
@@ -510,9 +497,11 @@
                         $this->property['sommedepots'] = $this->m_depot->ad_getmontant($this->company->ekey, $cdg, $cid, $cpr);
                         $this->property['sommesdepots'] = $this->m_depot->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $cpr);
                     }
-                    if ($this->session->agent->userole === '18' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+                    if ($voir_adjoint){
                             
-                            $this->property['depenses'] = $this->m_depense->adgetdepen($this->company->ekey, $cid, $cdg, $idsg, $cpr);
+                            $this->property['depenses'] = $this->m_depense->adgetdepen(
+                                $this->company->ekey, $cid, $cdg, $idsg, $cpr, FALSE, $periode_ouverte_superviseur
+                            );
                             $this->property['depotcaisse'] = $this->m_depot->addepotinterne($this->company->ekey, $cid, $cdg, $cpr);
                             $this->property['montantverves'] = $this->m_versements->adtotalversement($this->company->ekey, $cid, $cdg, $cpr);
                         
@@ -523,9 +512,10 @@
                             $this->property['sommedepots'] = $this->m_depot->adgetmontant($this->company->ekey, $cid, $cpr, $cdg);
                             $this->property['sommesdepots'] = $this->m_depot->adgetmontant($this->company->ekey, $cid, $cpr, $cdg, $idsg);
                     }
-                    if ($this->session->agent->userole === '4' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
-                        
-                        $this->property['depenses'] = $this->m_depense->getdepen($this->company->ekey, $cid, $cdg, $idsg, $cpr);
+                    if ($voir_caissier){
+                        $this->property['depenses'] = $this->m_depense->getdepen(
+                            $this->company->ekey, $cid, $cdg, $idsg, $cpr, FALSE, $periode_ouverte_superviseur
+                        );
                         $this->property['depotcaisse'] = $this->m_depot->depotinterne($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $cid, $cdg, $cpr);
                         
@@ -598,7 +588,7 @@
                     $caisseident = $this->m_caisse->get($this->company->id_entreprise, $cdg, $cid);
                     $this->property['caisseident'] = $caisseident;
 
-                    if ($this->session->agent->userole === '18' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+                    if ($voir_adjoint){
                         $this->property['versements'] = $this->m_versements->adget($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['montantverves'] = $this->m_versements->adtotalversement($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['montantvervesbank'] = $this->m_versements->adtotalversementbank($this->company->ekey, $cid, $cdg, $cpr);
@@ -609,7 +599,7 @@
                         $this->property['sommesdepots'] = $this->m_depot->adgetmontantget($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['depotcaisse'] = $this->m_depot->adad_deptinterne($this->company->ekey, $cdg, $cid, $cpr);
                     }
-                    if ($this->session->agent->userole === '4' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2')
+                    if ($voir_caissier)
                     {
 
                         $this->property['versements'] = $this->m_versements->get($this->company->ekey, $cid, $cdg, $cpr);
@@ -779,7 +769,7 @@
                 break;
                 case 'depot':
 
-                    if (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2') {
+                    if (!$consult_profil && (recette_role_is_saisie($this->session->agent->userole) OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2')) {
                         $this->property['depots'] = $this->m_depot->ad_listdepot($this->company->ekey, $cdg, $cid, $cpr);
                         $this->property['montantverves'] = $this->m_versements->ad_totalversement($this->company->ekey, $cdg, $cid, $cpr);
                         $this->property['sommedepenses'] = $this->m_versements->ad_totaldepense($this->company->ekey, $cdg, $cid, $cpr);
@@ -788,7 +778,7 @@
                         $this->property['sommedepots'] = $this->m_depot->ad_getmontant($this->company->ekey, $cdg, $cid, $cpr);
                         $this->property['sommesdepots'] = $this->m_depot->ad_getmontant1($this->company->ekey, $cdg, $idsg, $cid, $cpr);
                     }
-                    if ($this->session->agent->userole === '18' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+                    if ($voir_adjoint){
 
                         $this->property['depots'] = $this->m_depot->adgetdepot($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['montantverves'] = $this->m_versements->adtotalversement($this->company->ekey, $cid, $cdg, $cpr);
@@ -799,7 +789,7 @@
                         $this->property['sommesdepots'] = $this->m_depot->adgetmontantget($this->company->ekey, $cid, $cdg, $cpr);
                     }
 
-                    if ($this->session->agent->userole === '4' OR $this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+                    if ($voir_caissier){
 
                         $this->property['depots'] = $this->m_depot->getdepot($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $cid, $cdg, $cpr);
