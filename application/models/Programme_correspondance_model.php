@@ -1761,8 +1761,8 @@ class Programme_correspondance_model extends CI_Model
 
     /**
      * Crée un programme aligné sur le principal (même bus, depart_code, intervalles).
+     * Si un départ existe déjà à la même heure : crée un 2ᵉ programme, sans toucher l’existant.
      * Nom de ligne = ligne du id_heur hub/tronçon ; typetarif = tarif de cette lh.
-     * Vérifie l'INSERT (affected_rows) puis ligne / dest / cie attendues.
      * $attendu optionnel : ligne_id, nom_gadest, id_compaga (contrôle post-création).
      * @return array{ok:bool,code_progr?:string,error?:string}
      */
@@ -1773,52 +1773,6 @@ class Programme_correspondance_model extends CI_Model
         $idHeur = (int) $id_ligneheure;
         if ($gd === '' || $date === '' || $idHeur <= 0) {
             return array('ok' => false, 'error' => 'params_manquants');
-        }
-
-        $exist = $this->db->query(
-            "SELECT code_progr FROM programme
-             WHERE gareidentif = ?
-               AND date_progr = ?
-               AND id_heur = ?
-               AND statut_prog = 'actif'
-               AND actif_prog = 0
-             LIMIT 1",
-            array($gd, $date, $idHeur)
-        )->row();
-        if ($exist) {
-            $codeExist = trim((string) $exist->code_progr);
-            $refus = $this->_refus_programme_lien($codeExist);
-            if ($refus !== null) {
-                // Déjà dans un autre lien, ou inactif → pas de 2ᵉ création au même créneau.
-                return array(
-                    'ok' => false,
-                    'error' => 'depart_hub_existe',
-                    'code_progr_existant' => $codeExist,
-                    'refus' => $refus,
-                );
-            }
-            // Réutiliser le départ déjà programmé (souvent invisible si autre portée / liste filtrée).
-            $departCode = isset($principal->depart_code) ? (string) $principal->depart_code : '';
-            $typetarif = $this->_typetarif_pour_ligneheure(
-                $idHeur,
-                isset($principal->typetarif) ? $principal->typetarif : null
-            );
-            $this->m_programme->update($codeExist, array(
-                'depart_code' => $departCode,
-                'categori' => $principal->categori,
-                'intervalle1' => (int) $principal->intervalle1,
-                'intervalle2' => (int) $principal->intervalle2,
-                'typetarif' => $typetarif,
-            ));
-            $errCoh = $this->_verifier_programme_cree($codeExist, $gd, $date, $idHeur, $departCode, $attendu);
-            if ($errCoh !== null) {
-                return array(
-                    'ok' => false,
-                    'error' => $errCoh,
-                    'code_progr_existant' => $codeExist,
-                );
-            }
-            return array('ok' => true, 'code_progr' => $codeExist, 'reused' => true);
         }
 
         $today = mdate('%Y-%m-%d', now('UTC'));
@@ -1942,6 +1896,43 @@ class Programme_correspondance_model extends CI_Model
         if ($this->get_by_any_code($code)) {
             return 'programme_deja_lie';
         }
+        return null;
+    }
+
+    /**
+     * Départ commercial déjà autonome : ne jamais l’écraser (bus / sièges) pour une correspondance.
+     * Réutilisation autorisée seulement si aucune vente active et bus déjà aligné (ou vide).
+     *
+     * @param string $code_progr
+     * @param string $departCodePrincipal
+     * @return string|null code refus ou null si réutilisation OK
+     */
+    protected function _programme_commercial_protege($code_progr, $departCodePrincipal)
+    {
+        $code = trim((string) $code_progr);
+        $departPrinc = trim((string) $departCodePrincipal);
+        if ($code === '') {
+            return 'programme_introuvable';
+        }
+        $pr = $this->db->query(
+            "SELECT code_progr, depart_code FROM programme WHERE code_progr = ? LIMIT 1",
+            array($code)
+        )->row();
+        if (!$pr) {
+            return 'programme_introuvable';
+        }
+        $nb = $this->db->query(
+            "SELECT COUNT(*) AS n FROM passager WHERE code_pro = ? AND statutvente = 1",
+            array($code)
+        )->row();
+        if ($nb && (int) $nb->n > 0) {
+            return 'depart_avec_ventes';
+        }
+        $departExist = trim((string) $pr->depart_code);
+        if ($departExist !== '' && $departPrinc !== '' && $departExist !== $departPrinc) {
+            return 'depart_autonome';
+        }
+
         return null;
     }
 
@@ -2174,7 +2165,8 @@ class Programme_correspondance_model extends CI_Model
     /**
      * Crée le lien + programme suite (hub) + programme dérivé.
      * - suite et dérivé : categori, depart_code, intervalles = principal
-     * - sièges option 3 : segments indépendants (suite ∥ dérivé) ; principal exclusif
+     * - si l’heure hub/dérivé a déjà un départ : 2ᵉ programme dédié (l’existant n’est pas modifié)
+     * - sièges : segments liés entre principal / dérivé / suite du lien uniquement
      * options requises : id_ligneheure, date_progr_suite
      * @return array
      */
@@ -2304,101 +2296,52 @@ class Programme_correspondance_model extends CI_Model
             return array('ok' => false, 'error' => 'heure_derive_introuvable');
         }
 
-        $existDerive = $this->db->query(
-            "SELECT pr.code_progr, pr.statut_prog FROM programme pr
-             JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-             JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-             JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
-             WHERE pr.gareidentif = ?
-               AND pr.date_progr = ?
-               AND lh.ligne_id = ?
-               AND lh.id_ligneheure = ?
-               AND pr.statut_prog = 'actif'
-               AND pr.actif_prog = 0
-               AND (? = '' OR ga.id_compaga = ?)
-             LIMIT 1",
-            array(
-                $principal->gareidentif,
-                $principal->date_progr,
-                $ligneDerive->ident_ligne,
-                $idHeur,
-                $this->_compagnie_arrivee_preferee($principal, $suite),
-                $this->_compagnie_arrivee_preferee($principal, $suite),
-            )
-        )->row();
-
-        // Ne jamais réutiliser un programme inactif ou déjà dans un autre lien.
-        if ($existDerive) {
-            $refusReuse = $this->_refus_programme_lien($existDerive->code_progr);
-            if ($refusReuse !== null) {
-                $existDerive = null;
-            }
-        }
-
+        // Dérivé : toujours un programme dédié (2ᵉ départ si l'heure Banfora→hub existe déjà).
         $codeDerive = null;
         $deriveReused = false;
-        $int1 = (int) $principal->intervalle1;
-        $int2 = (int) $principal->intervalle2;
-        if ($existDerive) {
-            $codeDerive = $existDerive->code_progr;
-            $deriveReused = true;
-            $tfDerive = $this->_typetarif_pour_ligneheure(
-                $idHeur,
-                isset($principal->typetarif) ? $principal->typetarif : null
-            );
-            $this->m_programme->update($codeDerive, array(
-                'intervalle1' => $int1,
-                'intervalle2' => $int2,
-                'categori' => $principal->categori,
-                'depart_code' => $principal->depart_code,
-                'typetarif' => $tfDerive,
-            ));
-        } else {
-            $heureDerive = $principal->heure;
-            $heureRow = $this->db->query(
-                "SELECT h.heure FROM ligne_heure lh JOIN heures h ON lh.heure_identif = h.id_heure WHERE lh.id_ligneheure = ? LIMIT 1",
-                array($idHeur)
-            )->row();
-            if ($heureRow && !empty($heureRow->heure)) {
-                $heureDerive = $heureRow->heure;
-            }
-            $attenduDerive = array(
-                'ligne_id' => $ligneDerive->ident_ligne,
-                'nom_gadest' => isset($ligneDerive->nom_gadest) ? $ligneDerive->nom_gadest : '',
-                'id_compaga' => isset($ligneDerive->id_compaga) ? $ligneDerive->id_compaga : '',
-            );
-            $creerDerive = $this->_creer_programme_lie(
-                $principal,
-                $principal->gareidentif,
-                $idHeur,
-                $principal->date_progr,
-                $heureDerive,
-                $attenduDerive
-            );
-            if (empty($creerDerive['ok'])) {
-                if (!$suiteReused) {
-                    $this->db->where('code_progr', $codeSuite)->delete('programme');
-                }
-                $rawErr = isset($creerDerive['error']) ? $creerDerive['error'] : 'echec_creation_derive';
-                // Message distinct : le conflit est à la gare PRINCIPALE (tronçon), pas au hub.
-                if ($rawErr === 'depart_hub_existe') {
-                    $rawErr = 'depart_derive_existe';
-                }
-                $errOut = array(
-                    'ok' => false,
-                    'error' => $rawErr,
-                );
-                if (!empty($creerDerive['code_progr_existant'])) {
-                    $errOut['code_progr_existant'] = $creerDerive['code_progr_existant'];
-                }
-                if (!empty($creerDerive['refus'])) {
-                    $errOut['refus'] = $creerDerive['refus'];
-                }
-                return $errOut;
-            }
-            $codeDerive = $creerDerive['code_progr'];
-            $deriveReused = !empty($creerDerive['reused']);
+        $heureDerive = $principal->heure;
+        $heureRow = $this->db->query(
+            "SELECT h.heure FROM ligne_heure lh JOIN heures h ON lh.heure_identif = h.id_heure WHERE lh.id_ligneheure = ? LIMIT 1",
+            array($idHeur)
+        )->row();
+        if ($heureRow && !empty($heureRow->heure)) {
+            $heureDerive = $heureRow->heure;
         }
+        $attenduDerive = array(
+            'ligne_id' => $ligneDerive->ident_ligne,
+            'nom_gadest' => isset($ligneDerive->nom_gadest) ? $ligneDerive->nom_gadest : '',
+            'id_compaga' => isset($ligneDerive->id_compaga) ? $ligneDerive->id_compaga : '',
+        );
+        $creerDerive = $this->_creer_programme_lie(
+            $principal,
+            $principal->gareidentif,
+            $idHeur,
+            $principal->date_progr,
+            $heureDerive,
+            $attenduDerive
+        );
+        if (empty($creerDerive['ok'])) {
+            if (!$suiteReused) {
+                $this->db->where('code_progr', $codeSuite)->delete('programme');
+            }
+            $rawErr = isset($creerDerive['error']) ? $creerDerive['error'] : 'echec_creation_derive';
+            if ($rawErr === 'depart_hub_existe') {
+                $rawErr = 'depart_derive_existe';
+            }
+            $errOut = array(
+                'ok' => false,
+                'error' => $rawErr,
+            );
+            if (!empty($creerDerive['code_progr_existant'])) {
+                $errOut['code_progr_existant'] = $creerDerive['code_progr_existant'];
+            }
+            if (!empty($creerDerive['refus'])) {
+                $errOut['refus'] = $creerDerive['refus'];
+            }
+            return $errOut;
+        }
+        $codeDerive = $creerDerive['code_progr'];
+        $deriveReused = !empty($creerDerive['reused']);
 
         $derive = $this->prog_detail($ekey, $codeDerive);
         $errDerive = $this->_assert_derive_pour_lien($principal, $suite, $derive, $ligneDerive, $idHeur);
