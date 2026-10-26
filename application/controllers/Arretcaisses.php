@@ -1996,6 +1996,58 @@
                 }
             }
 
+            // Barrage final : une période arrêtée = toutes les lignes validées de la plage fermées.
+            // Couvre les orphelines ratées par les boucles (ex. arret=1 / date_ferme sans ferme=1).
+            $this->db->query(
+                "UPDATE recette r SET r.arret_caisrecet = 1, r.ferme_caisrecet = 1,
+                 r.date_ferme_caisrecet = IFNULL(r.date_ferme_caisrecet, ?)
+                 WHERE r.is_validerecet = 1
+                   AND " . sous_caisse_predicat('r.idcaisse', $idc) . "
+                   AND r.operavalid = ?
+                   AND r.ferme_caisrecet = 0
+                   AND r.date_recet BETWEEN ? AND ?
+                   AND IFNULL(r.type_recet, '') <> 'Courrier'
+                   {$fr}",
+                array($date_envoi_arret, $iduser, $db, $df)
+            );
+            $this->db->query(
+                "UPDATE depense d SET d.arret_caisdep = 1, d.ferme_caisdep = 1,
+                 d.date_ferme_caisdep = IFNULL(d.date_ferme_caisdep, ?)
+                 WHERE d.is_validedep = 1
+                   AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
+                   AND d.opevalid = ?
+                   AND d.ferme_caisdep = 0
+                   AND d.date_depens BETWEEN ? AND ?
+                   AND IFNULL(d.type_depense, '') <> 'Courrier'
+                   {$fd}",
+                array($date_envoi_arret, $iduser, $db, $df)
+            );
+            $this->db->query(
+                "UPDATE depot d SET d.arret_caisdepo = 1, d.ferme_caisdepo = 1,
+                 d.date_ferme_caisdepo = IFNULL(d.date_ferme_caisdepo, ?),
+                 d.active_depot = 1, d.is_actifdepo = 1
+                 WHERE d.is_validdepo = 1
+                   AND " . sous_caisse_predicat('d.idcaisse_depot', $idc) . "
+                   AND d.opvalid = ?
+                   AND d.ferme_caisdepo = 0
+                   AND d.datedepot BETWEEN ? AND ?
+                   AND IFNULL(d.type_depot, '') <> 'Courrier'
+                   {$fp}",
+                array($date_envoi_arret, $iduser, $db, $df)
+            );
+            $this->db->query(
+                "UPDATE versements v SET v.ferme_caisvers = 1, v.arret_caisvers = 1,
+                 v.date_ferme_caisvers = IFNULL(v.date_ferme_caisvers, ?)
+                 WHERE v.valider_vers = 1
+                   AND " . sous_caisse_predicat('v.idcaisse_versement', $idc) . "
+                   AND v.validop = ?
+                   AND v.ferme_caisvers = 0
+                   AND v.date_versement BETWEEN ? AND ?
+                   AND IFNULL(v.type_versement, '') <> 'Bordereau_bancairecourrier'
+                   {$fv}",
+                array($date_envoi_arret, $iduser, $db, $df)
+            );
+
             $this->property['UPDATE_SUCCESS'] = TRUE;
             $this->session->set_flashdata('success', 'Arrêt de caisse enregistré pour la période sélectionnée.');
             redirect($back);
