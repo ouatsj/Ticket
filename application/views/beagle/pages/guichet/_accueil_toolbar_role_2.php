@@ -367,6 +367,7 @@
                             </button>
           <?php
             $decl_hub_qs = http_build_query(array(
+                'code_gare' => $bus_stop->idengare,
                 'gareconnect' => $bus_stop->idengare,
                 'userconnected' => $conex->roleattribut,
                 'sousgareconnect' => $bus_stop->idsousgare,

@@ -4773,19 +4773,56 @@
             $this->entreprise = $this->m_entreprises->get_key($ckey);
             $ekey = (int) $this->entreprise->ekey;
             $compFilter = trim((string) $this->input->get_post('compagnie'));
-            $gareFilter = trim((string) $this->input->get_post('code_gare'));
-            if ($gareFilter === '') {
-                $gareFilter = $this->_normalize_recap_gare_code_filter($g);
-            } else {
-                $gareFilter = $this->_normalize_recap_gare_code_filter($gareFilter);
+            $gareconnect = trim((string) $this->input->get_post('gareconnect'));
+            $userconnected = trim((string) $this->input->get_post('userconnected'));
+            $sousgareconnect = trim((string) $this->input->get_post('sousgareconnect'));
+            if ($gareconnect === '') {
+                $gareconnect = (string) $g;
             }
+            if ($userconnected === '' && isset($this->session->agent->roleattribut)) {
+                $userconnected = (string) $this->session->agent->roleattribut;
+            }
+
+            // Gare du contexte guichet : figée (profils multi-gares inclus).
+            $gareContexte = $this->_normalize_recap_gare_code_filter($g);
+            if ($gareContexte === '') {
+                $gareContexte = $this->_normalize_recap_gare_code_filter($gareconnect);
+            }
+            $gareLocked = ($gareContexte !== '');
+            $gareFilter = $gareLocked
+                ? $gareContexte
+                : $this->_normalize_recap_gare_code_filter($this->input->get_post('code_gare'));
+
+            // Compagnie choisie : rattacher la gare figée homonyme de cette compagnie (évite BOB1 vs BOB35).
+            if ($gareLocked && $compFilter !== '' && $gareFilter !== '') {
+                $gareCie = $this->db->query(
+                    'SELECT ex.code_gaexp FROM gare_exp ex
+                     WHERE ex.code_gaexp = ? AND ex.id_compagd = ?
+                     LIMIT 1',
+                    array($gareFilter, $compFilter)
+                )->row();
+                if (!$gareCie) {
+                    $homonyme = $this->db->query(
+                        'SELECT ex2.code_gaexp
+                         FROM gare_exp ex1
+                         JOIN gare_exp ex2 ON ex2.nom_gaep = ex1.nom_gaep AND ex2.id_compagd = ?
+                         WHERE (ex1.code_gaexp = ? OR ex1.garesid = ?)
+                         LIMIT 1',
+                        array($compFilter, $gareFilter, $gareFilter)
+                    )->row();
+                    if ($homonyme && trim((string) $homonyme->code_gaexp) !== '') {
+                        $gareFilter = trim((string) $homonyme->code_gaexp);
+                    }
+                }
+            }
+
             $mapFamilles = array(
                 'ticket' => array('ticket_etats', 'ticket_escal'),
                 'bagage' => array('bagage'),
                 'courrier' => array('courrier'),
             );
             $titres = array(
-                'ticket' => 'Déclarer — Tickets',
+                'ticket' => 'Déclarer — Tickets / Escal',
                 'bagage' => 'Déclarer — Bagages',
                 'courrier' => 'Déclarer — Courriers',
             );
@@ -4798,32 +4835,76 @@
                  ORDER BY c.nom_compagnie',
                 array($ekey)
             )->result();
-            $gares = $this->db->query(
-                'SELECT DISTINCT ex.code_gaexp, ex.nom_gaep
-                 FROM gare_exp ex
-                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
-                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                 WHERE e.ekey = ?
-                 ORDER BY ex.nom_gaep',
-                array($ekey)
-            )->result();
+
+            // Gares : filtrées par compagnie (évite BOBO en double CBT/CMT), libellé désambiguïsé sinon.
+            if ($compFilter !== '') {
+                $gares = $this->db->query(
+                    'SELECT ex.code_gaexp, ex.nom_gaep, ex.garesid, c.nom_compagnie
+                     FROM gare_exp ex
+                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ? AND c.cle_compagnie = ?
+                     ORDER BY ex.nom_gaep, ex.code_gaexp',
+                    array($ekey, $compFilter)
+                )->result();
+            } else {
+                $gares = $this->db->query(
+                    'SELECT ex.code_gaexp, ex.nom_gaep, ex.garesid, c.nom_compagnie
+                     FROM gare_exp ex
+                     JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ?
+                     ORDER BY ex.nom_gaep, c.nom_compagnie, ex.code_gaexp',
+                    array($ekey)
+                )->result();
+            }
+            // Si gare figée hors liste (autre compagnie), la rattacher pour affichage.
+            if ($gareLocked && $gareFilter !== '') {
+                $present = false;
+                foreach ($gares as $gr) {
+                    if ((string) $gr->code_gaexp === $gareFilter) {
+                        $present = true;
+                        break;
+                    }
+                }
+                if (!$present) {
+                    $extra = $this->db->query(
+                        'SELECT ex.code_gaexp, ex.nom_gaep, ex.garesid, c.nom_compagnie
+                         FROM gare_exp ex
+                         JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                         WHERE ex.code_gaexp = ? OR ex.garesid = ?
+                         LIMIT 1',
+                        array($gareFilter, $gareFilter)
+                    )->row();
+                    if ($extra) {
+                        array_unshift($gares, $extra);
+                    }
+                }
+            }
+
             $nomsCie = array();
             foreach ($compagnies as $c) {
                 $nomsCie[(string) $c->cle_compagnie] = (string) $c->nom_compagnie;
             }
             $nomsGare = array();
+            $nameCount = array();
             foreach ($gares as $gr) {
-                $nomsGare[(string) $gr->code_gaexp] = (string) $gr->nom_gaep;
+                $n = trim((string) $gr->nom_gaep);
+                if (!isset($nameCount[$n])) {
+                    $nameCount[$n] = 0;
+                }
+                $nameCount[$n]++;
             }
-            $gareconnect = trim((string) $this->input->get_post('gareconnect'));
-            $userconnected = trim((string) $this->input->get_post('userconnected'));
-            $sousgareconnect = trim((string) $this->input->get_post('sousgareconnect'));
-            if ($gareconnect === '') {
-                $gareconnect = (string) $g;
+            foreach ($gares as $gr) {
+                $code = (string) $gr->code_gaexp;
+                $label = trim((string) $gr->nom_gaep);
+                if ($compFilter === '' && isset($nameCount[$label]) && $nameCount[$label] > 1) {
+                    $label .= ' (' . trim((string) $gr->nom_compagnie) . ')';
+                }
+                $nomsGare[$code] = $label;
+                $gr->label_affiche = $label;
             }
-            if ($userconnected === '' && isset($this->session->agent->roleattribut)) {
-                $userconnected = (string) $this->session->agent->roleattribut;
-            }
+
             $moisSel = trim((string) $this->input->get_post('mois'));
             if ($moisSel === '' || !isset($data['mois'][$moisSel])) {
                 $keys = array_keys($data['mois']);
@@ -4845,6 +4926,7 @@
             $this->property['hub_noms_gare'] = $nomsGare;
             $this->property['hub_comp_filter'] = $compFilter;
             $this->property['hub_gare_filter'] = $gareFilter;
+            $this->property['hub_gare_locked'] = $gareLocked;
             $this->property['hub_ckey'] = $ckey;
             $this->property['hub_gid'] = $g;
             $this->property['hub_can_archiver'] = $canArchiver;

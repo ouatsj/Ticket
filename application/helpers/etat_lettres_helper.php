@@ -195,6 +195,43 @@ function etat_declaration_normaliser_gare($CI, $codeGare)
     return $raw;
 }
 
+/**
+ * Codes équivalents d'une gare (code_gaexp + garesid) pour éviter BOB35 vs BOB43.
+ *
+ * @return string[]
+ */
+function etat_declaration_aliases_gare($CI, $codeGare)
+{
+    $raw = trim((string) $codeGare);
+    if ($raw === '' || $raw === '0') {
+        return array();
+    }
+    $aliases = array($raw);
+    $row = $CI->db->query(
+        'SELECT code_gaexp, garesid FROM gare_exp
+         WHERE code_gaexp = ? OR garesid = ?
+         LIMIT 1',
+        array($raw, $raw)
+    )->row();
+    if ($row) {
+        $code = trim((string) $row->code_gaexp);
+        $sid = trim((string) $row->garesid);
+        if ($code !== '') {
+            $aliases[] = $code;
+        }
+        if ($sid !== '') {
+            $aliases[] = $sid;
+        }
+    }
+    $norm = etat_declaration_normaliser_gare($CI, $raw);
+    if ($norm !== '') {
+        $aliases[] = $norm;
+    }
+    return array_values(array_unique(array_filter($aliases, function ($v) {
+        return $v !== '' && $v !== '0';
+    })));
+}
+
 function etat_declaration_sql_match_gare($CI, $codeGare)
 {
     $code = etat_declaration_normaliser_gare($CI, $codeGare);
@@ -585,13 +622,17 @@ function etat_declaration_deja($ekey, $cle, $famille, $dt1, $dt2, $codeGare = ''
     $CI = get_instance();
     $cle = trim((string) $cle);
     $gare = etat_declaration_normaliser_gare($CI, $codeGare);
+    $aliases = ($gare !== '') ? etat_declaration_aliases_gare($CI, $gare) : array();
     foreach (etat_lettre_mois_entre($debut, $fin) as $mois) {
-        if ($gare !== '') {
+        if ($aliases) {
+            $in = implode(',', array_fill(0, count($aliases), '?'));
+            $params = array_merge(array((int) $ekey, $cle, $famille, $mois), $aliases);
             $snap = $CI->db->query(
                 'SELECT id FROM etat_lettre_declaration
-                 WHERE entreprise_ekey = ? AND cle_compagnie = ? AND famille = ? AND mois = ? AND code_gare = ?
+                 WHERE entreprise_ekey = ? AND cle_compagnie = ? AND famille = ? AND mois = ?
+                   AND code_gare IN (' . $in . ')
                  LIMIT 1',
-                array((int) $ekey, $cle, $famille, $mois, $gare)
+                $params
             )->row();
         } else {
             $snap = $CI->db->query(
@@ -650,7 +691,59 @@ function etat_declaration_figer($ekey, $cle, $famille, $dt1, $dt2, $acteur = nul
 }
 
 /**
+ * Ajoute / enrichit un mois dans le résultat hub.
+ */
+function etat_declaration_hub_push_mois(array &$out, array &$annees, $mois, $famille, $cie, $codeGare, $lettres = '', $toutes = 0, $declaredAt = '', $source = 'table')
+{
+    $m = trim((string) $mois);
+    if (!preg_match('/^\d{4}-\d{2}$/', $m)) {
+        return;
+    }
+    if (!isset($out['mois'][$m])) {
+        $out['mois'][$m] = array(
+            'mois' => $m,
+            'annee' => substr($m, 0, 4),
+            'debut' => $m . '-01',
+            'fin' => date('Y-m-d', strtotime($m . '-01 +1 month -1 day')),
+            'familles' => array(),
+            'compagnies' => array(),
+            'gares' => array(),
+            'lignes' => array(),
+        );
+        $annees[substr($m, 0, 4)] = true;
+    }
+    $fam = trim((string) $famille);
+    if ($fam !== '') {
+        $out['mois'][$m]['familles'][$fam] = true;
+    }
+    $cie = trim((string) $cie);
+    if ($cie !== '') {
+        $out['mois'][$m]['compagnies'][$cie] = true;
+    }
+    $cg = trim((string) $codeGare);
+    if ($cg !== '') {
+        $out['mois'][$m]['gares'][$cg] = true;
+    }
+    $lettresRow = trim((string) $lettres);
+    if (!empty($toutes)) {
+        $lettresRow = 'TOUTES';
+    }
+    if ($lettresRow === '' && $source === 'tampon') {
+        $lettresRow = 'TAMPON';
+    }
+    $out['mois'][$m]['lignes'][] = array(
+        'famille' => $fam,
+        'cle_compagnie' => $cie,
+        'code_gare' => $cg,
+        'lettres' => $lettresRow,
+        'declared_at' => (string) $declaredAt,
+        'source' => $source,
+    );
+}
+
+/**
  * Liste les mois déclarés pour un hub Déclarer (ticket / bagage / courrier).
+ * Sources : etat_lettre_declaration OU tampons historiques (exop/exonp/exopes/exobg/exocr…).
  *
  * @param int          $ekey
  * @param string|array $familles  famille(s) etat_lettre_declaration
@@ -680,9 +773,12 @@ function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleComp
             FROM etat_lettre_declaration
             WHERE entreprise_ekey = ? AND famille IN (' . implode(',', $in) . ')';
     $gare = etat_declaration_normaliser_gare($CI, $codeGare);
-    if ($gare !== '') {
-        $sql .= ' AND code_gare = ?';
-        $params[] = $gare;
+    $aliases = ($gare !== '') ? etat_declaration_aliases_gare($CI, $gare) : array();
+    if ($aliases) {
+        $sql .= ' AND code_gare IN (' . implode(',', array_fill(0, count($aliases), '?')) . ')';
+        foreach ($aliases as $a) {
+            $params[] = $a;
+        }
     }
     $cle = trim((string) $cleCompagnie);
     if ($cle !== '') {
@@ -692,46 +788,76 @@ function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleComp
     $sql .= ' ORDER BY mois DESC, declared_at DESC';
     $rows = $CI->db->query($sql, $params)->result();
     $annees = array();
+    $vus = array();
     foreach ($rows as $row) {
         $m = trim((string) $row->mois);
-        if (!preg_match('/^\d{4}-\d{2}$/', $m)) {
-            continue;
-        }
-        if (!isset($out['mois'][$m])) {
-            $out['mois'][$m] = array(
-                'mois' => $m,
-                'annee' => substr($m, 0, 4),
-                'debut' => $m . '-01',
-                'fin' => date('Y-m-d', strtotime($m . '-01 +1 month -1 day')),
-                'familles' => array(),
-                'compagnies' => array(),
-                'gares' => array(),
-                'lignes' => array(),
-            );
-            $annees[substr($m, 0, 4)] = true;
-        }
         $fam = trim((string) $row->famille);
-        $out['mois'][$m]['familles'][$fam] = true;
         $cie = trim((string) $row->cle_compagnie);
-        if ($cie !== '') {
-            $out['mois'][$m]['compagnies'][$cie] = true;
-        }
         $cg = trim((string) $row->code_gare);
-        if ($cg !== '') {
-            $out['mois'][$m]['gares'][$cg] = true;
-        }
-        $lettresRow = trim((string) (isset($row->lettres) ? $row->lettres : ''));
-        if (!empty($row->toutes)) {
-            $lettresRow = 'TOUTES';
-        }
-        $out['mois'][$m]['lignes'][] = array(
-            'famille' => $fam,
-            'cle_compagnie' => $cie,
-            'code_gare' => $cg,
-            'lettres' => $lettresRow,
-            'declared_at' => isset($row->declared_at) ? (string) $row->declared_at : '',
+        $key = $m . '|' . $fam . '|' . $cie . '|' . $cg;
+        $vus[$key] = true;
+        etat_declaration_hub_push_mois(
+            $out,
+            $annees,
+            $m,
+            $fam,
+            $cie,
+            $cg,
+            isset($row->lettres) ? $row->lettres : '',
+            isset($row->toutes) ? $row->toutes : 0,
+            isset($row->declared_at) ? $row->declared_at : '',
+            'table'
         );
     }
+
+    // Historique : déclarations faites via tampons seuls (avant etat_lettre_declaration).
+    // Scan complet tant qu'aucune année passée n'est en table (évite de masquer 2023–2025
+    // si seuls quelques mois récents ont été seedés). Ensuite, rescan des 4 derniers mois.
+    $hasAnneePassee = false;
+    $anneeCourante = date('Y');
+    foreach (array_keys($out['mois']) as $mHub) {
+        if (substr((string) $mHub, 0, 4) < $anneeCourante) {
+            $hasAnneePassee = true;
+            break;
+        }
+    }
+    $moisMinTampon = ($hasAnneePassee && count($out['mois']) >= 6)
+        ? date('Y-m', strtotime('-4 months'))
+        : '';
+    $tampons = etat_declaration_mois_depuis_tampons($CI, (int) $ekey, $familles, $gare, $cle, $moisMinTampon);
+    $now = date('Y-m-d H:i:s');
+    foreach ($tampons as $t) {
+        $m = $t['mois'];
+        $fam = $t['famille'];
+        $cie = $t['cle_compagnie'];
+        $cg = $t['code_gare'] !== '' ? $t['code_gare'] : $gare;
+        $key = $m . '|' . $fam . '|' . $cie . '|' . $cg;
+        if (isset($vus[$key])) {
+            continue;
+        }
+        $vus[$key] = true;
+        etat_declaration_hub_push_mois($out, $annees, $m, $fam, $cie, $cg, '', 0, '', 'tampon');
+        // Backfill léger pour les prochains chargements hub.
+        if ($cg !== '' && $cie !== '' && $fam !== '') {
+            $regle = etat_lettre_effective($cie, $fam, $m . '-01', (int) $ekey);
+            $CI->db->query(
+                'INSERT IGNORE INTO etat_lettre_declaration
+                 (entreprise_ekey, cle_compagnie, famille, mois, code_gare, lettres, toutes, declared_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                array(
+                    (int) $ekey,
+                    $cie,
+                    $fam,
+                    $m,
+                    $cg,
+                    implode(',', $regle['lettres']),
+                    !empty($regle['toutes']) ? 1 : 0,
+                    $now,
+                )
+            );
+        }
+    }
+
     foreach ($out['mois'] as &$bloc) {
         $bloc['familles'] = array_keys($bloc['familles']);
         $bloc['compagnies'] = array_keys($bloc['compagnies']);
@@ -740,6 +866,282 @@ function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleComp
     unset($bloc);
     $out['annees'] = array_keys($annees);
     rsort($out['annees']);
+    krsort($out['mois']);
+    return $out;
+}
+
+/**
+ * Mois déclarés via flags tampon (exop / exonp / exopes / exobg / exocr…),
+ * alignés sur etat_lettre_tampon_existe + filtre gare courant.
+ *
+ * @param string[] $familles
+ * @return array<int, array{mois:string,famille:string,cle_compagnie:string,code_gare:string}>
+ */
+function etat_declaration_mois_depuis_tampons($CI, $ekey, array $familles, $codeGare = '', $cleCompagnie = '', $moisMin = '')
+{
+    $ekey = (int) $ekey;
+    $cle = trim((string) $cleCompagnie);
+    $gare = etat_declaration_normaliser_gare($CI, $codeGare);
+    $aliases = ($gare !== '') ? etat_declaration_aliases_gare($CI, $gare) : array();
+    $gareCanon = $gare;
+    $out = array();
+    $seen = array();
+    $prev = $CI->db->db_debug;
+    $CI->db->db_debug = false;
+
+    $filtreCie = ($cle !== '') ? ' AND dest.id_compaga = ' . $CI->db->escape($cle) : '';
+    $filtreCieEp = $filtreCie;
+    $filtreMoisP = '';
+    $filtreMoisNp = '';
+    $filtreMoisEsc = '';
+    $filtreMoisBg = '';
+    $filtreMoisBgEsc = '';
+    $filtreMoisCr = '';
+    $filtreMoisCrEsc = '';
+    if (is_string($moisMin) && preg_match('/^\d{4}-\d{2}$/', $moisMin)) {
+        $debutMin = $CI->db->escape($moisMin . '-01');
+        $filtreMoisP = " AND p.datep_create >= {$debutMin}";
+        $filtreMoisNp = " AND np.datevente >= {$debutMin}";
+        $filtreMoisEsc = " AND esp.datedepescal >= {$debutMin}";
+        $filtreMoisBg = " AND bg.date_create >= {$debutMin}";
+        $filtreMoisBgEsc = " AND bg.date_createesc >= {$debutMin}";
+        $filtreMoisCr = " AND e.dateenvoi >= {$debutMin}";
+        $filtreMoisCrEsc = " AND es.dateenvoiesc >= {$debutMin}";
+    }
+
+    $inAliasesSql = '';
+    if ($aliases) {
+        $bits = array();
+        foreach ($aliases as $a) {
+            $bits[] = $CI->db->escape($a);
+        }
+        $inAliasesSql = implode(',', $bits);
+    }
+
+    $push = function ($mois, $famille, $cieRow, $gRow) use (&$out, &$seen, $gareCanon) {
+        $m = trim((string) $mois);
+        $fam = trim((string) $famille);
+        $cie = trim((string) $cieRow);
+        if (!preg_match('/^\d{4}-\d{2}$/', $m) || $fam === '' || $cie === '') {
+            return;
+        }
+        $cg = trim((string) $gRow);
+        if ($cg === '') {
+            $cg = $gareCanon;
+        }
+        $key = $m . '|' . $fam . '|' . $cie . '|' . $cg;
+        if (isset($seen[$key])) {
+            return;
+        }
+        $seen[$key] = true;
+        $out[] = array(
+            'mois' => $m,
+            'famille' => $fam,
+            'cle_compagnie' => $cie,
+            'code_gare' => $cg,
+        );
+    };
+
+    $needTicket = in_array('ticket_etats', $familles, true);
+    $needEscal = in_array('ticket_escal', $familles, true);
+    $needBagage = in_array('bagage', $familles, true);
+    $needCourrier = in_array('courrier', $familles, true);
+
+    if ($needTicket) {
+        $filtreGareNp = '';
+        if ($inAliasesSql !== '') {
+            $filtreGareNp = ' AND ' . etat_lettre_expr_gare_non_passager('np') . " IN ({$inAliasesSql})";
+        }
+        $ticketAvant = count($seen);
+        // Chemin rapide (user.guser) — couvre l'essentiel des ventes guichet.
+        if ($inAliasesSql !== '') {
+            $sqlFast = "SELECT DATE_FORMAT(p.datep_create, '%Y-%m') AS mois, dest.id_compaga AS cie,
+                               ulx.guser AS g
+                        FROM passager p
+                        JOIN programme pr ON p.code_pro = pr.code_progr
+                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        JOIN attributions_role arx ON arx.roleattribut = p.idcptuser
+                        JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login
+                        WHERE e.ekey = {$ekey} AND p.exop = 1
+                          AND ulx.guser IN ({$inAliasesSql})
+                          {$filtreCie}{$filtreMoisP}
+                        GROUP BY mois, cie, g";
+            $q = $CI->db->query($sqlFast);
+            if ($q) {
+                foreach ($q->result() as $row) {
+                    $push($row->mois, 'ticket_etats', $row->cie, etat_declaration_normaliser_gare($CI, $row->g));
+                }
+            }
+            // Repli COALESCE uniquement si aucun mois via user (évite scan ~30s).
+            if (count($seen) === $ticketAvant) {
+                $exprP = etat_lettre_expr_gare_passager('p');
+                $sql = "SELECT DATE_FORMAT(p.datep_create, '%Y-%m') AS mois, dest.id_compaga AS cie,
+                               {$exprP} AS g
+                        FROM passager p
+                        JOIN programme pr ON p.code_pro = pr.code_progr
+                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = {$ekey} AND p.exop = 1
+                          AND {$exprP} IN ({$inAliasesSql})
+                          {$filtreCie}{$filtreMoisP}
+                        GROUP BY mois, cie, g";
+                $q = $CI->db->query($sql);
+                if ($q) {
+                    foreach ($q->result() as $row) {
+                        $push($row->mois, 'ticket_etats', $row->cie, etat_declaration_normaliser_gare($CI, $row->g));
+                    }
+                }
+            }
+        } else {
+            $sql = "SELECT DATE_FORMAT(p.datep_create, '%Y-%m') AS mois, dest.id_compaga AS cie
+                    FROM passager p
+                    JOIN programme pr ON p.code_pro = pr.code_progr
+                    JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = {$ekey} AND p.exop = 1
+                      {$filtreCie}{$filtreMoisP}
+                    GROUP BY mois, cie";
+            $q = $CI->db->query($sql);
+            if ($q) {
+                foreach ($q->result() as $row) {
+                    $push($row->mois, 'ticket_etats', $row->cie, '');
+                }
+            }
+        }
+        $sqlNp = "SELECT DATE_FORMAT(np.datevente, '%Y-%m') AS mois, dest.id_compaga AS cie
+                  FROM non_passager np
+                  JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+                  JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                  JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                  JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                  WHERE e.ekey = {$ekey} AND np.exonp = 1
+                    {$filtreCie}{$filtreGareNp}{$filtreMoisNp}
+                  GROUP BY mois, cie";
+        $q = $CI->db->query($sqlNp);
+        if ($q) {
+            foreach ($q->result() as $row) {
+                $push($row->mois, 'ticket_etats', $row->cie, $gareCanon);
+            }
+        }
+    }
+
+    if ($needEscal) {
+        $filtreGareEsc = '';
+        if ($inAliasesSql !== '') {
+            $filtreGareEsc = ' AND ' . etat_lettre_expr_gare_escal('esp') . " IN ({$inAliasesSql})";
+        }
+        $sql = "SELECT DATE_FORMAT(esp.datedepescal, '%Y-%m') AS mois, dest.id_compaga AS cie
+                FROM escalclients esp
+                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = {$ekey} AND esp.exopes = 1
+                  {$filtreCie}{$filtreGareEsc}{$filtreMoisEsc}
+                GROUP BY mois, cie";
+        $q = $CI->db->query($sql);
+        if ($q) {
+            foreach ($q->result() as $row) {
+                $push($row->mois, 'ticket_escal', $row->cie, $gareCanon);
+            }
+        }
+    }
+
+    if ($needBagage) {
+        $filtreGareExp = '';
+        if ($inAliasesSql !== '') {
+            $filtreGareExp = " AND (ex.code_gaexp IN ({$inAliasesSql}) OR ex.garesid IN ({$inAliasesSql}))";
+        }
+        foreach (array(
+            array('bagages', 'date_create', 'exobg'),
+            array('bagagesesc', 'date_createesc', 'exobagesc'),
+        ) as $spec) {
+            list($table, $colDate, $colFlag) = $spec;
+            if (!$CI->db->table_exists($table) || !$CI->db->field_exists($colFlag, $table)) {
+                continue;
+            }
+            $filtreMoisBag = ($table === 'bagages') ? $filtreMoisBg : $filtreMoisBgEsc;
+            if ($table === 'bagages') {
+                $sql = "SELECT DATE_FORMAT(bg.{$colDate}, '%Y-%m') AS mois, dest.id_compaga AS cie, ex.code_gaexp AS g
+                        FROM bagages bg
+                        JOIN programme pr ON bg.progidbagage = pr.code_progr
+                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = {$ekey} AND bg.{$colFlag} = 1
+                          {$filtreCie}{$filtreGareExp}{$filtreMoisBag}
+                        GROUP BY mois, cie, g";
+            } else {
+                $sql = "SELECT DATE_FORMAT(bg.{$colDate}, '%Y-%m') AS mois, dest.id_compaga AS cie, ex.code_gaexp AS g
+                        FROM bagagesesc bg
+                        JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = {$ekey} AND bg.{$colFlag} = 1
+                          {$filtreCie}{$filtreGareExp}{$filtreMoisBag}
+                        GROUP BY mois, cie, g";
+            }
+            $q = $CI->db->query($sql);
+            if ($q) {
+                foreach ($q->result() as $row) {
+                    $push($row->mois, 'bagage', $row->cie, etat_declaration_normaliser_gare($CI, $row->g));
+                }
+            }
+        }
+    }
+
+    if ($needCourrier) {
+        $filtreGareExp = '';
+        if ($inAliasesSql !== '') {
+            $filtreGareExp = " AND (ex.code_gaexp IN ({$inAliasesSql}) OR ex.garesid IN ({$inAliasesSql}))";
+        }
+        foreach (array(
+            array('courriers_exp', 'dateenvoi', 'exocr', 'id_codecourrier'),
+            array('courriers_expesc', 'dateenvoiesc', 'exocresc', 'id_codecourrieresc'),
+        ) as $spec) {
+            list($table, $colDate, $colFlag, $colJoin) = $spec;
+            if (!$CI->db->table_exists($table) || !$CI->db->field_exists($colFlag, $table)) {
+                continue;
+            }
+            $alias = ($table === 'courriers_exp') ? 'e' : 'es';
+            $filtreMoisC = ($alias === 'e') ? $filtreMoisCr : $filtreMoisCrEsc;
+            $sql = "SELECT DATE_FORMAT({$alias}.{$colDate}, '%Y-%m') AS mois, dest.id_compaga AS cie, ex.code_gaexp AS g
+                    FROM {$table} {$alias}
+                    JOIN code_courriers cd ON {$alias}.{$colJoin} = cd.codecolisid
+                    JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                    JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+                    WHERE ep.ekey = {$ekey} AND {$alias}.{$colFlag} = 1
+                      {$filtreCieEp}{$filtreGareExp}{$filtreMoisC}
+                    GROUP BY mois, cie, g";
+            $q = $CI->db->query($sql);
+            if ($q) {
+                foreach ($q->result() as $row) {
+                    $push($row->mois, 'courrier', $row->cie, etat_declaration_normaliser_gare($CI, $row->g));
+                }
+            }
+        }
+    }
+
+    $CI->db->db_debug = $prev;
     return $out;
 }
 

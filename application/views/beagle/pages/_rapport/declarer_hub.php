@@ -14,6 +14,7 @@ $nomsCie = isset($hub_noms_cie) ? $hub_noms_cie : array();
 $nomsGare = isset($hub_noms_gare) ? $hub_noms_gare : array();
 $compFilter = isset($hub_comp_filter) ? (string) $hub_comp_filter : '';
 $gareFilter = isset($hub_gare_filter) ? (string) $hub_gare_filter : '';
+$gareLocked = !empty($hub_gare_locked);
 $ckey = isset($hub_ckey) ? $hub_ckey : '';
 $gid = isset($hub_gid) ? $hub_gid : '';
 $canArchiver = !empty($hub_can_archiver);
@@ -40,13 +41,25 @@ if ($anneeSel === '' && $annees) {
     $anneeSel = $annees[0];
 }
 $baseHub = site_url('Rapport/declarer_hub/' . rawurlencode($ckey) . '/' . rawurlencode($gid) . '/' . rawurlencode($type));
-$qsCtx = http_build_query(array_filter(array(
+$qsCtxParts = array(
     'compagnie' => $compFilter,
     'code_gare' => $gareFilter,
     'gareconnect' => isset($ctx['gareconnect']) ? $ctx['gareconnect'] : '',
     'userconnected' => isset($ctx['userconnected']) ? $ctx['userconnected'] : '',
     'sousgareconnect' => isset($ctx['sousgareconnect']) ? $ctx['sousgareconnect'] : '',
-)));
+);
+$qsCtx = http_build_query(array_filter($qsCtxParts, function ($v) {
+    return $v !== '' && $v !== null;
+}));
+
+$hubSwitch = function ($t) use ($ckey, $gid, $qsCtx) {
+    $url = site_url('Rapport/declarer_hub/' . rawurlencode($ckey) . '/' . rawurlencode($gid) . '/' . rawurlencode($t));
+    return $url . ($qsCtx !== '' ? ('?' . $qsCtx) : '');
+};
+
+$gareLabel = ($gareFilter !== '' && isset($nomsGare[$gareFilter]))
+    ? $nomsGare[$gareFilter]
+    : $gareFilter;
 
 /**
  * Formulaire POST avec jeton CSRF (form_open CI).
@@ -231,7 +244,22 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
 .decl-hub { max-width: 1100px; margin: 0 auto; }
 .decl-hub h2 { color: #0b3d91; margin-bottom: 8px; }
 .decl-hub .muted { color: #5c6370; font-size: .92rem; }
+.decl-switch { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
+.decl-switch a {
+  display: inline-block; padding: 8px 14px; border-radius: 8px;
+  border: 1px solid #0b3d91; color: #0b3d91; text-decoration: none; font-weight: 600;
+}
+.decl-switch a.active { background: #0b3d91; color: #fff; }
+.decl-help {
+  background: #f7f9fc; border: 1px solid rgba(11,61,145,.15); border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 14px; font-size: .9rem; color: #334;
+}
+.decl-help strong { color: #0b3d91; }
 .decl-filter { background: #fff; border: 1px solid rgba(0,0,0,.08); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+.decl-gare-locked {
+  display: block; padding: 7px 12px; border-radius: 4px; background: #eef3fb;
+  border: 1px solid rgba(11,61,145,.25); font-weight: 600; color: #0b3d91;
+}
 .decl-years { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .decl-years a {
   display: inline-block; padding: 8px 14px; border-radius: 8px;
@@ -267,18 +295,34 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
   <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
     <div>
       <h2><?= htmlspecialchars($titre); ?></h2>
-      <p class="muted mb-0">Cliquez un mois déclaré pour afficher ses actions.</p>
+      <p class="muted mb-0">Consultez les mois déjà déclarés, puis cliquez un mois pour ses états.</p>
     </div>
     <a class="btn btn-secondary" href="<?= htmlspecialchars($retour); ?>">Retour</a>
+  </div>
+
+  <div class="decl-switch">
+    <a class="<?= $type === 'ticket' ? 'active' : ''; ?>" href="<?= htmlspecialchars($hubSwitch('ticket')); ?>">Tickets / Escal</a>
+    <a class="<?= $type === 'bagage' ? 'active' : ''; ?>" href="<?= htmlspecialchars($hubSwitch('bagage')); ?>">Bagages</a>
+    <a class="<?= $type === 'courrier' ? 'active' : ''; ?>" href="<?= htmlspecialchars($hubSwitch('courrier')); ?>">Courriers</a>
+  </div>
+
+  <div class="decl-help">
+    <strong>DECLARATION</strong> (toolbar) = figer le mois ·
+    <strong>DECLARER</strong> = cette page (états du mois) ·
+    <strong>Bagages / Courriers</strong> = onglets ci-dessus ou boutons « BAGAGES DECLARER » / « COURRIERS DECLARER » ·
+    <strong>Escal</strong> = bouton « DECLARATION ESCAL » pour figer, puis ici les actions « … ESCAL » dans la carte du mois.
   </div>
 
   <form class="decl-filter form-row" method="get" action="<?= htmlspecialchars($baseHub); ?>">
     <?php foreach ($ctx as $k => $v): if ($v === '' || $v === null) continue; ?>
       <input type="hidden" name="<?= htmlspecialchars($k); ?>" value="<?= htmlspecialchars((string) $v); ?>">
     <?php endforeach; ?>
+    <?php if ($gareLocked && $gareFilter !== ''): ?>
+      <input type="hidden" name="code_gare" value="<?= htmlspecialchars($gareFilter); ?>">
+    <?php endif; ?>
     <div class="form-group col-md-4">
       <label>Compagnie</label>
-      <select class="form-control form-control-sm" name="compagnie">
+      <select class="form-control form-control-sm" name="compagnie" onchange="this.form.submit()">
         <option value="">Toutes</option>
         <?php foreach ($compagnies as $c): ?>
           <option value="<?= htmlspecialchars($c->cle_compagnie); ?>" <?= ((string) $c->cle_compagnie === $compFilter) ? 'selected' : ''; ?>>
@@ -288,15 +332,21 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
       </select>
     </div>
     <div class="form-group col-md-4">
-      <label>Gare</label>
-      <select class="form-control form-control-sm" name="code_gare">
-        <option value="">Toutes</option>
-        <?php foreach ($gares as $gr): ?>
-          <option value="<?= htmlspecialchars($gr->code_gaexp); ?>" <?= ((string) $gr->code_gaexp === $gareFilter) ? 'selected' : ''; ?>>
-            <?= htmlspecialchars($gr->nom_gaep); ?>
-          </option>
-        <?php endforeach; ?>
-      </select>
+      <label>Gare<?= $gareLocked ? ' (gare actuelle)' : ''; ?></label>
+      <?php if ($gareLocked): ?>
+        <span class="decl-gare-locked"><?= htmlspecialchars($gareLabel !== '' ? $gareLabel : 'Gare courante'); ?></span>
+      <?php else: ?>
+        <select class="form-control form-control-sm" name="code_gare">
+          <option value="">Toutes</option>
+          <?php foreach ($gares as $gr):
+            $optLabel = isset($gr->label_affiche) ? $gr->label_affiche : $gr->nom_gaep;
+          ?>
+            <option value="<?= htmlspecialchars($gr->code_gaexp); ?>" <?= ((string) $gr->code_gaexp === $gareFilter) ? 'selected' : ''; ?>>
+              <?= htmlspecialchars($optLabel); ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      <?php endif; ?>
     </div>
     <div class="form-group col-md-4 d-flex align-items-end">
       <button type="submit" class="btn btn-primary btn-sm">Filtrer</button>
@@ -304,7 +354,18 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
   </form>
 
   <?php if (!$annees): ?>
-    <div class="decl-empty">Aucun mois déclaré pour ce filtre. Utilisez d’abord le bouton <strong>DECLARATION</strong>.</div>
+    <div class="decl-empty">
+      Aucun mois déclaré pour ce filtre.<br>
+      Retournez à l’accueil et utilisez d’abord
+      <?php if ($type === 'bagage'): ?>
+        <strong>DECLARATION BAGAGES</strong> (ou BAGAGES ESCAL)
+      <?php elseif ($type === 'courrier'): ?>
+        <strong>DECLARATION COURRIERS</strong> (ou COURRIERSESCAL)
+      <?php else: ?>
+        <strong>DECLARATION</strong> (tickets) ou <strong>DECLARATION ESCAL</strong>
+      <?php endif; ?>
+      .
+    </div>
   <?php else: ?>
     <div class="decl-years">
       <?php foreach ($annees as $y):
@@ -339,17 +400,32 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
         }
         if ($gareDef !== '' && isset($nomsGare[$gareDef])) {
             $meta .= ' · ' . htmlspecialchars($nomsGare[$gareDef]);
+        } elseif ($gareDef !== '') {
+            $meta .= ' · ' . htmlspecialchars($gareDef);
+        }
+        $famHint = '';
+        if ($type === 'ticket') {
+            $bits = array();
+            if (in_array('ticket_etats', $bloc['familles'], true)) {
+                $bits[] = 'guichet';
+            }
+            if (in_array('ticket_escal', $bloc['familles'], true)) {
+                $bits[] = 'escal';
+            }
+            if ($bits) {
+                $famHint = ' · ' . implode('+', $bits);
+            }
         }
       ?>
         <div class="decl-month-card <?= $open ? 'open' : ''; ?>">
           <a class="decl-month-head" href="<?= htmlspecialchars($url); ?>">
             <strong><?= htmlspecialchars($label . ' ' . substr($m, 0, 4)); ?></strong>
-            <span><?= $meta; ?> — cliquez pour les actions</span>
+            <span><?= $meta . htmlspecialchars($famHint); ?> — cliquez pour les actions</span>
           </a>
           <?php if ($open): ?>
             <div class="decl-month-body">
               <?php if ($cieDef === '' || $gareDef === ''): ?>
-                <p class="text-warning mb-0">Sélectionnez une compagnie et une gare (filtre ci-dessus) pour lancer les états.</p>
+                <p class="text-warning mb-0">Sélectionnez une compagnie<?= $gareLocked ? '' : ' et une gare'; ?> (filtre ci-dessus) pour lancer les états.</p>
               <?php else: ?>
                 <p class="muted mb-0">Période <?= htmlspecialchars($bloc['debut']); ?> → <?= htmlspecialchars($bloc['fin']); ?></p>
                 <?= $decl_render_actions($bloc, $cieDef, $gareDef); ?>
