@@ -4769,7 +4769,12 @@
             if (!in_array($type, array('ticket', 'bagage', 'courrier'), true)) {
                 $type = 'ticket';
             }
-            $this->load->helper('etat_lettres');
+            // scope=escal : hub dédié aux déclarations escale (lieu KOM24/BOR26…, pas la gare d'affiliation).
+            $scope = strtolower(trim((string) $this->input->get_post('scope')));
+            if ($scope !== 'escal') {
+                $scope = '';
+            }
+            $this->load->helper(array('etat_lettres', 'role17_context'));
             $this->entreprise = $this->m_entreprises->get_key($ckey);
             $ekey = (int) $this->entreprise->ekey;
             $compFilter = trim((string) $this->input->get_post('compagnie'));
@@ -4784,14 +4789,29 @@
             }
 
             // Gare du contexte guichet : figée (profils multi-gares inclus).
+            // Exception escale : les tampons exopes sont sur le lieu escale, pas la gare d'affiliation.
             $gareContexte = $this->_normalize_recap_gare_code_filter($g);
             if ($gareContexte === '') {
                 $gareContexte = $this->_normalize_recap_gare_code_filter($gareconnect);
             }
-            $gareLocked = ($gareContexte !== '');
-            $gareFilter = $gareLocked
-                ? $gareContexte
-                : $this->_normalize_recap_gare_code_filter($this->input->get_post('code_gare'));
+            $codesEscalAffilies = ($scope === 'escal' && $gareContexte !== '')
+                ? etat_declaration_codes_escal_affilies($ekey, $gareContexte)
+                : array();
+            $gareLocked = ($gareContexte !== '' && $scope !== 'escal');
+            if ($scope === 'escal') {
+                $gareFilter = $this->_normalize_recap_gare_code_filter($this->input->get_post('code_gare'));
+                // Ne jamais garder la gare d'affiliation (BOB1) comme filtre lieu escale.
+                if ($gareFilter !== '' && $codesEscalAffilies
+                    && !in_array($gareFilter, $codesEscalAffilies, true)
+                    && $gareFilter === $gareContexte
+                ) {
+                    $gareFilter = '';
+                }
+            } else {
+                $gareFilter = $gareLocked
+                    ? $gareContexte
+                    : $this->_normalize_recap_gare_code_filter($this->input->get_post('code_gare'));
+            }
 
             // Compagnie choisie : rattacher la gare figée homonyme de cette compagnie (évite BOB1 vs BOB35).
             if ($gareLocked && $compFilter !== '' && $gareFilter !== '') {
@@ -4817,16 +4837,29 @@
             }
 
             $mapFamilles = array(
-                'ticket' => array('ticket_etats', 'ticket_escal'),
+                'ticket' => ($scope === 'escal')
+                    ? array('ticket_escal')
+                    : array('ticket_etats'),
                 'bagage' => array('bagage'),
                 'courrier' => array('courrier'),
             );
             $titres = array(
-                'ticket' => 'Déclarer — Tickets / Escal',
+                'ticket' => ($scope === 'escal') ? 'Déclarer — Escal' : 'Déclarer — Tickets',
                 'bagage' => 'Déclarer — Bagages',
                 'courrier' => 'Déclarer — Courriers',
             );
-            $data = etat_declaration_lister_mois($ekey, $mapFamilles[$type], $gareFilter, $compFilter);
+            // Escal : filtrer sur le lieu choisi, sinon sur tous les lieux affiliés (ancien + nouveau).
+            $codesLister = null;
+            if ($scope === 'escal') {
+                if ($gareFilter !== '') {
+                    $codesLister = array($gareFilter);
+                } elseif ($codesEscalAffilies) {
+                    $codesLister = $codesEscalAffilies;
+                }
+            }
+            $data = ($codesLister !== null)
+                ? etat_declaration_lister_mois($ekey, $mapFamilles[$type], '', $compFilter, $codesLister)
+                : etat_declaration_lister_mois($ekey, $mapFamilles[$type], $gareFilter, $compFilter);
             $compagnies = $this->db->query(
                 'SELECT c.cle_compagnie, c.nom_compagnie
                  FROM compagnies c
@@ -4836,8 +4869,24 @@
                 array($ekey)
             )->result();
 
-            // Gares : filtrées par compagnie (évite BOBO en double CBT/CMT), libellé désambiguïsé sinon.
-            if ($compFilter !== '') {
+            // Gares : filtrées par compagnie ; en scope escal → lieux affiliés seulement.
+            if ($scope === 'escal' && $codesEscalAffilies) {
+                $inPh = implode(',', array_fill(0, count($codesEscalAffilies), '?'));
+                $paramsG = $codesEscalAffilies;
+                $sqlG = 'SELECT ex.code_gaexp, ex.nom_gaep, ex.garesid, c.nom_compagnie
+                         FROM gare_exp ex
+                         JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                         WHERE e.ekey = ? AND (ex.code_gaexp IN (' . $inPh . ') OR ex.garesid IN (' . $inPh . '))';
+                array_unshift($paramsG, $ekey);
+                $paramsG = array_merge($paramsG, $codesEscalAffilies);
+                if ($compFilter !== '') {
+                    $sqlG .= ' AND c.cle_compagnie = ?';
+                    $paramsG[] = $compFilter;
+                }
+                $sqlG .= ' ORDER BY ex.nom_gaep, ex.code_gaexp';
+                $gares = $this->db->query($sqlG, $paramsG)->result();
+            } elseif ($compFilter !== '') {
                 $gares = $this->db->query(
                     'SELECT ex.code_gaexp, ex.nom_gaep, ex.garesid, c.nom_compagnie
                      FROM gare_exp ex
@@ -4927,6 +4976,9 @@
             $this->property['hub_comp_filter'] = $compFilter;
             $this->property['hub_gare_filter'] = $gareFilter;
             $this->property['hub_gare_locked'] = $gareLocked;
+            $this->property['hub_scope'] = $scope;
+            $this->property['hub_has_escales'] = ($scope === 'escal')
+                || ($gareContexte !== '' && etat_declaration_gare_a_escales($ekey, $gareContexte));
             $this->property['hub_ckey'] = $ckey;
             $this->property['hub_gid'] = $g;
             $this->property['hub_can_archiver'] = $canArchiver;
@@ -4936,6 +4988,9 @@
                 'userconnected' => $userconnected,
                 'sousgareconnect' => $sousgareconnect,
             );
+            if ($scope === 'escal') {
+                $this->property['hub_ctx']['scope'] = 'escal';
+            }
             $this->property['bundle_datatables'] = false;
             return $this->layout->view('_rapport/declarer_hub', $this->property);
         }

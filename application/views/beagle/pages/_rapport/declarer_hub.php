@@ -15,6 +15,8 @@ $nomsGare = isset($hub_noms_gare) ? $hub_noms_gare : array();
 $compFilter = isset($hub_comp_filter) ? (string) $hub_comp_filter : '';
 $gareFilter = isset($hub_gare_filter) ? (string) $hub_gare_filter : '';
 $gareLocked = !empty($hub_gare_locked);
+$scope = isset($hub_scope) ? (string) $hub_scope : '';
+$hasEscales = !empty($hub_has_escales) || $scope === 'escal';
 $ckey = isset($hub_ckey) ? $hub_ckey : '';
 $gid = isset($hub_gid) ? $hub_gid : '';
 $canArchiver = !empty($hub_can_archiver);
@@ -47,14 +49,24 @@ $qsCtxParts = array(
     'gareconnect' => isset($ctx['gareconnect']) ? $ctx['gareconnect'] : '',
     'userconnected' => isset($ctx['userconnected']) ? $ctx['userconnected'] : '',
     'sousgareconnect' => isset($ctx['sousgareconnect']) ? $ctx['sousgareconnect'] : '',
+    'scope' => ($scope === 'escal') ? 'escal' : '',
 );
 $qsCtx = http_build_query(array_filter($qsCtxParts, function ($v) {
     return $v !== '' && $v !== null;
 }));
 
-$hubSwitch = function ($t) use ($ckey, $gid, $qsCtx) {
+$hubSwitch = function ($t, $scopeSwitch = '') use ($ckey, $gid, $qsCtxParts) {
+    $parts = $qsCtxParts;
+    if ($scopeSwitch === 'escal') {
+        $parts['scope'] = 'escal';
+    } else {
+        unset($parts['scope']);
+    }
+    $qs = http_build_query(array_filter($parts, function ($v) {
+        return $v !== '' && $v !== null;
+    }));
     $url = site_url('Rapport/declarer_hub/' . rawurlencode($ckey) . '/' . rawurlencode($gid) . '/' . rawurlencode($t));
-    return $url . ($qsCtx !== '' ? ('?' . $qsCtx) : '');
+    return $url . ($qs !== '' ? ('?' . $qs) : '');
 };
 
 $gareLabel = ($gareFilter !== '' && isset($nomsGare[$gareFilter]))
@@ -301,16 +313,22 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
   </div>
 
   <div class="decl-switch">
-    <a class="<?= $type === 'ticket' ? 'active' : ''; ?>" href="<?= htmlspecialchars($hubSwitch('ticket')); ?>">Tickets / Escal</a>
+    <a class="<?= ($type === 'ticket' && $scope !== 'escal') ? 'active' : ''; ?>" href="<?= htmlspecialchars($hubSwitch('ticket')); ?>">Tickets</a>
+    <?php if ($hasEscales): ?>
+    <a class="<?= ($type === 'ticket' && $scope === 'escal') ? 'active' : ''; ?>" href="<?= htmlspecialchars($hubSwitch('ticket', 'escal')); ?>">Escal</a>
+    <?php endif; ?>
     <a class="<?= $type === 'bagage' ? 'active' : ''; ?>" href="<?= htmlspecialchars($hubSwitch('bagage')); ?>">Bagages</a>
     <a class="<?= $type === 'courrier' ? 'active' : ''; ?>" href="<?= htmlspecialchars($hubSwitch('courrier')); ?>">Courriers</a>
   </div>
 
   <div class="decl-help">
-    <strong>DECLARATION</strong> (toolbar) = figer le mois ·
-    <strong>DECLARER</strong> = cette page (états du mois) ·
-    <strong>Bagages / Courriers</strong> = onglets ci-dessus ou boutons « BAGAGES DECLARER » / « COURRIERS DECLARER » ·
-    <strong>Escal</strong> = bouton « DECLARATION ESCAL » pour figer, puis ici les actions « … ESCAL » dans la carte du mois.
+    <strong>DECLARATION</strong> = figer le mois ·
+    <strong>DECLARER</strong> = consulter les états ·
+    <?php if ($scope === 'escal'): ?>
+      <strong>Escal</strong> : lieux affiliés à cette gare (nouveau + ancien modèle). Filtrez un lieu pour lancer les états.
+    <?php else: ?>
+      <strong>Escal</strong> = onglet Escal / « DECLARER ESCAL » (uniquement si la gare a des escales affiliées).
+    <?php endif; ?>
   </div>
 
   <form class="decl-filter form-row" method="get" action="<?= htmlspecialchars($baseHub); ?>">
@@ -361,8 +379,10 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
         <strong>DECLARATION BAGAGES</strong> (ou BAGAGES ESCAL)
       <?php elseif ($type === 'courrier'): ?>
         <strong>DECLARATION COURRIERS</strong> (ou COURRIERSESCAL)
+      <?php elseif ($scope === 'escal'): ?>
+        <strong>DECLARATION ESCAL</strong> en choisissant la gare du lieu (ex. Kombissiri), puis rechargez cet onglet Escal
       <?php else: ?>
-        <strong>DECLARATION</strong> (tickets) ou <strong>DECLARATION ESCAL</strong>
+        <strong>DECLARATION</strong> (tickets) — pour l’escale utilisez l’onglet <strong>Escal</strong>
       <?php endif; ?>
       .
     </div>

@@ -232,6 +232,152 @@ function etat_declaration_aliases_gare($CI, $codeGare)
     })));
 }
 
+/**
+ * Fusionne les alias de plusieurs codes gare (lieux escale affiliés, etc.).
+ *
+ * @param string|string[] $codes
+ * @return string[]
+ */
+function etat_declaration_aliases_gares($CI, $codes)
+{
+    if (!is_array($codes)) {
+        $codes = array($codes);
+    }
+    $out = array();
+    foreach ($codes as $code) {
+        foreach (etat_declaration_aliases_gare($CI, $code) as $a) {
+            $out[$a] = $a;
+        }
+    }
+    return array_values($out);
+}
+
+/**
+ * Codes lieux d'escale affiliés à une gare (nouveau + ancien).
+ * Nouveau : agents rôle 17 + vente_escale_* sur le parent.
+ * Ancien : la gare courante est elle-même un lieu (departgescal / guser).
+ * Config : itineraire_escales sur les lignes de la gare.
+ *
+ * @return string[]
+ */
+function etat_declaration_codes_escal_affilies($ekey, $gid)
+{
+    $CI = function_exists('get_instance') ? get_instance() : null;
+    if (!$CI || !isset($CI->db)) {
+        return array();
+    }
+    $ekey = (int) $ekey;
+    $gid = trim((string) $gid);
+    if ($ekey <= 0 || $gid === '' || $gid === '0') {
+        return array();
+    }
+    if (!function_exists('role17_code_gaexp_lieu')) {
+        $CI->load->helper('role17_context');
+    }
+    $codes = array();
+    $prev = $CI->db->db_debug;
+    $CI->db->db_debug = false;
+
+    // 1) Nouveau modèle : affectations vente_escale_* sur la gare d'affiliation.
+    if (!isset($CI->m_compte_user)) {
+        $CI->load->model('Compte_user_model', 'm_compte_user');
+    }
+    if (isset($CI->m_compte_user) && method_exists($CI->m_compte_user, 'get_escales_vente_lieu')) {
+        $rows = $CI->m_compte_user->get_escales_vente_lieu($ekey, $gid);
+        if (is_array($rows)) {
+            foreach ($rows as $esc) {
+                $value = isset($esc->vente_escale_value) ? (string) $esc->vente_escale_value : '';
+                $one = '';
+                if ($value !== '' && function_exists('role17_code_gaexp_lieu')) {
+                    $one = role17_code_gaexp_lieu($value);
+                }
+                if ($one === '' && !empty($esc->vente_escale_label) && function_exists('role17_codes_gaexp_par_nom')) {
+                    $found = role17_codes_gaexp_par_nom($esc->vente_escale_label);
+                    $one = $found ? (string) $found[0] : '';
+                }
+                if ($one !== '') {
+                    $codes[$one] = $one;
+                }
+            }
+        }
+    }
+
+    // 2) Ancien modèle : la gare courante EST le lieu d'escale (tickets tamponnés).
+    $aliasesSelf = etat_declaration_aliases_gare($CI, $gid);
+    if ($aliasesSelf) {
+        $inSelf = array();
+        foreach ($aliasesSelf as $a) {
+            $inSelf[] = $CI->db->escape($a);
+        }
+        $inSelfSql = implode(',', $inSelf);
+        $qOld = $CI->db->query(
+            "SELECT 1 FROM escalclients esp
+             WHERE esp.exopes = 1
+               AND (
+                    esp.departgescal IN ({$inSelfSql})
+                    OR EXISTS (
+                        SELECT 1 FROM attributions_role arx
+                        JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login
+                        WHERE arx.roleattribut = esp.iduseescal
+                          AND ulx.guser IN ({$inSelfSql})
+                        LIMIT 1
+                    )
+               )
+             LIMIT 1"
+        );
+        if ($qOld && $qOld->num_rows() > 0) {
+            foreach ($aliasesSelf as $a) {
+                $codes[$a] = $a;
+            }
+        }
+    }
+
+    // 3) Config lignes : points d'escale des itinéraires au départ de la gare.
+    $ent = $CI->db->query(
+        'SELECT id_entreprise FROM entreprise WHERE ekey = ? LIMIT 1',
+        array($ekey)
+    )->row();
+    $idEnt = ($ent && isset($ent->id_entreprise)) ? (int) $ent->id_entreprise : 0;
+    if ($idEnt > 0 && $CI->db->table_exists('itineraire_escales')) {
+        $norm = etat_declaration_normaliser_gare($CI, $gid);
+        $qIt = $CI->db->query(
+            "SELECT DISTINCT ie.nom_escale
+             FROM itineraire_escales ie
+             JOIN lignes parent ON parent.ident_ligne = ie.id_lignes
+             JOIN gare_exp ge ON ge.code_gaexp = parent.gaexp_lg
+             JOIN compagnies c ON ge.id_compagd = c.cle_compagnie
+             JOIN entreprise e ON c.id_entrep = e.id_entreprise
+             WHERE e.id_entreprise = ?
+               AND ie.actif_escale = 1
+               AND (parent.gaexp_lg = ? OR parent.gaexp_lg = ? OR ge.garesid = ? OR ge.garesid = ?)
+             LIMIT 80",
+            array($idEnt, $gid, $norm, $gid, $norm)
+        );
+        if ($qIt) {
+            foreach ($qIt->result() as $row) {
+                $nom = trim((string) $row->nom_escale);
+                if ($nom === '' || !function_exists('role17_codes_gaexp_par_nom')) {
+                    continue;
+                }
+                foreach (role17_codes_gaexp_par_nom($nom) as $codeLieu) {
+                    $codes[$codeLieu] = $codeLieu;
+                }
+            }
+        }
+    }
+
+    $CI->db->db_debug = $prev;
+    return array_values($codes);
+}
+
+/**
+ * True si la gare a des escales affiliées (ou est elle-même un lieu d'escale).
+ */
+function etat_declaration_gare_a_escales($ekey, $gid)
+{
+    return !empty(etat_declaration_codes_escal_affilies($ekey, $gid));
+}
+
 function etat_declaration_sql_match_gare($CI, $codeGare)
 {
     $code = etat_declaration_normaliser_gare($CI, $codeGare);
@@ -263,7 +409,9 @@ function etat_lettre_expr_gare_non_passager($alias = 'np')
 
 function etat_lettre_expr_gare_escal($alias = 'esp')
 {
+    // departgescal = code gare du lieu escale (KOM24…), prioritaire sur le sous-gare / vendeur.
     return "COALESCE(
+ NULLIF(TRIM({$alias}.departgescal), ''),
  (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = {$alias}.departsgescal LIMIT 1),
  (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = {$alias}.iduseescal LIMIT 1)
 )";
@@ -749,9 +897,10 @@ function etat_declaration_hub_push_mois(array &$out, array &$annees, $mois, $fam
  * @param string|array $familles  famille(s) etat_lettre_declaration
  * @param string       $codeGare  filtre gare optionnel
  * @param string       $cleCompagnie filtre compagnie optionnel
+ * @param string[]|null $codesGare  liste de lieux (ex. escales affiliées) ; ignore codeGare si fourni
  * @return array{annees: string[], mois: array<string, array>} mois indexés YYYY-MM
  */
-function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleCompagnie = '')
+function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleCompagnie = '', $codesGare = null)
 {
     $out = array('annees' => array(), 'mois' => array());
     if (!etat_lettre_ensure()) {
@@ -772,8 +921,15 @@ function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleComp
     $sql = 'SELECT cle_compagnie, famille, mois, code_gare, lettres, toutes, declared_at
             FROM etat_lettre_declaration
             WHERE entreprise_ekey = ? AND famille IN (' . implode(',', $in) . ')';
-    $gare = etat_declaration_normaliser_gare($CI, $codeGare);
-    $aliases = ($gare !== '') ? etat_declaration_aliases_gare($CI, $gare) : array();
+    $gare = '';
+    $aliases = array();
+    if (is_array($codesGare) && $codesGare) {
+        $aliases = etat_declaration_aliases_gares($CI, $codesGare);
+        $gare = etat_declaration_normaliser_gare($CI, reset($codesGare));
+    } else {
+        $gare = etat_declaration_normaliser_gare($CI, $codeGare);
+        $aliases = ($gare !== '') ? etat_declaration_aliases_gare($CI, $gare) : array();
+    }
     if ($aliases) {
         $sql .= ' AND code_gare IN (' . implode(',', array_fill(0, count($aliases), '?')) . ')';
         foreach ($aliases as $a) {
@@ -824,7 +980,15 @@ function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleComp
     $moisMinTampon = ($hasAnneePassee && count($out['mois']) >= 6)
         ? date('Y-m', strtotime('-4 months'))
         : '';
-    $tampons = etat_declaration_mois_depuis_tampons($CI, (int) $ekey, $familles, $gare, $cle, $moisMinTampon);
+    $tampons = etat_declaration_mois_depuis_tampons(
+        $CI,
+        (int) $ekey,
+        $familles,
+        $gare,
+        $cle,
+        $moisMinTampon,
+        $aliases
+    );
     $now = date('Y-m-d H:i:s');
     foreach ($tampons as $t) {
         $m = $t['mois'];
@@ -875,15 +1039,20 @@ function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleComp
  * alignés sur etat_lettre_tampon_existe + filtre gare courant.
  *
  * @param string[] $familles
+ * @param string[]|null $aliasesForced  alias déjà calculés (lieux affiliés, etc.)
  * @return array<int, array{mois:string,famille:string,cle_compagnie:string,code_gare:string}>
  */
-function etat_declaration_mois_depuis_tampons($CI, $ekey, array $familles, $codeGare = '', $cleCompagnie = '', $moisMin = '')
+function etat_declaration_mois_depuis_tampons($CI, $ekey, array $familles, $codeGare = '', $cleCompagnie = '', $moisMin = '', $aliasesForced = null)
 {
     $ekey = (int) $ekey;
     $cle = trim((string) $cleCompagnie);
     $gare = etat_declaration_normaliser_gare($CI, $codeGare);
-    $aliases = ($gare !== '') ? etat_declaration_aliases_gare($CI, $gare) : array();
-    $gareCanon = $gare;
+    if (is_array($aliasesForced) && $aliasesForced) {
+        $aliases = array_values(array_unique(array_filter(array_map('strval', $aliasesForced))));
+    } else {
+        $aliases = ($gare !== '') ? etat_declaration_aliases_gare($CI, $gare) : array();
+    }
+    $gareCanon = $gare !== '' ? $gare : (isset($aliases[0]) ? $aliases[0] : '');
     $out = array();
     $seen = array();
     $prev = $CI->db->db_debug;
@@ -1036,23 +1205,69 @@ function etat_declaration_mois_depuis_tampons($CI, $ekey, array $familles, $code
     }
 
     if ($needEscal) {
-        $filtreGareEsc = '';
+        // Les déclarations escale sont au lieu (KOM24/BOR26…), pas à la gare d'affiliation (BOB1).
+        $escalAvant = count($seen);
         if ($inAliasesSql !== '') {
-            $filtreGareEsc = ' AND ' . etat_lettre_expr_gare_escal('esp') . " IN ({$inAliasesSql})";
-        }
-        $sql = "SELECT DATE_FORMAT(esp.datedepescal, '%Y-%m') AS mois, dest.id_compaga AS cie
-                FROM escalclients esp
-                JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = {$ekey} AND esp.exopes = 1
-                  {$filtreCie}{$filtreGareEsc}{$filtreMoisEsc}
-                GROUP BY mois, cie";
-        $q = $CI->db->query($sql);
-        if ($q) {
-            foreach ($q->result() as $row) {
-                $push($row->mois, 'ticket_escal', $row->cie, $gareCanon);
+            // Nouveau (departgescal = lieu) + ancien (vendeur.guser = lieu si departgescal vide).
+            $sql = "SELECT DATE_FORMAT(esp.datedepescal, '%Y-%m') AS mois, dest.id_compaga AS cie,
+                           COALESCE(NULLIF(TRIM(esp.departgescal), ''), ulx.guser) AS g
+                    FROM escalclients esp
+                    JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    LEFT JOIN attributions_role arx ON arx.roleattribut = esp.iduseescal
+                    LEFT JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login
+                    WHERE e.ekey = {$ekey} AND esp.exopes = 1
+                      AND (
+                        esp.departgescal IN ({$inAliasesSql})
+                        OR ulx.guser IN ({$inAliasesSql})
+                      )
+                      {$filtreCie}{$filtreMoisEsc}
+                    GROUP BY mois, cie, g";
+            $q = $CI->db->query($sql);
+            if ($q) {
+                foreach ($q->result() as $row) {
+                    $push($row->mois, 'ticket_escal', $row->cie, etat_declaration_normaliser_gare($CI, $row->g));
+                }
+            }
+            // Repli COALESCE sous-gare si rien trouvé.
+            if (count($seen) === $escalAvant) {
+                $exprEsc = etat_lettre_expr_gare_escal('esp');
+                $sql = "SELECT DATE_FORMAT(esp.datedepescal, '%Y-%m') AS mois, dest.id_compaga AS cie,
+                               {$exprEsc} AS g
+                        FROM escalclients esp
+                        JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = {$ekey} AND esp.exopes = 1
+                          AND {$exprEsc} IN ({$inAliasesSql})
+                          {$filtreCie}{$filtreMoisEsc}
+                        GROUP BY mois, cie, g";
+                $q = $CI->db->query($sql);
+                if ($q) {
+                    foreach ($q->result() as $row) {
+                        $push($row->mois, 'ticket_escal', $row->cie, etat_declaration_normaliser_gare($CI, $row->g));
+                    }
+                }
+            }
+        } else {
+            $sql = "SELECT DATE_FORMAT(esp.datedepescal, '%Y-%m') AS mois, dest.id_compaga AS cie,
+                           esp.departgescal AS g
+                    FROM escalclients esp
+                    JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = {$ekey} AND esp.exopes = 1
+                      {$filtreCie}{$filtreMoisEsc}
+                    GROUP BY mois, cie, g";
+            $q = $CI->db->query($sql);
+            if ($q) {
+                foreach ($q->result() as $row) {
+                    $push($row->mois, 'ticket_escal', $row->cie, etat_declaration_normaliser_gare($CI, $row->g));
+                }
             }
         }
     }
