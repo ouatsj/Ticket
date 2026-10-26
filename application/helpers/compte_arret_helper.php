@@ -2979,6 +2979,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 . sprintf($base, 'd.idcaisse_depens') . "
                 AND d.ferme_caisdep = 0 AND d.is_actifdepad = 1
                 AND IFNULL(d.is_actifdep, 0) = 0
+                AND IFNULL(d.type_depense, '') <> 'Courrier'
                 {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
             );
             $depots = $montant(
@@ -2986,6 +2987,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 . sprintf($base, 'dp.idcaisse_depot') . "
                 AND dp.ferme_caisdepo = 0 AND dp.is_validdepo = 1 AND dp.is_actifdepoad = 1
                 AND IFNULL(dp.is_actifdepo, 0) = 0
+                AND IFNULL(dp.type_depot, '') <> 'Courrier'
                 {$qui_p} " . $scope('dp.idop_depot', 'dp.nom_pre')
             );
             $versements = $montant(
@@ -3010,12 +3012,14 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 "SELECT SUM(d.montant_depens) AS total FROM depense d "
                 . sprintf($base, 'd.idcaisse_depens') . "
                 AND d.ferme_caisdep = 0 AND d.is_actifdep = 1
+                AND IFNULL(d.type_depense, '') <> 'Courrier'
                 {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
             );
             $depots = $montant(
                 "SELECT SUM(dp.montant_depot) AS total FROM depot dp "
                 . sprintf($base, 'dp.idcaisse_depot') . "
                 AND dp.ferme_caisdepo = 0 AND dp.is_validdepo = 1
+                AND IFNULL(dp.type_depot, '') <> 'Courrier'
                 {$qui_p} " . $scope('dp.idop_depot', 'dp.nom_pre')
             );
             $versements = $montant(

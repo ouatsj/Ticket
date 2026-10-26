@@ -1452,7 +1452,7 @@
          * @param string $niveau principal|adjoint
          * @return array
          */
-        public function liste_caisse_escale($cid, $idg, array $ops, $niveau)
+        public function liste_caisse_escale($cid, $idg, array $ops, $niveau, $famille = 'ticket')
         {
             $lieu = function_exists('escale_ligne_lieu_sql') ? escale_ligne_lieu_sql('d.nom_perso', 'd.idop_dep') : '';
             $op_sql = ($lieu !== '') ? $lieu : recette_role_ops_ou_nom_sql(array('d.idop_dep'), 'd.nom_perso', $ops);
@@ -1465,6 +1465,10 @@
             $gare_sql = function_exists('caissier_escale_caisse_sql')
                 ? caissier_escale_caisse_sql('cs', $idg)
                 : ('AND cs.gexp_caiss = ' . $this->db->escape($idg));
+            // Aligné recettes escale : ticket hors Courrier, famille courrier = Courrier seul.
+            $type_sql = ($famille === 'courrier')
+                ? "AND d.type_depense = 'Courrier'"
+                : "AND IFNULL(d.type_depense, '') <> 'Courrier'";
 
             return $this->db->query(
                 "SELECT * FROM depense d
@@ -1478,6 +1482,7 @@
                 {$gare_sql}
                 {$etat}
                 {$qui}
+                {$type_sql}
                 {$op_sql}
                 ORDER BY d.id_depense DESC"
             )->result();
