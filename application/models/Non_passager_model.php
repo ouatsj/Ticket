@@ -1750,30 +1750,27 @@
 
         public function exopass($cid, $cp, $d1, $d2, $gd)
         {
-        $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_liste', $d1, $d2);
-            if($gd === ''){
+            // Même filtre lettres que EXERCICE retour (ticket_etats), sans INNER JOIN client exclusif.
+            $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $d1, $d2);
+            if ($gd === '') {
                 return $this->db->query(
-                "SELECT * FROM non_passager np 
-                    JOIN client cl ON np.id_client_npass = cl.id_client
-                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne 
+                "SELECT * FROM non_passager np
+                    LEFT JOIN client cl ON np.id_client_npass = cl.id_client
+                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND np.actif_nonp = 0
                     AND np.datevente >= '$d1' AND np.datevente < DATE_ADD('$d2', INTERVAL 1 DAY)
                     {$filtreLettres}
                     AND dest.id_compaga = '$cp'")->result();
-
             }
 
-            else
-            {
-                return $this->db->query(
-                    "SELECT * FROM non_passager np 
-                    JOIN client cl ON np.id_client_npass = cl.id_client
-                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne 
+            return $this->db->query(
+                "SELECT * FROM non_passager np
+                    LEFT JOIN client cl ON np.id_client_npass = cl.id_client
+                    JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
@@ -1792,7 +1789,6 @@
   AND (ge_v.code_gaexp = '$gd' OR ge_v.garesid = '$gd')
  )
 )")->result();
-            }   
         }
 
         public function exopassglob($cid, $cp, $d1, $d2, $gd)

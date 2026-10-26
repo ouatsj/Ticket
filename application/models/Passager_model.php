@@ -1239,41 +1239,43 @@
 
         public function exopass($cid, $cp, $d1, $d2, $gd)
         {
-        $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_liste', $d1, $d2);
-            if($gd === ''){
+            // Même périmètre métier que EXERCICE / BROUILLARD / MANIFEST (ticket_etats + exclusions statut).
+            $filtreLettres = etat_filtre_lettres('p.verifpassager', 'p.datep_create', $cp, 'ticket_etats', $d1, $d2);
+            $statutExo = "AND p.prixvente IS NOT NULL
+                    AND COALESCE(p.statut_confirme, '') NOT IN ('confirm','catconfirm','confirmcarte')
+                    AND p.statut_code = 'vendu'
+                    AND IFNULL(p.statutvente, 0) <> 2";
+            if ($gd === '') {
                 $rows = $this->db->query(
                 "SELECT * FROM passager p
-                    JOIN client cl ON p.id_client_pass = cl.id_client
+                    LEFT JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN programme pr ON p.code_pro = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
+                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND c.cle_compagnie ='$cp'
+                    AND dest.id_compaga = '$cp'
                     AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
                     {$filtreLettres}
-                    AND p.statut_code = 'vendu'")->result(); return $this->normalize_ticket_prix_rows($rows);
+                    {$statutExo}")->result();
+                return $this->normalize_ticket_prix_rows($rows);
             }
 
-            else
-            {
-                $rows = $this->db->query(
-                    "SELECT * FROM passager p
-                    JOIN client cl ON p.id_client_pass = cl.id_client
+            $rows = $this->db->query(
+                "SELECT * FROM passager p
+                    LEFT JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN programme pr ON p.code_pro = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne 
+                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
-                    AND c.cle_compagnie ='$cp'
+                    AND dest.id_compaga = '$cp'
                     AND p.datep_create >= '$d1' AND p.datep_create < DATE_ADD('$d2', INTERVAL 1 DAY)
                     AND COALESCE(
  (SELECT ge_v.garesid FROM sousgare sg_lv JOIN gare_exp ge_v ON ge_v.code_gaexp = sg_lv.gareprinceid WHERE sg_lv.idsousgare = p.idsousgare_vente LIMIT 1),
@@ -1281,8 +1283,8 @@
  (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gd' OR gx_lv.garesid = '$gd' LIMIT 1)
                     {$filtreLettres}
-                    AND p.statut_code = 'vendu'")->result(); return $this->normalize_ticket_prix_rows($rows);            }
-            
+                    {$statutExo}")->result();
+            return $this->normalize_ticket_prix_rows($rows);
         }
 
         public function exopassglob($cid, $cp, $d1, $d2, $gd)

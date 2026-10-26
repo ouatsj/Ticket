@@ -10,7 +10,7 @@ function etat_lettre_familles()
 {
     return array(
         'ticket_etats' => 'Ticket : exercice, récap EX, brouillard, déclaration, manifest',
-        'ticket_liste' => 'Ticket : exercice liste passagers',
+        'ticket_liste' => 'Ticket : liste passagers (legacy ; hub utilise ticket_etats)',
         'ticket_escal' => 'Ticket escale',
         'bagage' => 'Bagage et bagage escale',
         'courrier' => 'Courrier et courrier escale',
@@ -647,6 +647,100 @@ function etat_declaration_figer($ekey, $cle, $famille, $dt1, $dt2, $acteur = nul
             )
         );
     }
+}
+
+/**
+ * Liste les mois déclarés pour un hub Déclarer (ticket / bagage / courrier).
+ *
+ * @param int          $ekey
+ * @param string|array $familles  famille(s) etat_lettre_declaration
+ * @param string       $codeGare  filtre gare optionnel
+ * @param string       $cleCompagnie filtre compagnie optionnel
+ * @return array{annees: string[], mois: array<string, array>} mois indexés YYYY-MM
+ */
+function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleCompagnie = '')
+{
+    $out = array('annees' => array(), 'mois' => array());
+    if (!etat_lettre_ensure()) {
+        return $out;
+    }
+    $CI = get_instance();
+    $familles = is_array($familles) ? $familles : array($familles);
+    $familles = array_values(array_filter(array_map('strval', $familles)));
+    if (!$familles) {
+        return $out;
+    }
+    $params = array((int) $ekey);
+    $in = array();
+    foreach ($familles as $f) {
+        $in[] = '?';
+        $params[] = $f;
+    }
+    $sql = 'SELECT cle_compagnie, famille, mois, code_gare, lettres, toutes, declared_at
+            FROM etat_lettre_declaration
+            WHERE entreprise_ekey = ? AND famille IN (' . implode(',', $in) . ')';
+    $gare = etat_declaration_normaliser_gare($CI, $codeGare);
+    if ($gare !== '') {
+        $sql .= ' AND code_gare = ?';
+        $params[] = $gare;
+    }
+    $cle = trim((string) $cleCompagnie);
+    if ($cle !== '') {
+        $sql .= ' AND cle_compagnie = ?';
+        $params[] = $cle;
+    }
+    $sql .= ' ORDER BY mois DESC, declared_at DESC';
+    $rows = $CI->db->query($sql, $params)->result();
+    $annees = array();
+    foreach ($rows as $row) {
+        $m = trim((string) $row->mois);
+        if (!preg_match('/^\d{4}-\d{2}$/', $m)) {
+            continue;
+        }
+        if (!isset($out['mois'][$m])) {
+            $out['mois'][$m] = array(
+                'mois' => $m,
+                'annee' => substr($m, 0, 4),
+                'debut' => $m . '-01',
+                'fin' => date('Y-m-d', strtotime($m . '-01 +1 month -1 day')),
+                'familles' => array(),
+                'compagnies' => array(),
+                'gares' => array(),
+                'lignes' => array(),
+            );
+            $annees[substr($m, 0, 4)] = true;
+        }
+        $fam = trim((string) $row->famille);
+        $out['mois'][$m]['familles'][$fam] = true;
+        $cie = trim((string) $row->cle_compagnie);
+        if ($cie !== '') {
+            $out['mois'][$m]['compagnies'][$cie] = true;
+        }
+        $cg = trim((string) $row->code_gare);
+        if ($cg !== '') {
+            $out['mois'][$m]['gares'][$cg] = true;
+        }
+        $lettresRow = trim((string) (isset($row->lettres) ? $row->lettres : ''));
+        if (!empty($row->toutes)) {
+            $lettresRow = 'TOUTES';
+        }
+        $out['mois'][$m]['lignes'][] = array(
+            'famille' => $fam,
+            'cle_compagnie' => $cie,
+            'code_gare' => $cg,
+            'lettres' => $lettresRow,
+            'declared_at' => isset($row->declared_at) ? (string) $row->declared_at : '',
+        );
+    }
+    foreach ($out['mois'] as &$bloc) {
+        $bloc['familles'] = array_keys($bloc['familles']);
+        $bloc['compagnies'] = array_keys($bloc['compagnies']);
+        $bloc['gares'] = array_keys($bloc['gares']);
+    }
+    unset($bloc);
+    $out['annees'] = array_keys($annees);
+    rsort($out['annees']);
+    return $out;
 }
 
 function etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois, $codeGare = '')

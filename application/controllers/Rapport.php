@@ -4754,6 +4754,110 @@
             $this->_etat_export_dispatch($this->_exerdeclareres_payload($ckey, $g));
         }
 
+        /**
+         * Hub Déclarer : onglets année + cartes mois + actions liées au mois déclaré.
+         * $type = ticket | bagage | courrier
+         */
+        public function declarer_hub($ckey, $g, $type = 'ticket')
+        {
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            if (!in_array($role, array('1', '2', '7'), true)) {
+                show_error('Accès réservé Administrateur, Superviseur ou Comptable.', 403);
+                return;
+            }
+            $type = strtolower(trim((string) $type));
+            if (!in_array($type, array('ticket', 'bagage', 'courrier'), true)) {
+                $type = 'ticket';
+            }
+            $this->load->helper('etat_lettres');
+            $this->entreprise = $this->m_entreprises->get_key($ckey);
+            $ekey = (int) $this->entreprise->ekey;
+            $compFilter = trim((string) $this->input->get_post('compagnie'));
+            $gareFilter = trim((string) $this->input->get_post('code_gare'));
+            if ($gareFilter === '') {
+                $gareFilter = $this->_normalize_recap_gare_code_filter($g);
+            } else {
+                $gareFilter = $this->_normalize_recap_gare_code_filter($gareFilter);
+            }
+            $mapFamilles = array(
+                'ticket' => array('ticket_etats', 'ticket_escal'),
+                'bagage' => array('bagage'),
+                'courrier' => array('courrier'),
+            );
+            $titres = array(
+                'ticket' => 'Déclarer — Tickets',
+                'bagage' => 'Déclarer — Bagages',
+                'courrier' => 'Déclarer — Courriers',
+            );
+            $data = etat_declaration_lister_mois($ekey, $mapFamilles[$type], $gareFilter, $compFilter);
+            $compagnies = $this->db->query(
+                'SELECT c.cle_compagnie, c.nom_compagnie
+                 FROM compagnies c
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = ?
+                 ORDER BY c.nom_compagnie',
+                array($ekey)
+            )->result();
+            $gares = $this->db->query(
+                'SELECT DISTINCT ex.code_gaexp, ex.nom_gaep
+                 FROM gare_exp ex
+                 JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = ?
+                 ORDER BY ex.nom_gaep',
+                array($ekey)
+            )->result();
+            $nomsCie = array();
+            foreach ($compagnies as $c) {
+                $nomsCie[(string) $c->cle_compagnie] = (string) $c->nom_compagnie;
+            }
+            $nomsGare = array();
+            foreach ($gares as $gr) {
+                $nomsGare[(string) $gr->code_gaexp] = (string) $gr->nom_gaep;
+            }
+            $gareconnect = trim((string) $this->input->get_post('gareconnect'));
+            $userconnected = trim((string) $this->input->get_post('userconnected'));
+            $sousgareconnect = trim((string) $this->input->get_post('sousgareconnect'));
+            if ($gareconnect === '') {
+                $gareconnect = (string) $g;
+            }
+            if ($userconnected === '' && isset($this->session->agent->roleattribut)) {
+                $userconnected = (string) $this->session->agent->roleattribut;
+            }
+            $moisSel = trim((string) $this->input->get_post('mois'));
+            if ($moisSel === '' || !isset($data['mois'][$moisSel])) {
+                $keys = array_keys($data['mois']);
+                $moisSel = $keys ? $keys[0] : '';
+            }
+            $anneeSel = $moisSel !== '' ? substr($moisSel, 0, 4) : (isset($data['annees'][0]) ? $data['annees'][0] : date('Y'));
+            $canArchiver = in_array($role, array('1', '2'), true);
+            $this->property['title'] = $titres[$type];
+            $this->property['pagetitle'] = htmlspecialchars($titres[$type]);
+            $this->property['hub_type'] = $type;
+            $this->property['hub_titre'] = $titres[$type];
+            $this->property['hub_annees'] = $data['annees'];
+            $this->property['hub_mois'] = $data['mois'];
+            $this->property['hub_annee_sel'] = $anneeSel;
+            $this->property['hub_mois_sel'] = $moisSel;
+            $this->property['hub_compagnies'] = $compagnies;
+            $this->property['hub_gares'] = $gares;
+            $this->property['hub_noms_cie'] = $nomsCie;
+            $this->property['hub_noms_gare'] = $nomsGare;
+            $this->property['hub_comp_filter'] = $compFilter;
+            $this->property['hub_gare_filter'] = $gareFilter;
+            $this->property['hub_ckey'] = $ckey;
+            $this->property['hub_gid'] = $g;
+            $this->property['hub_can_archiver'] = $canArchiver;
+            $this->property['hub_retour'] = $this->_etat_retour_url($ckey, $gareconnect, $userconnected, $sousgareconnect);
+            $this->property['hub_ctx'] = array(
+                'gareconnect' => $gareconnect,
+                'userconnected' => $userconnected,
+                'sousgareconnect' => $sousgareconnect,
+            );
+            $this->property['bundle_datatables'] = false;
+            return $this->layout->view('_rapport/declarer_hub', $this->property);
+        }
+
         /*public function manifest($ckey, $g)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
