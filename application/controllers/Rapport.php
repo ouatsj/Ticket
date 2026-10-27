@@ -4804,6 +4804,12 @@
                 if ($gareFilter !== '' && $gareFilter === $gareContexte) {
                     $gareFilter = '';
                 }
+                // Refuser un lieu non affilié à la gare (évite Kombissiri sous Bobo).
+                if ($gareFilter !== '' && $codesEscalAffilies
+                    && !in_array($gareFilter, $codesEscalAffilies, true)
+                ) {
+                    $gareFilter = '';
+                }
             } else {
                 $gareFilter = $gareLocked
                     ? $gareContexte
@@ -4845,10 +4851,17 @@
                 'bagage' => 'Déclarer — Bagages',
                 'courrier' => 'Déclarer — Courriers',
             );
-            // Escal : lieu choisi → filtre ; sinon tous les lieux (ancien + nouveau), pas seulement l'itinéraire.
+            // Escal : lieu choisi, sinon uniquement les lieux affiliés à la gare (pas tout l'historique).
             $codesLister = null;
-            if ($scope === 'escal' && $gareFilter !== '') {
-                $codesLister = array($gareFilter);
+            if ($scope === 'escal') {
+                if ($gareFilter !== '') {
+                    $codesLister = array($gareFilter);
+                } elseif ($codesEscalAffilies) {
+                    $codesLister = $codesEscalAffilies;
+                } else {
+                    // Aucune escale affiliée → liste vide (évite de mélanger Ouaga/Bobo).
+                    $codesLister = array('__aucune_escale__');
+                }
             }
             $data = ($codesLister !== null)
                 ? etat_declaration_lister_mois($ekey, $mapFamilles[$type], '', $compFilter, $codesLister)

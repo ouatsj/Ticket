@@ -338,11 +338,54 @@ function etat_declaration_codes_escal_affilies($ekey, $gid)
     }
 
     // 3) Config lignes : points d'escale des itinéraires au départ de la gare.
+    //    On ignore un lieu déjà affecté en vente_escale à une AUTRE gare (ex. Boromo → Ouaga,
+    //    donc pas affilié à Bobo même s'il figure sur un itinéraire Bobo).
     $ent = $CI->db->query(
         'SELECT id_entreprise FROM entreprise WHERE ekey = ? LIMIT 1',
         array($ekey)
     )->row();
     $idEnt = ($ent && isset($ent->id_entreprise)) ? (int) $ent->id_entreprise : 0;
+    $codesVenteAutres = array();
+    if ($idEnt > 0
+        && $CI->db->table_exists('attributions_role')
+        && $CI->db->field_exists('vente_escale_value', 'attributions_role')
+    ) {
+        $inParent = array();
+        foreach ($aliasesSelf as $a) {
+            $inParent[] = $CI->db->escape($a);
+        }
+        $inParentSql = $inParent ? implode(',', $inParent) : $CI->db->escape($gid);
+        $qAutres = $CI->db->query(
+            "SELECT DISTINCT ar.vente_escale_value, ar.vente_escale_label
+             FROM attributions_role ar
+             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+             JOIN utilisateurs u ON cu.userlog_id = u.uid
+             JOIN entreprise e ON u.cle_comp = e.ekey
+             WHERE e.ekey = ?
+               AND ar.userole = 17
+               AND ar.vente_escale_value IS NOT NULL
+               AND TRIM(ar.vente_escale_value) <> ''
+               AND ul.guser NOT IN ({$inParentSql})",
+            array($ekey)
+        );
+        if ($qAutres) {
+            foreach ($qAutres->result() as $row) {
+                $one = '';
+                $value = isset($row->vente_escale_value) ? (string) $row->vente_escale_value : '';
+                if ($value !== '' && function_exists('role17_code_gaexp_lieu')) {
+                    $one = role17_code_gaexp_lieu($value);
+                }
+                if ($one === '' && !empty($row->vente_escale_label) && function_exists('role17_codes_gaexp_par_nom')) {
+                    $found = role17_codes_gaexp_par_nom($row->vente_escale_label);
+                    $one = $found ? (string) $found[0] : '';
+                }
+                if ($one !== '') {
+                    $codesVenteAutres[$one] = $one;
+                }
+            }
+        }
+    }
     if ($idEnt > 0 && $CI->db->table_exists('itineraire_escales')) {
         $norm = etat_declaration_normaliser_gare($CI, $gid);
         $qIt = $CI->db->query(
@@ -365,63 +408,16 @@ function etat_declaration_codes_escal_affilies($ekey, $gid)
                     continue;
                 }
                 foreach (role17_codes_gaexp_par_nom($nom) as $codeLieu) {
+                    if (isset($codesVenteAutres[$codeLieu])) {
+                        continue;
+                    }
                     $codes[$codeLieu] = $codeLieu;
                 }
             }
         }
     }
 
-    // 4) Historique ancien : tous les lieux déjà tamponnés (exopes) pour l'entreprise,
-    //    sauf la gare d'affiliation elle-même (BOB1 ≠ lieu escale).
-    //    Nécessaire car KOM24 etc. n'apparaissent pas toujours dans itineraire_escales.
-    $parentAliases = etat_declaration_aliases_gare($CI, $gid);
-    $qHist = $CI->db->query(
-        "SELECT DISTINCT esp.departgescal AS g
-         FROM escalclients esp
-         JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-         JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-         JOIN entreprise e ON c.id_entrep = e.id_entreprise
-         WHERE e.ekey = ?
-           AND esp.exopes = 1
-           AND NULLIF(TRIM(esp.departgescal), '') IS NOT NULL
-         LIMIT 200",
-        array($ekey)
-    );
-    if ($qHist) {
-        foreach ($qHist->result() as $row) {
-            $gLieu = trim((string) $row->g);
-            if ($gLieu === '' || in_array($gLieu, $parentAliases, true)) {
-                continue;
-            }
-            $codes[$gLieu] = $gLieu;
-        }
-    }
-    // Ancien sans departgescal : guser du vendeur sur un lieu ≠ parent.
-    $qHist2 = $CI->db->query(
-        "SELECT DISTINCT ulx.guser AS g
-         FROM escalclients esp
-         JOIN attributions_role arx ON arx.roleattribut = esp.iduseescal
-         JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login
-         JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
-         JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-         JOIN entreprise e ON c.id_entrep = e.id_entreprise
-         WHERE e.ekey = ?
-           AND esp.exopes = 1
-           AND NULLIF(TRIM(ulx.guser), '') IS NOT NULL
-         LIMIT 200",
-        array($ekey)
-    );
-    if ($qHist2) {
-        foreach ($qHist2->result() as $row) {
-            $gLieu = trim((string) $row->g);
-            if ($gLieu === '' || in_array($gLieu, $parentAliases, true)) {
-                continue;
-            }
-            $codes[$gLieu] = $gLieu;
-        }
-    }
+    // Pas d'historique entreprise global : il mélangeait Kombissiri/Boromo sur Bobo.
 
     $CI->db->db_debug = $prev;
     return array_values($codes);
