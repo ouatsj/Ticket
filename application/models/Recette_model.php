@@ -117,7 +117,7 @@
             $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
             // Admin/superviseur : même périmètre que le solde carte (ouvert, pas seulement aujourd'hui).
             $filtre_periode = $periode_ouverte
-                ? "AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1 AND r.is_validerecet = 1"
+                ? "AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1 AND r.is_validerecet = 1 AND IFNULL(r.actif_rect, 0) = 0"
                 : "AND r.active_recet = 1 AND r.arret_caisrecet = 0 AND r.actif_rect = 0 AND r.date_recet = '{$today}'";
             if ($pk === FALSE) {
                 return $this->db->query(
@@ -159,7 +159,7 @@
             $today = mdate('%Y-%m-%d', now());
             $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
             $filtre_periode = $periode_ouverte
-                ? "AND r.ferme_caisrecet = 0 AND r.is_actifrecetad = 1 AND r.is_validerecet = 1"
+                ? "AND r.ferme_caisrecet = 0 AND r.is_actifrecetad = 1 AND r.is_validerecet = 1 AND IFNULL(r.actif_rect, 0) = 0"
                 : "AND r.active_recet = 1 AND r.arret_caisrecet = 0 AND r.actif_rect = 0 AND r.date_recet = '{$today}'";
             if ($pk === FALSE) {
                 return $this->db->query(
@@ -1682,8 +1682,8 @@
                     . ' OR r.commentaire_recet LIKE ' . $this->db->escape('%' . $marqueur . '%') . ')';
             }
             $etat = ($niveau === 'adjoint')
-                ? 'AND r.ferme_caisrecet = 0 AND r.is_actifrecetad = 1 AND IFNULL(r.is_actifrecet, 0) = 0'
-                : 'AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1';
+                ? 'AND r.ferme_caisrecet = 0 AND r.is_actifrecetad = 1 AND IFNULL(r.is_actifrecet, 0) = 0 AND IFNULL(r.actif_rect, 0) = 0'
+                : 'AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1 AND IFNULL(r.actif_rect, 0) = 0';
             $qui = function_exists('caissier_escale_validateur_sql')
                 ? caissier_escale_validateur_sql(($niveau === 'adjoint') ? 'r.operavalidad' : 'r.operavalid')
                 : '';

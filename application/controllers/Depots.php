@@ -268,7 +268,15 @@
             )) {
                 $this->session->set_flashdata('error', 'Ce dépôt ne peut pas être retiré.');
             } else {
-                $this->m_depot->update($idpo, array('actif_depo' => 1));
+                // Retrait complet : plus visible ni comptabilisé (caissier, adjoint, soldes, totaux).
+                $this->m_depot->update($idpo, array(
+                    'actif_depo' => 1,
+                    'is_actifdepo' => 0,
+                    'is_actifdepoad' => 0,
+                    'is_validdepo' => 0,
+                    'active_depot' => 0,
+                    'arret_caisdepo' => 0,
+                ));
                 $this->session->set_flashdata('success', 'Le dépôt a été retiré. Son auteur peut le ressaisir.');
             }
             if ($retour !== '') {

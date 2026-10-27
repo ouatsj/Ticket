@@ -191,6 +191,7 @@
                                 AND r.ferme_caisrecet = 0
                                 AND r.is_actifrecet = 1
                                 AND r.is_validerecet = 1
+                                AND IFNULL(r.actif_rect, 0) = 0
                                 AND r.type_recet <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
 				                AND r.recetsgid = '$gare_stop->idsousgare'
@@ -207,6 +208,7 @@
                                     AND d.ferme_caisdep = 0
                                     AND d.is_actifdep = 1
                                     AND d.is_validedep = 1
+                                    AND IFNULL(d.actif_deps, 0) = 0
                                     AND d.type_depense <> 'Courrier'
                                     AND cs.id_caiss = '$item->id_caiss'
 				                    AND d.sousgidepens = '$gare_stop->idsousgare'
@@ -411,6 +413,7 @@
                                 AND r.ferme_caisrecet = 0
                                 AND r.is_actifrecetad = 1
                                 AND r.is_validerecet = 1
+                                AND IFNULL(r.actif_rect, 0) = 0
                                 AND r.type_recet <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
                                 AND r.recetsgid = '$gare_stop->idsousgare'
@@ -427,6 +430,7 @@
                                     AND d.ferme_caisdep = 0
                                     AND d.is_actifdepad = 1
                                     AND d.is_validedep = 1
+                                    AND IFNULL(d.actif_deps, 0) = 0
                                     AND d.type_depense <> 'Courrier'
                                     AND cs.id_caiss = '$item->id_caiss'
                                     AND d.sousgidepens = '$gare_stop->idsousgare'

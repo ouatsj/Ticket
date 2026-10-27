@@ -424,7 +424,16 @@
             )) {
                 $this->session->set_flashdata('error', 'Cette dépense ne peut pas être retirée.');
             } else {
-                $this->m_depense->update($dep, array('actif_deps' => 1));
+                // Retrait complet : plus visible ni comptabilisée (caissier, adjoint, soldes, totaux).
+                $this->m_depense->update($dep, array(
+                    'actif_deps' => 1,
+                    'is_actifdep' => 0,
+                    'is_actifdepad' => 0,
+                    'is_validedep' => 0,
+                    'active_dep' => 0,
+                    'arret_caisdep' => 0,
+                    'valid_depens' => 'rejet',
+                ));
                 $this->session->set_flashdata('success', 'La dépense a été retirée. Son auteur peut la ressaisir.');
             }
             if ($retour !== '') {

@@ -1247,7 +1247,16 @@
             )) {
                 $this->session->set_flashdata('error', 'Cette recette ne peut pas être retirée.');
             } else {
-                $this->m_recette->update($recet, array('actif_rect' => 1));
+                // Retrait complet : plus visible ni comptabilisée (caissier, adjoint, soldes, totaux).
+                $this->m_recette->update($recet, array(
+                    'actif_rect' => 1,
+                    'is_actifrecet' => 0,
+                    'is_actifrecetad' => 0,
+                    'is_validerecet' => 0,
+                    'active_recet' => 0,
+                    'arret_caisrecet' => 0,
+                    'valid_recet' => 'rejet',
+                ));
                 $this->session->set_flashdata('success', 'La recette a été retirée. Son auteur peut la ressaisir.');
             }
             if ($retour !== '') {
@@ -11950,7 +11959,12 @@
             )) {
                 $this->session->set_flashdata('error', 'Ce versement ne peut pas être retiré.');
             } else {
-                $this->m_versements->update($idvers, array('actifvers' => 1));
+                // Retrait complet : plus visible caissier, adjoint, ni soldes.
+                $this->m_versements->update($idvers, array(
+                    'actifvers' => 1,
+                    'is_actifverser' => 0,
+                    'is_actifverserad' => 0,
+                ));
                 $this->session->set_flashdata('success', 'Le versement a été retiré. Son auteur peut le ressaisir.');
             }
             if ($retour !== '') {

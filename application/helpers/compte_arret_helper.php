@@ -2971,6 +2971,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 . sprintf($base, 'r.idcaisse') . "
                 AND r.ferme_caisrecet = 0 AND r.is_actifrecetad = 1
                 AND IFNULL(r.is_actifrecet, 0) = 0
+                AND IFNULL(r.actif_rect, 0) = 0
                 AND IFNULL(r.type_recet, '') <> 'Courrier'
                 {$qui_r} " . $scope('r.idopera', 'r.nom')
             );
@@ -2979,6 +2980,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 . sprintf($base, 'd.idcaisse_depens') . "
                 AND d.ferme_caisdep = 0 AND d.is_actifdepad = 1
                 AND IFNULL(d.is_actifdep, 0) = 0
+                AND IFNULL(d.actif_deps, 0) = 0
                 AND IFNULL(d.type_depense, '') <> 'Courrier'
                 {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
             );
@@ -3005,6 +3007,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 "SELECT SUM(r.montant_recet) AS total FROM recette r "
                 . sprintf($base, 'r.idcaisse') . "
                 AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1
+                AND IFNULL(r.actif_rect, 0) = 0
                 AND IFNULL(r.type_recet, '') <> 'Courrier'
                 {$qui_r} " . $scope('r.idopera', 'r.nom')
             );
@@ -3012,6 +3015,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 "SELECT SUM(d.montant_depens) AS total FROM depense d "
                 . sprintf($base, 'd.idcaisse_depens') . "
                 AND d.ferme_caisdep = 0 AND d.is_actifdep = 1
+                AND IFNULL(d.actif_deps, 0) = 0
                 AND IFNULL(d.type_depense, '') <> 'Courrier'
                 {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
             );

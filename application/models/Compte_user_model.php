@@ -1827,6 +1827,7 @@
                 AND r.ferme_caisrecet = 0
                 AND {$actif_recette}
                 {$valid_flag_recette}
+                AND IFNULL(r.actif_rect, 0) = 0
                 AND r.type_recet <> 'Courrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
@@ -1841,6 +1842,7 @@
                 AND d.ferme_caisdep = 0
                 AND {$actif_depense}
                 {$valid_flag_depense}
+                AND IFNULL(d.actif_deps, 0) = 0
                 AND d.type_depense <> 'Courrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
