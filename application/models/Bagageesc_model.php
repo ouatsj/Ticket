@@ -1113,62 +1113,35 @@
 
         public function reportbagcptgr($cid, $cp, $gid, $dt1, $dt2, $algn = FALSE)
         {
-        $filtreLettres = etat_filtre_lettres('bg.couleurcarnetesc', 'bg.date_createesc', $cp, 'bagage', $dt1, $dt2);
-            
-            if ($algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT * FROM bagagesesc bg
-                    JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND bg.date_createesc >= '$dt1' AND date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    {$filtreLettres}
-                    AND dest.id_compaga = '$cp'
-                    AND bg.prix_bagageesc IS NOT NULL
-                    AND bg.isvalidbagesc = 1
-                    AND EXISTS (
-                      SELECT 1 FROM user_login ul
-                      WHERE ul.uid_login = (
-                          SELECT ar.idgestcompte
-                          FROM attributions_role ar
-                          WHERE ar.roleattribut = bg.idoperabagageesc
-                          LIMIT 1
-                      )
-                      AND ex.code_gaexp = '$gid'
-                    )")->result();
-            }
-                return $this->db->query(
-                    "SELECT * FROM bagagesesc bg
-                    JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND bg.date_createesc >= '$dt1' AND date_createesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    {$filtreLettres}
-                    AND dest.id_compaga = '$cp'
-                    AND bg.prix_bagageesc IS NOT NULL
-                    AND bg.isvalidbagesc = 1
-                    AND lg.ident_ligne = '$algn'
-                    AND EXISTS (
-                      SELECT 1 FROM user_login ul
-                      WHERE ul.uid_login = (
-                          SELECT ar.idgestcompte
-                          FROM attributions_role ar
-                          WHERE ar.roleattribut = bg.idoperabagageesc
-                          LIMIT 1
-                      )
-                      AND ex.code_gaexp = '$gid'
-                    )")->result();
+            $filtreLettres = etat_filtre_lettres('bg.couleurcarnetesc', 'bg.date_createesc', $cp, 'bagage', $dt1, $dt2);
+            $cid = $this->db->escape_str($cid);
+            $dt1 = $this->db->escape_str($dt1);
+            $dt2 = $this->db->escape_str($dt2);
+            $cp = $this->db->escape_str($cp);
+            $gareSql = $this->_sql_gare_esc($gid);
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = ($algn !== '')
+                ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
+                : '';
+
+            return $this->db->query(
+                "SELECT * FROM bagagesesc bg
+                JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                JOIN heures h ON lh.heure_identif = h.id_heure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '{$cid}'
+                AND bg.date_createesc >= '{$dt1}' AND bg.date_createesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
+                {$filtreLettres}
+                AND dest.id_compaga = '{$cp}'
+                AND bg.prix_bagageesc IS NOT NULL
+                AND bg.isvalidbagesc = 1
+                AND IFNULL(bg.exobagesc, 0) = 0
+                {$gareSql}
+                {$ligneSql}"
+            )->result();
         }
     }
     /** Bagageesc_model.php **/

@@ -1908,76 +1908,35 @@
 
         public function reportbagcptgr($cid, $gid, $dt1, $dt2, $cp, $algn = FALSE)
         {
-        $filtreLettres = etat_filtre_lettres('bg.couleurcarnet', 'bg.date_create', $cp, 'bagage', $dt1, $dt2);
-            
-            if ($algn === '') 
-            {
-                return $this->db->query(
-                    "SELECT * FROM bagages bg
-                    LEFT JOIN programme pr ON bg.progidbagage = pr.code_progr
-                    LEFT JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                    LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+            $filtreLettres = etat_filtre_lettres('bg.couleurcarnet', 'bg.date_create', $cp, 'bagage', $dt1, $dt2);
+            $gareSql = $this->sql_filtre_gare_facturation($gid, 'bg.idgarebag', 'COALESCE(lg.gaexp_lg, g.gaexp_lg)');
+            $algn = ($algn === FALSE || $algn === null) ? '' : trim((string) $algn);
+            $ligneSql = ($algn !== '')
+                ? " AND COALESCE(lg.ident_ligne, g.ident_ligne) = '" . $this->db->escape_str($algn) . "' "
+                : '';
 
-                    LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
-                    LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-
-                    LEFT JOIN gare_dest dest
-                        ON (lg.gadest_lg = dest.code_gadest 
-                            OR g.gadest_lg = dest.code_gadest)
-
-                    LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE 
-                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND e.ekey = '$cid'
-                        AND dest.id_compaga = '$cp'
-                        {$filtreLettres}
-                    AND bg.prix_bagage IS NOT NULL
-                    AND bg.isvalidbag = 1
-                    AND EXISTS (
-                      SELECT 1 FROM user_login ul
-                      WHERE ul.uid_login = (
-                          SELECT ar.idgestcompte
-                          FROM attributions_role ar
-                          WHERE ar.roleattribut = bg.idoperabagage
-                          LIMIT 1
-                      )
-                      AND ex.code_gaexp = '$gid'
-                    )")->result();
-            }
-                return $this->db->query(
-                    "SELECT * FROM bagages bg
-                    LEFT JOIN programme pr ON bg.progidbagage = pr.code_progr
+            return $this->db->query(
+                "SELECT * FROM bagages bg
+                LEFT JOIN programme pr ON bg.progidbagage = pr.code_progr
                 LEFT JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
                 LEFT JOIN heures h ON lh.heure_identif = h.id_heure
-
                 LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
                 LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
-                JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-
                 LEFT JOIN gare_dest dest
-                    ON (lg.gadest_lg = dest.code_gadest 
-                        OR g.gadest_lg = dest.code_gadest)
-
+                    ON (lg.gadest_lg = dest.code_gadest OR g.gadest_lg = dest.code_gadest)
                 LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE 
-                    bg.date_create >= '$dt1' AND bg.date_create < DATE_ADD('$dt2', INTERVAL 1 DAY)
-                    AND e.ekey = '$cid'
-                    AND dest.id_compaga = '$cp'
-                    {$filtreLettres}
-                    AND lg.ident_ligne = '$algn'
-                    AND EXISTS (
-                      SELECT 1 FROM user_login ul
-                      WHERE ul.uid_login = (
-                          SELECT ar.idgestcompte
-                          FROM attributions_role ar
-                          WHERE ar.roleattribut = bg.idoperabagage
-                          LIMIT 1
-                      )
-                      AND ex.code_gaexp = '$gid'
-                    )")->result();
+                WHERE bg.date_create >= '" . $this->db->escape_str($dt1) . "'
+                  AND bg.date_create < DATE_ADD('" . $this->db->escape_str($dt2) . "', INTERVAL 1 DAY)
+                  AND e.ekey = '" . $this->db->escape_str($cid) . "'
+                  AND dest.id_compaga = '" . $this->db->escape_str($cp) . "'
+                  {$filtreLettres}
+                  AND bg.prix_bagage IS NOT NULL
+                  AND bg.isvalidbag = 1
+                  AND IFNULL(bg.exobg, 0) = 0
+                  {$gareSql}
+                  {$ligneSql}"
+            )->result();
         }
        
         

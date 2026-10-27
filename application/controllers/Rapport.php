@@ -3483,6 +3483,24 @@
         }
 
         /**
+         * Garde DECLARATION : mois déjà déclaré → bloquer + resynchroniser le verrou table.
+         * @return bool true si déjà déclaré (ne pas retamper)
+         */
+        protected function _declaration_bloquer_si_deja($comp, $famille, $dt1, $dt2, $gid)
+        {
+            $gid = trim((string) $gid);
+            if ($gid === '' || $gid === '0') {
+                return false;
+            }
+            if (!$this->_declaration_deja($comp, $famille, $dt1, $dt2, $gid)) {
+                return false;
+            }
+            // Assure le verrou table même si seul le tampon exo* existait.
+            $this->_declaration_figer($comp, $famille, $dt1, $dt2, $gid);
+            return true;
+        }
+
+        /**
          * Payload DECLARER si la période n'est pas encore déclarée pour la gare.
          */
         protected function _declaration_etat_non_declaree(
@@ -3544,7 +3562,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'ticket_etats', $dt1, $dt2, $gid));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_bloquer_si_deja($comp, 'ticket_etats', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 if ($comp == 5002) {
                     $reportick = $this->m_passager->reporticketgr($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
@@ -3754,7 +3772,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'bagage', $dt1, $dt2, $gid));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_bloquer_si_deja($comp, 'bagage', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $reportbag = $this->m_bagage->reportbagcptgr($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                 if (!is_array($reportbag)) {
@@ -3838,7 +3856,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'bagage', $dt1, $dt2, $gid));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_bloquer_si_deja($comp, 'bagage', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $reportbag = $this->m_bagageesc->reportbagcptgr($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $lign);
                 if (!is_array($reportbag)) {
@@ -4123,7 +4141,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'courrier', $dt1, $dt2, $gid));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_bloquer_si_deja($comp, 'courrier', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $recapcourrier = $this->m_courrier_expedier->recaptexopligr($this->entreprise->ekey, $dt1, $dt2, $gid, $comp, $tyc, $lign);
                 if (!is_array($recapcourrier)) {
@@ -4218,7 +4236,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'courrier', $dt1, $dt2, $gid));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_bloquer_si_deja($comp, 'courrier', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $recapcourrier = $this->m_courrier_expedieresc->recaptexopligr($this->entreprise->ekey, $dt1, $dt2, $gid, $comp, $tyc, $lign);
                 if (!is_array($recapcourrier)) {
@@ -4596,7 +4614,7 @@
             $savedNbr = (int) $this->input->get_post('decl_nbr');
             $nbr = 0;
             $ok = false;
-            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_deja($comp, 'ticket_escal', $dt1, $dt2, $gid));
+            $dejaDeclaree = ($doUpdate && $saved === '' && $this->_declaration_bloquer_si_deja($comp, 'ticket_escal', $dt1, $dt2, $gid));
             if ($doUpdate && $saved === '' && !$dejaDeclaree) {
                 $reportick = $this->m_escalclients->reporticketcptgr($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
                 if (!is_array($reportick)) {
@@ -4867,43 +4885,37 @@
                 ? etat_declaration_lister_mois($ekey, $mapFamilles[$type], '', $compFilter, $codesLister)
                 : etat_declaration_lister_mois($ekey, $mapFamilles[$type], $gareFilter, $compFilter);
 
-            // Hubs ticket/bagage/courrier : fusionner les mois des lieux escale (BOB1 figé ≠ DIS10…).
+            // Hubs : fusionner uniquement les mois DÉJÀ déclarés des lieux escale (pas l'activité brute).
             if ($scope !== 'escal' && $codesEscalAffilies) {
-                $dataEscList = array();
-                if ($type === 'ticket') {
-                    $dataEscList[] = etat_declaration_lister_mois($ekey, array('ticket_escal'), '', $compFilter, $codesEscalAffilies);
-                } elseif ($type === 'bagage' || $type === 'courrier') {
-                    // Tampons exo* (s'il y en a) + activité réelle du lieu (exocresc souvent à 0).
-                    $dataEscList[] = etat_declaration_lister_mois($ekey, array($type), '', $compFilter, $codesEscalAffilies);
-                    $dataEscList[] = etat_declaration_lister_mois_activite_escal($ekey, $type, $compFilter, $codesEscalAffilies);
-                }
-                foreach ($dataEscList as $dataEsc) {
-                    foreach ($dataEsc['mois'] as $mEsc => $blocEsc) {
-                        if (!isset($data['mois'][$mEsc])) {
-                            $data['mois'][$mEsc] = $blocEsc;
-                            continue;
-                        }
-                        $data['mois'][$mEsc]['familles'] = array_values(array_unique(array_merge(
-                            $data['mois'][$mEsc]['familles'],
-                            $blocEsc['familles']
-                        )));
-                        $data['mois'][$mEsc]['compagnies'] = array_values(array_unique(array_merge(
-                            $data['mois'][$mEsc]['compagnies'],
-                            $blocEsc['compagnies']
-                        )));
-                        $data['mois'][$mEsc]['gares'] = array_values(array_unique(array_merge(
-                            $data['mois'][$mEsc]['gares'],
-                            $blocEsc['gares']
-                        )));
-                        if (!empty($blocEsc['lignes'])) {
-                            $data['mois'][$mEsc]['lignes'] = array_merge(
-                                $data['mois'][$mEsc]['lignes'],
-                                $blocEsc['lignes']
-                            );
-                        }
+                $famMerge = ($type === 'ticket')
+                    ? array('ticket_escal')
+                    : array($type);
+                $dataEsc = etat_declaration_lister_mois($ekey, $famMerge, '', $compFilter, $codesEscalAffilies);
+                foreach ($dataEsc['mois'] as $mEsc => $blocEsc) {
+                    if (!isset($data['mois'][$mEsc])) {
+                        $data['mois'][$mEsc] = $blocEsc;
+                        continue;
                     }
-                    $data['annees'] = array_values(array_unique(array_merge($data['annees'], $dataEsc['annees'])));
+                    $data['mois'][$mEsc]['familles'] = array_values(array_unique(array_merge(
+                        $data['mois'][$mEsc]['familles'],
+                        $blocEsc['familles']
+                    )));
+                    $data['mois'][$mEsc]['compagnies'] = array_values(array_unique(array_merge(
+                        $data['mois'][$mEsc]['compagnies'],
+                        $blocEsc['compagnies']
+                    )));
+                    $data['mois'][$mEsc]['gares'] = array_values(array_unique(array_merge(
+                        $data['mois'][$mEsc]['gares'],
+                        $blocEsc['gares']
+                    )));
+                    if (!empty($blocEsc['lignes'])) {
+                        $data['mois'][$mEsc]['lignes'] = array_merge(
+                            $data['mois'][$mEsc]['lignes'],
+                            $blocEsc['lignes']
+                        );
+                    }
                 }
+                $data['annees'] = array_values(array_unique(array_merge($data['annees'], $dataEsc['annees'])));
                 rsort($data['annees']);
                 krsort($data['mois']);
             }

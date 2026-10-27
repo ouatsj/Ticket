@@ -749,6 +749,7 @@
                 AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY)
                 AND esp.prixescal IS NOT NULL
                 AND esp.arrcptescal = 1
+                AND IFNULL(esp.exopes, 0) = 0
                 {$filtreLettres}
                 AND dest.id_compaga = '{$cp}'
                 {$gareSql}

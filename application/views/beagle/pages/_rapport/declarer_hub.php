@@ -336,7 +336,7 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
   <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
     <div>
       <h2><?= htmlspecialchars($titre); ?></h2>
-      <p class="muted mb-0">Consultez les mois déjà déclarés, puis cliquez un mois pour ses états.</p>
+      <p class="muted mb-0">Uniquement les mois déjà déclarés (ticket / bagage / courrier). Cliquez un mois pour ses états.</p>
     </div>
     <a class="btn btn-secondary" href="<?= htmlspecialchars($retour); ?>">Retour</a>
   </div>
