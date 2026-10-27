@@ -98,10 +98,12 @@
                                 <td><span><?= $item->commentaire;?></span></td>
 
                                 <td>
+                                    <? if (saisie_versement_modifiable($item)): ?>
                                     <a href="<?= "#?{$item->id_versements}&&&"; ?>"
-                                        class="md-trigger" data-modal="four-edit-<?= $item->id_versements; ?>">
+                                        class="md-trigger" data-modal="four-edit-<?= $item->id_versements; ?>" title="Modifier">
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
+                                    <? endif; ?>
 
                                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="four-edit-<?= $item->id_versements; ?>">

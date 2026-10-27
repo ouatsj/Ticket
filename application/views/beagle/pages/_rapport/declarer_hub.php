@@ -126,9 +126,9 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
     if ($type === 'ticket') {
         if (($hasTicket || !$hasEscalTicket) && $scope !== 'escal') {
             $out .= $decl_action_form(
-                'Rapport/exoreports/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
+                'Rapport/exercices/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
                 array('_compag' => $cieDef, 'departgar' => $gareDef, 'datedebut' => $debut, 'datefin' => $fin),
-                'EXERCICE MENSUEL'
+                'RECAP EX MENSUEL'
             );
             $out .= $decl_action_form(
                 'Rapport/triencaissementsexo/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
@@ -151,9 +151,9 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
         }
         if ($hasEscalTicket || ($showEscalBtns && $scope === 'escal')) {
             $out .= $decl_action_form(
-                'Rapport/exoreportsesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
-                array('_compagesc' => $cieDef, 'departgaresc' => $gareEsc, 'datedebutesc' => $debut, 'datefinesc' => $fin),
-                'EXERCICE MENSUEL ESCAL'
+                'Rapport/exerciceses/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compages' => $cieDef, 'departgares' => $gareEsc, 'datedebutes' => $debut, 'datefines' => $fin),
+                'RECAP EX MENSUEL ESCAL'
             );
             $out .= $decl_action_form(
                 'Rapport/triencaissementsexoesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
@@ -185,9 +185,9 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
     } elseif ($type === 'bagage') {
         if ($scope !== 'escal') {
             $out .= $decl_action_form(
-                'Rapport/exercicesbagop/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-                array('_compagbagop' => $cieDef, 'departgarbagop' => $gareDef, 'datedebutbagop' => $debut, 'datefinbagop' => $fin),
-                'EXERCICE MENSUEL'
+                'Rapport/exercicesbag/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
+                array('_compagbag' => $cieDef, 'departgarbag' => $gareDef, 'datedebutbag' => $debut, 'datefinbag' => $fin),
+                'RECAP EX MENSUEL'
             );
             $out .= $decl_action_form(
                 'Rapport/triencaissementsexobag/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
@@ -204,9 +204,9 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
         }
         if ($showEscalBtns) {
             $out .= $decl_action_form(
-                'Rapport/exercicesbagopesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
-                array('_compagbagopesc' => $cieDef, 'departgarbagopesc' => $gareEsc, 'datedebutbagopesc' => $debut, 'datefinbagopesc' => $fin),
-                'EXERCICE MENSUEL ESCAL'
+                'Rapport/exercicesbagesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compagbagesc' => $cieDef, 'departgarbagesc' => $gareEsc, 'datedebutbagesc' => $debut, 'datefinbagesc' => $fin),
+                'RECAP EX MENSUEL ESCAL'
             );
             $out .= $decl_action_form(
                 'Rapport/triencaissementsexobagesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
@@ -232,9 +232,9 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
     } else {
         if ($scope !== 'escal') {
             $out .= $decl_action_form(
-                'Rapport/etatsplis1/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-                array('_compagnpli' => $cieDef, 'deptgaresidpli' => $gareDef, 'datesdebutspli' => $debut, 'datesfinspli' => $fin),
-                'EXERCICE MENSUEL'
+                'Rapport/exocourrier/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
+                array('_compagcr' => $cieDef, 'departgarcr' => $gareDef, 'datedebutcr' => $debut, 'datefincr' => $fin),
+                'RECAP EX MENSUEL'
             );
             $out .= $decl_action_form(
                 'Rapport/etatsverseplis/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
@@ -251,9 +251,9 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
         }
         if ($showEscalBtns) {
             $out .= $decl_action_form(
-                'Rapport/etatsplis1esc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
-                array('_compagnpliesc' => $cieDef, 'deptgaresidpliesc' => $gareEsc, 'datesdebutspliesc' => $debut, 'datesfinspliesc' => $fin),
-                'EXERCICE MENSUEL ESCAL'
+                'Rapport/exocourrieresc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compagcresc' => $cieDef, 'departgarcresc' => $gareEsc, 'datedebutcresc' => $debut, 'datefincresc' => $fin),
+                'RECAP EX MENSUEL ESCAL'
             );
             $out .= $decl_action_form(
                 'Rapport/etatsverseplisesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
@@ -336,7 +336,7 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
   <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
     <div>
       <h2><?= htmlspecialchars($titre); ?></h2>
-      <p class="muted mb-0">Uniquement les mois déjà déclarés (ticket / bagage / courrier). Cliquez un mois pour ses états.</p>
+      <p class="muted mb-0">Mois déjà déclarés uniquement. Les boutons ouvrent les récaps EX mensuels (ticket / bagage / courrier, dont escal).</p>
     </div>
     <a class="btn btn-secondary" href="<?= htmlspecialchars($retour); ?>">Retour</a>
   </div>
@@ -351,12 +351,12 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
   </div>
 
   <div class="decl-help">
-    <strong>DECLARATION</strong> = figer le mois ·
-    <strong>DECLARER</strong> = consulter les états ·
+    <strong>DECLARATION</strong> = figer le mois (récap EX mensuel) ·
+    <strong>DECLARER</strong> = consulter le récap EX mensuel du mois déclaré ·
     <?php if ($scope === 'escal'): ?>
-      <strong>Escal</strong> : lieux affiliés à cette gare (nouveau + ancien modèle). Filtrez un lieu pour lancer les états.
+      <strong>Escal</strong> : lieux affiliés à cette gare. Filtrez un lieu pour lancer le récap.
     <?php else: ?>
-      <strong>Escal</strong> = onglet Escal / « DECLARER ESCAL » (uniquement si la gare a des escales affiliées).
+      <strong>Escal</strong> = onglet Escal (uniquement si la gare a des escales affiliées).
     <?php endif; ?>
   </div>
 

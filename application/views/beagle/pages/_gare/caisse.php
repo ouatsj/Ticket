@@ -243,21 +243,21 @@
                                 . $item->gexp_caiss. '/'. $item->id_caiss. '/recette/' . $ra_lien.'/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                             class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                RECETTES
+                                RECETTES&nbsp;:&nbsp;<?= number_format((float) $r, 0, '', ' '); ?>F
                             </a>
                             <a href="<?= site_url('caisses/'
                                 . $this->session->company->ekey . '/gTv/'
                                 . $item->gexp_caiss. '/'. $item->id_caiss. '/depot/' . $ra_lien.'/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                             class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                DEPOTS
+                                DEPOTS&nbsp;:&nbsp;<?= number_format((float) $dp, 0, '', ' '); ?>F
                             </a>
                             <a href="<?= site_url('caisses/'
                                     . $this->session->company->ekey . '/gTv/'
                                 . $item->gexp_caiss. '/'. $item->id_caiss. '/versement/' . $ra_lien.'/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                             class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                VERSEMENT
+                                VERSEMENT&nbsp;:&nbsp;<?= number_format((float) $v, 0, '', ' '); ?>F
                             </a>
 
 
@@ -266,7 +266,7 @@
                                 . $item->gexp_caiss. '/'. $item->id_caiss. '/depense/' . $ra_lien.'/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                             class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                DEPENSES
+                                DEPENSES&nbsp;:&nbsp;<?= number_format((float) $d, 0, '', ' '); ?>F
                             </a>
                             
                             <a href="<?= site_url('caisses/'
@@ -464,21 +464,21 @@
                                 . $item->gexp_caiss. '/'. $item->id_caiss. '/recette/' . $ra_lien_ad.'/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                             class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                RECETTES
+                                RECETTES&nbsp;:&nbsp;<?= number_format((float) $r, 0, '', ' '); ?>F
                             </a>
                             <a href="<?= site_url('caisses/'
                                 . $this->session->company->ekey . '/gTv/'
                                 . $item->gexp_caiss. '/'. $item->id_caiss. '/depot/' . $ra_lien_ad.'/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                             class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                DEPOTS
+                                DEPOTS&nbsp;:&nbsp;<?= number_format((float) $dp, 0, '', ' '); ?>F
                             </a>
                             <a href="<?= site_url('caisses/'
                                     . $this->session->company->ekey . '/gTv/'
                                 . $item->gexp_caiss. '/'. $item->id_caiss. '/versement/' . $ra_lien_ad.'/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                             class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                VERSEMENT
+                                VERSEMENT&nbsp;:&nbsp;<?= number_format((float) $v, 0, '', ' '); ?>F
                             </a>
 
 
@@ -487,7 +487,7 @@
                                 . $item->gexp_caiss. '/'. $item->id_caiss. '/depense/' . $ra_lien_ad.'/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                             class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                DEPENSES
+                                DEPENSES&nbsp;:&nbsp;<?= number_format((float) $d, 0, '', ' '); ?>F
                             </a>
                             <? if ($this->session->agent->userole === '18'): ?>
                             <a href="<?= site_url('caisses/'
@@ -689,7 +689,7 @@
                                 .$item->gexp_caiss.'/'.$item->id_caiss.'/'.$conex->roleattribut.'/recette_adjoint/'.$gare_stop->idsousgare.'/'.mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                RECETTES
+                                RECETTES&nbsp;:&nbsp;<?= number_format((float) $rad, 0, '', ' '); ?>F
                             </a>
                             
                             <a href="<?= site_url('caisses/'
@@ -697,21 +697,21 @@
                                 . $item->gexp_caiss. '/'. $item->id_caiss.'/' . $conex->roleattribut. '/depot_adjoint/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                DEPOTS
+                                DEPOTS&nbsp;:&nbsp;<?= number_format((float) $dpad, 0, '', ' '); ?>F
                             </a>
 
                             <a href="<?= site_url('caisses/'.$this->session->company->ekey.'/cais/'
                             .$item->gexp_caiss.'/'.$item->id_caiss.'/'.$conex->roleattribut.'/autreversement_adjoint/'.$gare_stop->idsousgare.'/'.mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                VERSEMENT
+                                VERSEMENT&nbsp;:&nbsp;<?= number_format((float) $vad, 0, '', ' '); ?>F
                             </a>
                             <a href="<?= site_url('caisses/'
                                 . $this->session->company->ekey . '/cais/'
                                 . $item->gexp_caiss. '/'. $item->id_caiss.'/' . $conex->roleattribut. '/depense_adjoint/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
-                                DEPENSES
+                                DEPENSES&nbsp;:&nbsp;<?= number_format((float) $dad, 0, '', ' '); ?>F
                             </a>
                             
                             <a href="<?= site_url('caisses/'

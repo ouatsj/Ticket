@@ -274,6 +274,19 @@
             return array($days, $days1);
         }
 
+        /** Libellé affichable du type courrier (naturecoli). */
+        protected function _label_type_courrier($nature)
+        {
+            $nature = trim((string) $nature);
+            if ($nature === 'Gros_plis') {
+                return 'COLIS';
+            }
+            if ($nature === 'Petit_plis') {
+                return 'PLIS';
+            }
+            return ($nature !== '') ? $nature : '—';
+        }
+
         /** Nom de gare (code_gaexp ou garesid). Vide si inconnu. */
         protected function _etat_nom_gare_code($raw)
         {
@@ -2242,28 +2255,40 @@
                 $retourreport = array();
             }
 
-            $lignes = array();
-            $total = 0.0;
+            // Une ligne par date = total aller + retour (pas de colonne type).
+            $parDate = array();
             foreach ($onreport as $element) {
                 $mt = isset($element->total) ? (float) $element->total : 0.0;
                 $d = isset($element->datep_create) ? (string) $element->datep_create : '';
                 $parts = explode('-', $d);
                 $daysar = (count($parts) === 3) ? ($parts[2] . '-' . $parts[1] . '-' . $parts[0]) : $d;
-                $lignes[] = array(
-                    'date' => $daysar,
-                    'type' => 'Aller',
-                    'montant' => $mt,
-                );
-                $total += $mt;
+                if ($daysar === '') {
+                    continue;
+                }
+                if (!isset($parDate[$daysar])) {
+                    $parDate[$daysar] = 0.0;
+                }
+                $parDate[$daysar] += $mt;
             }
             foreach ($retourreport as $retour) {
                 $mt = isset($retour->totalr) ? (float) $retour->totalr : 0.0;
                 $d = isset($retour->datevente) ? (string) $retour->datevente : '';
                 $parts = explode('-', $d);
                 $daysar = (count($parts) === 3) ? ($parts[2] . '-' . $parts[1] . '-' . $parts[0]) : $d;
+                if ($daysar === '') {
+                    continue;
+                }
+                if (!isset($parDate[$daysar])) {
+                    $parDate[$daysar] = 0.0;
+                }
+                $parDate[$daysar] += $mt;
+            }
+            ksort($parDate);
+            $lignes = array();
+            $total = 0.0;
+            foreach ($parDate as $daysar => $mt) {
                 $lignes[] = array(
                     'date' => $daysar,
-                    'type' => 'Retour',
                     'montant' => $mt,
                 );
                 $total += $mt;
@@ -2293,7 +2318,6 @@
                 ),
                 'columns' => array(
                     array('key' => 'date', 'label' => 'Date vente', 'align' => 'left'),
-                    array('key' => 'type', 'label' => 'Type', 'align' => 'left'),
                     array('key' => 'montant', 'label' => 'Montant', 'align' => 'right', 'money' => true),
                 ),
                 'export_base' => site_url('Rapport/triencaissementsexo_export/' . rawurlencode($ckey) . '/' . rawurlencode($gid !== '' ? $gid : $g)),
@@ -5529,8 +5553,10 @@
                 $nbr = isset($element->nombres) ? (int) round((float) $element->nombres) : 0;
                 $pu = isset($element->prixcolis) ? (float) $element->prixcolis : 0.0;
                 $mt = $nbr * $pu;
+                $nature = isset($element->naturecoli) ? trim((string) $element->naturecoli) : '';
                 $lignes[] = array(
                     'ligne' => isset($element->nom_ligne) ? (string) $element->nom_ligne : '',
+                    'type_courrier' => $this->_label_type_courrier($nature),
                     'nbr' => $nbr,
                     'pu' => $pu,
                     'montant' => $mt,
@@ -5561,6 +5587,7 @@
                 ),
                 'columns' => array(
                     array('key' => 'ligne', 'label' => 'Ligne', 'align' => 'left'),
+                    array('key' => 'type_courrier', 'label' => 'Type courrier', 'align' => 'left'),
                     array('key' => 'nbr', 'label' => 'Nombre', 'align' => 'center'),
                     array('key' => 'pu', 'label' => 'Prix unitaire', 'align' => 'right', 'money' => true),
                     array('key' => 'montant', 'label' => 'Prix total', 'align' => 'right', 'money' => true),
@@ -5620,8 +5647,10 @@
                 $nbr = isset($element->nombresesc) ? (int) round((float) $element->nombresesc) : 0;
                 $pu = isset($element->prixcolisesc) ? (float) $element->prixcolisesc : 0.0;
                 $mt = $nbr * $pu;
+                $nature = isset($element->naturecoli) ? trim((string) $element->naturecoli) : '';
                 $lignes[] = array(
                     'ligne' => isset($element->nom_ligne) ? (string) $element->nom_ligne : '',
+                    'type_courrier' => $this->_label_type_courrier($nature),
                     'nbr' => $nbr,
                     'pu' => $pu,
                     'montant' => $mt,
@@ -5652,6 +5681,7 @@
                 ),
                 'columns' => array(
                     array('key' => 'ligne', 'label' => 'Ligne', 'align' => 'left'),
+                    array('key' => 'type_courrier', 'label' => 'Type courrier', 'align' => 'left'),
                     array('key' => 'nbr', 'label' => 'Nombre', 'align' => 'center'),
                     array('key' => 'pu', 'label' => 'Prix unitaire', 'align' => 'right', 'money' => true),
                     array('key' => 'montant', 'label' => 'Prix total', 'align' => 'right', 'money' => true),

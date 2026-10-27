@@ -98,7 +98,7 @@ $retour_depot = $depuis_escale
                             <th>NOM</th>
                             <th>MONTANT</th>
                             <th>COMMENTAIRE</th>
-                            <th class="actions"></th>
+                            <th class="actions">ACTION</th>
                         </tr>
 
                         </thead>
@@ -131,9 +131,9 @@ $retour_depot = $depuis_escale
                                 </td>
                                 
                                 <td>
-                                <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
+                                <? if (saisie_depot_modifiable($alldepots)): ?>
                                     <a href="<?= "#?{$alldepots->id_depot}&&&"; ?>"
-                                    class="md-trigger" data-modal="depot-edit-<?= $alldepots->id_depot; ?>">
+                                    class="md-trigger" data-modal="depot-edit-<?= $alldepots->id_depot; ?>" title="Modifier">
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
                                 <?endif;?>

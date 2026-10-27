@@ -757,43 +757,22 @@ if (!function_exists('saisie_recette_mode')) {
             }
             return false;
         }
-        if (recette_role_is_validateur_principal($userole)) {
-            if (saisie_auteur_est_personne($owner, $ra)) {
-                if (saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
-                    'is_validerecet',
-                    'is_actifrecet',
-                    'is_actifrecetad',
-                    'ferme_caisrecet',
-                    'valid_cptablerecet',
-                ))) {
-                    return false;
-                }
-                return 'complet';
+        // Caissier : Modifier uniquement sur les recettes qu'elle a elle-même ajoutées
+        // (y compris après sa validation), jamais sur celles d'un autre opérateur.
+        if (recette_role_is_validateur_principal($userole) || recette_role_is_validateur_adjoint($userole)) {
+            if (!saisie_auteur_est_personne($owner, $ra)) {
+                return false;
             }
-            $validateur = isset($row->operavalid) ? (int) $row->operavalid : 0;
-            if ($ra > 0 && $validateur === $ra) {
-                return 'validation';
+            if (saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
+                'is_validerecet',
+                'is_actifrecet',
+                'is_actifrecetad',
+                'ferme_caisrecet',
+                'valid_cptablerecet',
+            ))) {
+                return false;
             }
-            return false;
-        }
-        if (recette_role_is_validateur_adjoint($userole)) {
-            if (saisie_auteur_est_personne($owner, $ra)) {
-                if (saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
-                    'is_validerecet',
-                    'is_actifrecet',
-                    'is_actifrecetad',
-                    'ferme_caisrecet',
-                    'valid_cptablerecet',
-                ))) {
-                    return false;
-                }
-                return 'complet';
-            }
-            $validateur = isset($row->operavalidad) ? (int) $row->operavalidad : 0;
-            if ($ra > 0 && $validateur === $ra) {
-                return 'validation';
-            }
-            return false;
+            return 'complet';
         }
         if (!saisie_auteur_est_personne($owner, $ra)) {
             return false;
@@ -843,43 +822,21 @@ if (!function_exists('saisie_depense_mode')) {
             }
             return false;
         }
-        if (recette_role_is_validateur_principal($userole)) {
-            if (saisie_auteur_est_personne($owner, $ra)) {
-                if (saisie_ligne_arret_valide($row, 'arret_caisdep', array(
-                    'is_validedep',
-                    'is_actifdep',
-                    'is_actifdepad',
-                    'ferme_caisdep',
-                    'validcptabledep',
-                ))) {
-                    return false;
-                }
-                return 'complet';
+        // Caissier : Modifier uniquement sur les dépenses qu'elle a elle-même ajoutées.
+        if (recette_role_is_validateur_principal($userole) || recette_role_is_validateur_adjoint($userole)) {
+            if (!saisie_auteur_est_personne($owner, $ra)) {
+                return false;
             }
-            $validateur = isset($row->opevalid) ? (int) $row->opevalid : 0;
-            if ($ra > 0 && $validateur === $ra) {
-                return 'validation';
+            if (saisie_ligne_arret_valide($row, 'arret_caisdep', array(
+                'is_validedep',
+                'is_actifdep',
+                'is_actifdepad',
+                'ferme_caisdep',
+                'validcptabledep',
+            ))) {
+                return false;
             }
-            return false;
-        }
-        if (recette_role_is_validateur_adjoint($userole)) {
-            if (saisie_auteur_est_personne($owner, $ra)) {
-                if (saisie_ligne_arret_valide($row, 'arret_caisdep', array(
-                    'is_validedep',
-                    'is_actifdep',
-                    'is_actifdepad',
-                    'ferme_caisdep',
-                    'validcptabledep',
-                ))) {
-                    return false;
-                }
-                return 'complet';
-            }
-            $validateur = isset($row->opevalidad) ? (int) $row->opevalidad : 0;
-            if ($ra > 0 && $validateur === $ra) {
-                return 'validation';
-            }
-            return false;
+            return 'complet';
         }
         if (!saisie_auteur_est_personne($owner, $ra)) {
             return false;
@@ -1125,6 +1082,39 @@ if (!function_exists('saisie_depot_modifiable')) {
             'is_actifdepo',
             'is_actifdepoad',
             'valid_cptabledepo',
+        ));
+    }
+}
+
+if (!function_exists('saisie_versement_modifiable')) {
+    /**
+     * Modifier un versement : uniquement celui qui l'a saisi.
+     */
+    function saisie_versement_modifiable($row, $roleattribut = null, $userole = null)
+    {
+        if (!$row) {
+            return false;
+        }
+        if (saisie_tri_est_admin($userole)) {
+            return true;
+        }
+        if ($roleattribut === null && function_exists('roleattribut_guard_session_ra')) {
+            $roleattribut = roleattribut_guard_session_ra();
+        }
+        $owner = isset($row->idop_versement) ? (int) $row->idop_versement : 0;
+        if (!saisie_auteur_est_personne($owner, $roleattribut)) {
+            return false;
+        }
+        if (saisie_ligne_fermee($row, 'ferme_caisvers', 'valid_cptablevers')) {
+            return false;
+        }
+
+        return !saisie_ligne_arret_valide($row, 'arret_caisvers', array(
+            'valider_vers',
+            'is_actifverser',
+            'is_actifverserad',
+            'ferme_caisvers',
+            'valid_cptablevers',
         ));
     }
 }

@@ -1,4 +1,11 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+$total_periode = 0;
+if (!empty($recettes)) {
+    foreach ($recettes as $_r) {
+        $total_periode += (float) $_r->montant_recet;
+    }
+}
+?>
 <div class="row">
         <p class="mt-0 mb-2 ml-4">
             <a href="<?= site_url("caisses/{$this->session->company->ekey}". "/gTv/".
@@ -8,6 +15,7 @@
             </a>
         </p>
     </div>
+    <div class="form-group text-center">Les recettes de la période : <?= number_format($total_periode, 0, '', ' '); ?></div>
 <div class="row">
 
     <div class="col-12">
@@ -46,7 +54,7 @@
                             <th>NOM</th>
                             <th>MONTANT</th>
                             <th>COMMENTAIRE</th>
-                            <th></th>
+                            <th>ACTION</th>
                         </tr>
                         </thead>
 
@@ -66,7 +74,7 @@
                                 <td>
                                     <? if (saisie_recette_modifiable($item)): ?>
                                     <a href="<?= "#?{$item->id_recette}&&&"; ?>"
-                                        class="md-trigger" data-modal="recette-edit-<?= $item->id_recette; ?>">
+                                        class="md-trigger" data-modal="recette-edit-<?= $item->id_recette; ?>" title="Modifier">
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
                                     <? endif; ?>

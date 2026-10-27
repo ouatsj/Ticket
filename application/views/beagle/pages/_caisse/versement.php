@@ -103,7 +103,7 @@
                             <th>MONTANT</th>
                             <th>BORDEREAU</th>
                             <th>COMMENTAIRE</th>
-                            <th></th>
+                            <th>ACTION</th>
                         </tr>
                         </thead>
 
@@ -122,9 +122,9 @@
                                 <td><span><?= $item->commentaire;?></span></td>
 
                                 <td>
-                                    <? if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '4' OR $this->session->agent->userole === '18'): ?>
+                                    <? if (saisie_versement_modifiable($item)): ?>
                                         <a href="<?= "#?{$item->id_versements}&&&"; ?>"
-                                            class="md-trigger" data-modal="depense-edit-<?= $item->id_versements; ?>">
+                                            class="md-trigger" data-modal="depense-edit-<?= $item->id_versements; ?>" title="Modifier">
                                             <span class="fas fa-edit text-warning"></span>
                                         </a>
                                     <?endif;?>

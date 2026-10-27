@@ -230,7 +230,8 @@
                 if ($toutes) {
                     $ownerSql = '';
                 } elseif ($niveau_caisse) {
-                    $ownerSql = " AND (d.idop_dep = {$ra} OR d.opevalid = {$ra})";
+                    // Caissier : tri pour modification = uniquement ses propres saisies
+                    $ownerSql = saisie_tri_compte_sql('d.idop_dep', '', $ra);
                 } else {
                     $ownerSql = saisie_tri_compte_sql('d.idop_dep', 'd.opevalidchef', $ra);
                 }

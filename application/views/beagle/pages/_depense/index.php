@@ -92,7 +92,7 @@
                             <th>NOM</th>
                             <th>MONTANT</th>
                             <th>COMMENTAIRE</th>
-                            <th></th>
+                            <th>ACTION</th>
                         </tr>
                         </thead>
 

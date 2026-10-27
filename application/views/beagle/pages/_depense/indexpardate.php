@@ -1,5 +1,23 @@
-<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
-    
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+$total_periode = 0;
+if (!empty($depenses)) {
+    foreach ($depenses as $_d) {
+        $total_periode += (float) $_d->montant_depens;
+    }
+}
+$gexp_back = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+$idcais_back = !empty($caisseident->id_caiss) ? $caisseident->id_caiss : 0;
+$ra_back = !empty($conex->roleattribut) ? $conex->roleattribut : 0;
+$sg_back = !empty($bus_stop->idsousgare) ? $bus_stop->idsousgare : 0;
+?>
+<div class="row">
+    <p class="mt-0 mb-2 ml-4">
+        <a href="<?= site_url("caisses/{$this->session->company->ekey}/gTv/{$gexp_back}/{$idcais_back}/depense/{$ra_back}/{$sg_back}/" . mdate('%d/%m/%Y', now('UTC'))); ?>" class="btn btn-space btn-secondary">
+            <i class="fas fa-arrow-circle-up text-success"></i>&nbsp;DEPENSES&nbsp;
+        </a>
+    </p>
+</div>
+<div class="form-group text-center">Les dépenses de la période : <?= number_format($total_periode, 0, '', ' '); ?></div>
 <div class="row">
 
     <div class="col-12">
@@ -38,7 +56,7 @@
                             <th>NOM</th>
                             <th>MONTANT</th>
                             <th>COMMENTAIRE</th>
-                            <th></th>
+                            <th>ACTION</th>
                         </tr>
                         </thead>
 
@@ -58,7 +76,7 @@
                                 <td>
                                     <? if (saisie_depense_modifiable($item)): ?>
                                     <a href="<?= "#?{$item->id_depense}&&&"; ?>"
-                                        class="md-trigger" data-modal="depense-edit-<?= $item->id_depense; ?>">
+                                        class="md-trigger" data-modal="depense-edit-<?= $item->id_depense; ?>" title="Modifier">
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
                                     <? endif; ?>

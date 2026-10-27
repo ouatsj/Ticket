@@ -103,11 +103,12 @@
                                 <td><span><?= $item->commentaire;?></span></td>
 
                                 <td>
-                                  
+                                    <? if (saisie_versement_modifiable($item)): ?>
                                     <a href="<?= "#?{$item->id_versements}&&&"; ?>"
-                                        class="md-trigger" data-modal="autre-edit-<?= $item->id_versements; ?>">
+                                        class="md-trigger" data-modal="autre-edit-<?= $item->id_versements; ?>" title="Modifier">
                                         <span class="fas fa-edit text-warning"></span>
                                     </a>
+                                    <? endif; ?>
                                     
                                     <a href="<?= "#?{$item->id_versements}&&&"; ?>" title="Approuver"
                                         class="md-trigger" data-modal="approu-edit-<?= $item->id_versements; ?>">
