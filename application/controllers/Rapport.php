@@ -4869,35 +4869,41 @@
 
             // Hubs ticket/bagage/courrier : fusionner les mois des lieux escale (BOB1 figé ≠ DIS10…).
             if ($scope !== 'escal' && $codesEscalAffilies) {
-                $famMerge = ($type === 'ticket')
-                    ? array('ticket_escal')
-                    : (($type === 'bagage') ? array('bagage') : array('courrier'));
-                $dataEsc = etat_declaration_lister_mois($ekey, $famMerge, '', $compFilter, $codesEscalAffilies);
-                foreach ($dataEsc['mois'] as $mEsc => $blocEsc) {
-                    if (!isset($data['mois'][$mEsc])) {
-                        $data['mois'][$mEsc] = $blocEsc;
-                        continue;
-                    }
-                    $data['mois'][$mEsc]['familles'] = array_values(array_unique(array_merge(
-                        $data['mois'][$mEsc]['familles'],
-                        $blocEsc['familles']
-                    )));
-                    $data['mois'][$mEsc]['compagnies'] = array_values(array_unique(array_merge(
-                        $data['mois'][$mEsc]['compagnies'],
-                        $blocEsc['compagnies']
-                    )));
-                    $data['mois'][$mEsc]['gares'] = array_values(array_unique(array_merge(
-                        $data['mois'][$mEsc]['gares'],
-                        $blocEsc['gares']
-                    )));
-                    if (!empty($blocEsc['lignes'])) {
-                        $data['mois'][$mEsc]['lignes'] = array_merge(
-                            $data['mois'][$mEsc]['lignes'],
-                            $blocEsc['lignes']
-                        );
-                    }
+                $dataEscList = array();
+                if ($type === 'ticket') {
+                    $dataEscList[] = etat_declaration_lister_mois($ekey, array('ticket_escal'), '', $compFilter, $codesEscalAffilies);
+                } elseif ($type === 'bagage' || $type === 'courrier') {
+                    // Tampons exo* (s'il y en a) + activité réelle du lieu (exocresc souvent à 0).
+                    $dataEscList[] = etat_declaration_lister_mois($ekey, array($type), '', $compFilter, $codesEscalAffilies);
+                    $dataEscList[] = etat_declaration_lister_mois_activite_escal($ekey, $type, $compFilter, $codesEscalAffilies);
                 }
-                $data['annees'] = array_values(array_unique(array_merge($data['annees'], $dataEsc['annees'])));
+                foreach ($dataEscList as $dataEsc) {
+                    foreach ($dataEsc['mois'] as $mEsc => $blocEsc) {
+                        if (!isset($data['mois'][$mEsc])) {
+                            $data['mois'][$mEsc] = $blocEsc;
+                            continue;
+                        }
+                        $data['mois'][$mEsc]['familles'] = array_values(array_unique(array_merge(
+                            $data['mois'][$mEsc]['familles'],
+                            $blocEsc['familles']
+                        )));
+                        $data['mois'][$mEsc]['compagnies'] = array_values(array_unique(array_merge(
+                            $data['mois'][$mEsc]['compagnies'],
+                            $blocEsc['compagnies']
+                        )));
+                        $data['mois'][$mEsc]['gares'] = array_values(array_unique(array_merge(
+                            $data['mois'][$mEsc]['gares'],
+                            $blocEsc['gares']
+                        )));
+                        if (!empty($blocEsc['lignes'])) {
+                            $data['mois'][$mEsc]['lignes'] = array_merge(
+                                $data['mois'][$mEsc]['lignes'],
+                                $blocEsc['lignes']
+                            );
+                        }
+                    }
+                    $data['annees'] = array_values(array_unique(array_merge($data['annees'], $dataEsc['annees'])));
+                }
                 rsort($data['annees']);
                 krsort($data['mois']);
             }
