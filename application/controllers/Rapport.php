@@ -4794,17 +4794,14 @@
             if ($gareContexte === '') {
                 $gareContexte = $this->_normalize_recap_gare_code_filter($gareconnect);
             }
-            $codesEscalAffilies = ($scope === 'escal' && $gareContexte !== '')
+            $codesEscalAffilies = ($gareContexte !== '')
                 ? etat_declaration_codes_escal_affilies($ekey, $gareContexte)
                 : array();
             $gareLocked = ($gareContexte !== '' && $scope !== 'escal');
             if ($scope === 'escal') {
                 $gareFilter = $this->_normalize_recap_gare_code_filter($this->input->get_post('code_gare'));
                 // Ne jamais garder la gare d'affiliation (BOB1) comme filtre lieu escale.
-                if ($gareFilter !== '' && $codesEscalAffilies
-                    && !in_array($gareFilter, $codesEscalAffilies, true)
-                    && $gareFilter === $gareContexte
-                ) {
+                if ($gareFilter !== '' && $gareFilter === $gareContexte) {
                     $gareFilter = '';
                 }
             } else {
@@ -4848,18 +4845,49 @@
                 'bagage' => 'Déclarer — Bagages',
                 'courrier' => 'Déclarer — Courriers',
             );
-            // Escal : filtrer sur le lieu choisi, sinon sur tous les lieux affiliés (ancien + nouveau).
+            // Escal : lieu choisi → filtre ; sinon tous les lieux (ancien + nouveau), pas seulement l'itinéraire.
             $codesLister = null;
-            if ($scope === 'escal') {
-                if ($gareFilter !== '') {
-                    $codesLister = array($gareFilter);
-                } elseif ($codesEscalAffilies) {
-                    $codesLister = $codesEscalAffilies;
-                }
+            if ($scope === 'escal' && $gareFilter !== '') {
+                $codesLister = array($gareFilter);
             }
             $data = ($codesLister !== null)
                 ? etat_declaration_lister_mois($ekey, $mapFamilles[$type], '', $compFilter, $codesLister)
                 : etat_declaration_lister_mois($ekey, $mapFamilles[$type], $gareFilter, $compFilter);
+
+            // Hubs ticket/bagage/courrier : fusionner les mois des lieux escale (BOB1 figé ≠ DIS10…).
+            if ($scope !== 'escal' && $codesEscalAffilies) {
+                $famMerge = ($type === 'ticket')
+                    ? array('ticket_escal')
+                    : (($type === 'bagage') ? array('bagage') : array('courrier'));
+                $dataEsc = etat_declaration_lister_mois($ekey, $famMerge, '', $compFilter, $codesEscalAffilies);
+                foreach ($dataEsc['mois'] as $mEsc => $blocEsc) {
+                    if (!isset($data['mois'][$mEsc])) {
+                        $data['mois'][$mEsc] = $blocEsc;
+                        continue;
+                    }
+                    $data['mois'][$mEsc]['familles'] = array_values(array_unique(array_merge(
+                        $data['mois'][$mEsc]['familles'],
+                        $blocEsc['familles']
+                    )));
+                    $data['mois'][$mEsc]['compagnies'] = array_values(array_unique(array_merge(
+                        $data['mois'][$mEsc]['compagnies'],
+                        $blocEsc['compagnies']
+                    )));
+                    $data['mois'][$mEsc]['gares'] = array_values(array_unique(array_merge(
+                        $data['mois'][$mEsc]['gares'],
+                        $blocEsc['gares']
+                    )));
+                    if (!empty($blocEsc['lignes'])) {
+                        $data['mois'][$mEsc]['lignes'] = array_merge(
+                            $data['mois'][$mEsc]['lignes'],
+                            $blocEsc['lignes']
+                        );
+                    }
+                }
+                $data['annees'] = array_values(array_unique(array_merge($data['annees'], $dataEsc['annees'])));
+                rsort($data['annees']);
+                krsort($data['mois']);
+            }
             $compagnies = $this->db->query(
                 'SELECT c.cle_compagnie, c.nom_compagnie
                  FROM compagnies c
@@ -4978,7 +5006,9 @@
             $this->property['hub_gare_locked'] = $gareLocked;
             $this->property['hub_scope'] = $scope;
             $this->property['hub_has_escales'] = ($scope === 'escal')
-                || ($gareContexte !== '' && etat_declaration_gare_a_escales($ekey, $gareContexte));
+                || ($gareContexte !== '' && etat_declaration_gare_a_escales($ekey, $gareContexte))
+                || !empty($codesEscalAffilies);
+            $this->property['hub_codes_escal'] = $codesEscalAffilies;
             $this->property['hub_ckey'] = $ckey;
             $this->property['hub_gid'] = $g;
             $this->property['hub_can_archiver'] = $canArchiver;

@@ -100,6 +100,11 @@ function etat_lettre_ensure($db = null)
         etat_lettre_ensure_index($db, 'bagagesesc', 'idx_bagageesc_couleurcarnet', 'couleurcarnetesc');
         etat_lettre_ensure_index($db, 'courriers_exp', 'idx_courrier_verifcour', 'verifcour');
         etat_lettre_ensure_index($db, 'courriers_expesc', 'idx_courrieresc_verifcouresc', 'verifcouresc');
+        // Flag déclaration courrier escale (miroir de exocr sur courriers_exp).
+        if ($db->table_exists('courriers_expesc') && !$db->field_exists('exocresc', 'courriers_expesc')) {
+            $db->query('ALTER TABLE `courriers_expesc` ADD COLUMN `exocresc` TINYINT(1) NOT NULL DEFAULT 0 AFTER `verifcouresc`');
+            etat_lettre_ensure_index($db, 'courriers_expesc', 'idx_courrieresc_exocresc', 'exocresc');
+        }
         etat_lettre_ensure_index($db, 'non_passager', 'idx_nonpassager_verif', 'verifnonpassager');
         etat_lettre_ensure_index($db, 'escalclients', 'idx_escal_panier', 'escalpanier');
     }
@@ -363,6 +368,58 @@ function etat_declaration_codes_escal_affilies($ekey, $gid)
                     $codes[$codeLieu] = $codeLieu;
                 }
             }
+        }
+    }
+
+    // 4) Historique ancien : tous les lieux déjà tamponnés (exopes) pour l'entreprise,
+    //    sauf la gare d'affiliation elle-même (BOB1 ≠ lieu escale).
+    //    Nécessaire car KOM24 etc. n'apparaissent pas toujours dans itineraire_escales.
+    $parentAliases = etat_declaration_aliases_gare($CI, $gid);
+    $qHist = $CI->db->query(
+        "SELECT DISTINCT esp.departgescal AS g
+         FROM escalclients esp
+         JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+         JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+         JOIN entreprise e ON c.id_entrep = e.id_entreprise
+         WHERE e.ekey = ?
+           AND esp.exopes = 1
+           AND NULLIF(TRIM(esp.departgescal), '') IS NOT NULL
+         LIMIT 200",
+        array($ekey)
+    );
+    if ($qHist) {
+        foreach ($qHist->result() as $row) {
+            $gLieu = trim((string) $row->g);
+            if ($gLieu === '' || in_array($gLieu, $parentAliases, true)) {
+                continue;
+            }
+            $codes[$gLieu] = $gLieu;
+        }
+    }
+    // Ancien sans departgescal : guser du vendeur sur un lieu ≠ parent.
+    $qHist2 = $CI->db->query(
+        "SELECT DISTINCT ulx.guser AS g
+         FROM escalclients esp
+         JOIN attributions_role arx ON arx.roleattribut = esp.iduseescal
+         JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login
+         JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+         JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+         JOIN entreprise e ON c.id_entrep = e.id_entreprise
+         WHERE e.ekey = ?
+           AND esp.exopes = 1
+           AND NULLIF(TRIM(ulx.guser), '') IS NOT NULL
+         LIMIT 200",
+        array($ekey)
+    );
+    if ($qHist2) {
+        foreach ($qHist2->result() as $row) {
+            $gLieu = trim((string) $row->g);
+            if ($gLieu === '' || in_array($gLieu, $parentAliases, true)) {
+                continue;
+            }
+            $codes[$gLieu] = $gLieu;
         }
     }
 
@@ -1300,16 +1357,20 @@ function etat_declaration_mois_depuis_tampons($CI, $ekey, array $familles, $code
                           {$filtreCie}{$filtreGareExp}{$filtreMoisBag}
                         GROUP BY mois, cie, g";
             } else {
-                $sql = "SELECT DATE_FORMAT(bg.{$colDate}, '%Y-%m') AS mois, dest.id_compaga AS cie, ex.code_gaexp AS g
+                // Lieu réel = idgarebagesc (DIS10/BOR26…), pas gaexp de la ligne parent (BOB1).
+                $filtreGareBgEsc = '';
+                if ($inAliasesSql !== '') {
+                    $filtreGareBgEsc = " AND bg.idgarebagesc IN ({$inAliasesSql})";
+                }
+                $sql = "SELECT DATE_FORMAT(bg.{$colDate}, '%Y-%m') AS mois, dest.id_compaga AS cie, bg.idgarebagesc AS g
                         FROM bagagesesc bg
                         JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
                         JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                         JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                         JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = {$ekey} AND bg.{$colFlag} = 1
-                          {$filtreCie}{$filtreGareExp}{$filtreMoisBag}
+                          {$filtreCie}{$filtreGareBgEsc}{$filtreMoisBag}
                         GROUP BY mois, cie, g";
             }
             $q = $CI->db->query($sql);
@@ -1326,26 +1387,43 @@ function etat_declaration_mois_depuis_tampons($CI, $ekey, array $familles, $code
         if ($inAliasesSql !== '') {
             $filtreGareExp = " AND (ex.code_gaexp IN ({$inAliasesSql}) OR ex.garesid IN ({$inAliasesSql}))";
         }
-        foreach (array(
-            array('courriers_exp', 'dateenvoi', 'exocr', 'id_codecourrier'),
-            array('courriers_expesc', 'dateenvoiesc', 'exocresc', 'id_codecourrieresc'),
-        ) as $spec) {
-            list($table, $colDate, $colFlag, $colJoin) = $spec;
-            if (!$CI->db->table_exists($table) || !$CI->db->field_exists($colFlag, $table)) {
-                continue;
-            }
-            $alias = ($table === 'courriers_exp') ? 'e' : 'es';
-            $filtreMoisC = ($alias === 'e') ? $filtreMoisCr : $filtreMoisCrEsc;
-            $sql = "SELECT DATE_FORMAT({$alias}.{$colDate}, '%Y-%m') AS mois, dest.id_compaga AS cie, ex.code_gaexp AS g
-                    FROM {$table} {$alias}
-                    JOIN code_courriers cd ON {$alias}.{$colJoin} = cd.codecolisid
+        // Courriers guichet
+        if ($CI->db->table_exists('courriers_exp') && $CI->db->field_exists('exocr', 'courriers_exp')) {
+            $sql = "SELECT DATE_FORMAT(e.dateenvoi, '%Y-%m') AS mois, dest.id_compaga AS cie, ex.code_gaexp AS g
+                    FROM courriers_exp e
+                    JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
                     JOIN lignes lg ON cd.idlignes = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
                     JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                     JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                     JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
-                    WHERE ep.ekey = {$ekey} AND {$alias}.{$colFlag} = 1
-                      {$filtreCieEp}{$filtreGareExp}{$filtreMoisC}
+                    WHERE ep.ekey = {$ekey} AND e.exocr = 1
+                      {$filtreCieEp}{$filtreGareExp}{$filtreMoisCr}
+                    GROUP BY mois, cie, g";
+            $q = $CI->db->query($sql);
+            if ($q) {
+                foreach ($q->result() as $row) {
+                    $push($row->mois, 'courrier', $row->cie, etat_declaration_normaliser_gare($CI, $row->g));
+                }
+            }
+        }
+        // Courriers escale : lieu = code_gaexp_vendu / courrierdepartgareesc (pas gaexp ligne parent).
+        if ($CI->db->table_exists('courriers_expesc') && $CI->db->field_exists('exocresc', 'courriers_expesc')) {
+            $exprLieuCr = "COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), NULLIF(TRIM(es.courrierdepartgareesc), ''))";
+            $filtreGareCrEsc = '';
+            if ($inAliasesSql !== '') {
+                $filtreGareCrEsc = " AND {$exprLieuCr} IN ({$inAliasesSql})";
+            }
+            $sql = "SELECT DATE_FORMAT(es.dateenvoiesc, '%Y-%m') AS mois, dest.id_compaga AS cie, {$exprLieuCr} AS g
+                    FROM courriers_expesc es
+                    JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
+                    JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                    JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+                    WHERE ep.ekey = {$ekey} AND es.exocresc = 1
+                      AND {$exprLieuCr} IS NOT NULL AND {$exprLieuCr} != ''
+                      {$filtreCieEp}{$filtreGareCrEsc}{$filtreMoisCrEsc}
                     GROUP BY mois, cie, g";
             $q = $CI->db->query($sql);
             if ($q) {
@@ -1443,7 +1521,6 @@ function etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois, $codeGare 
             "SELECT 1 FROM bagagesesc bg
              JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
              JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-             JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
              JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
              JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
              JOIN entreprise e ON c.id_entrep = e.id_entreprise
@@ -1451,7 +1528,7 @@ function etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois, $codeGare 
              AND bg.date_createesc >= {$debutSql}
              AND bg.date_createesc < {$finSql}
              AND bg.exobagesc = 1
-             {$filtreGareExp}
+             " . (($gareMatch !== '') ? " AND bg.idgarebagesc = {$gareMatch}" : '') . "
              LIMIT 1",
         ),
         'courrier' => array(
@@ -1471,7 +1548,6 @@ function etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois, $codeGare 
             "SELECT 1 FROM courriers_expesc es
              JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
              JOIN lignes lg ON cd.idlignes = lg.ident_ligne
-             JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
              JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
              JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
              JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
@@ -1479,7 +1555,9 @@ function etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois, $codeGare 
              AND es.dateenvoiesc >= {$debutSql}
              AND es.dateenvoiesc < {$finSql}
              AND es.exocresc = 1
-             {$filtreGareExp}
+             " . (($gareMatch !== '')
+                ? " AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), NULLIF(TRIM(es.courrierdepartgareesc), '')) = {$gareMatch}"
+                : '') . "
              LIMIT 1",
         ),
     );

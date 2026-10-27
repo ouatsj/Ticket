@@ -17,6 +17,7 @@ $gareFilter = isset($hub_gare_filter) ? (string) $hub_gare_filter : '';
 $gareLocked = !empty($hub_gare_locked);
 $scope = isset($hub_scope) ? (string) $hub_scope : '';
 $hasEscales = !empty($hub_has_escales) || $scope === 'escal';
+$codesEscal = (isset($hub_codes_escal) && is_array($hub_codes_escal)) ? $hub_codes_escal : array();
 $ckey = isset($hub_ckey) ? $hub_ckey : '';
 $gid = isset($hub_gid) ? $hub_gid : '';
 $canArchiver = !empty($hub_can_archiver);
@@ -93,17 +94,37 @@ $decl_action_form = function ($action, $fields, $label, $class = '') use ($ctx) 
     return $html;
 };
 
+$decl_pick_gare_escal = function ($gareDef, $bloc) use ($codesEscal, $scope) {
+    if ($scope === 'escal') {
+        return $gareDef;
+    }
+    if ($codesEscal && in_array($gareDef, $codesEscal, true)) {
+        return $gareDef;
+    }
+    if (!empty($bloc['gares']) && $codesEscal) {
+        foreach ($bloc['gares'] as $cg) {
+            if (in_array($cg, $codesEscal, true)) {
+                return $cg;
+            }
+        }
+    }
+    return ($codesEscal) ? $codesEscal[0] : $gareDef;
+};
+
 $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
-    $type, $ckey, $gid, $canArchiver, $decl_action_form
+    $type, $ckey, $gid, $canArchiver, $decl_action_form, $decl_pick_gare_escal, $hasEscales, $scope
 ) {
     $debut = $bloc['debut'];
     $fin = $bloc['fin'];
-    $hasEscalTicket = in_array('ticket_escal', $bloc['familles'], true);
+    $hasEscalTicket = in_array('ticket_escal', $bloc['familles'], true)
+        || ($scope === 'escal');
     $hasTicket = in_array('ticket_etats', $bloc['familles'], true);
+    $gareEsc = $decl_pick_gare_escal($gareDef, $bloc);
+    $showEscalBtns = $hasEscales || $hasEscalTicket || $scope === 'escal';
     $out = '<div class="decl-actions">';
 
     if ($type === 'ticket') {
-        if ($hasTicket || !$hasEscalTicket) {
+        if (($hasTicket || !$hasEscalTicket) && $scope !== 'escal') {
             $out .= $decl_action_form(
                 'Rapport/exoreports/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
                 array('_compag' => $cieDef, 'departgar' => $gareDef, 'datedebut' => $debut, 'datefin' => $fin),
@@ -128,32 +149,32 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
                 'secondary'
             );
         }
-        if ($hasEscalTicket) {
+        if ($hasEscalTicket || ($showEscalBtns && $scope === 'escal')) {
             $out .= $decl_action_form(
-                'Rapport/exoreportsesc/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-                array('_compagesc' => $cieDef, 'departgaresc' => $gareDef, 'datedebutesc' => $debut, 'datefinesc' => $fin),
+                'Rapport/exoreportsesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compagesc' => $cieDef, 'departgaresc' => $gareEsc, 'datedebutesc' => $debut, 'datefinesc' => $fin),
                 'EXERCICE MENSUEL ESCAL'
             );
             $out .= $decl_action_form(
-                'Rapport/triencaissementsexoesc/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-                array('_compagexoesc' => $cieDef, 'departgarexoesc' => $gareDef, 'datedexoesc' => $debut, 'datefexoesc' => $fin),
+                'Rapport/triencaissementsexoesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compagexoesc' => $cieDef, 'departgarexoesc' => $gareEsc, 'datedexoesc' => $debut, 'datefexoesc' => $fin),
                 'BROUILLARD ESCAL',
                 'secondary'
             );
             $out .= $decl_action_form(
-                'Rapport/manifesthebdoesc/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-                array('_compagesc' => $cieDef, 'departgaresc' => $gareDef, 'datedebutesc' => $debut, 'datefinesc' => $fin),
+                'Rapport/manifesthebdoesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compagesc' => $cieDef, 'departgaresc' => $gareEsc, 'datedebutesc' => $debut, 'datefinesc' => $fin),
                 'MANIFEST ESCAL',
                 'secondary'
             );
             $out .= $decl_action_form(
                 'Rapport/trinombrepassesc/' . rawurlencode($ckey),
-                array('nomcompsesc' => $cieDef, 'nomgaresesc' => $gareDef, 'dateps1esc' => $debut, 'dateps2esc' => $fin),
+                array('nomcompsesc' => $cieDef, 'nomgaresesc' => $gareEsc, 'dateps1esc' => $debut, 'dateps2esc' => $fin),
                 'LISTE PASSAGERS ESCAL',
                 'secondary'
             );
         }
-        if ($canArchiver) {
+        if ($canArchiver && $scope !== 'escal') {
             $out .= $decl_action_form(
                 'Historique_Passagers/archivre/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
                 array('archivrecompag' => $cieDef, 'archivredepargare' => $gareDef, 'debutenreg' => $debut, 'finenreg' => $fin),
@@ -162,41 +183,45 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
             );
         }
     } elseif ($type === 'bagage') {
-        $out .= $decl_action_form(
-            'Rapport/exercicesbagop/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compagbagop' => $cieDef, 'departgarbagop' => $gareDef, 'datedebutbagop' => $debut, 'datefinbagop' => $fin),
-            'EXERCICE MENSUEL'
-        );
-        $out .= $decl_action_form(
-            'Rapport/exercicesbagopesc/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compagbagopesc' => $cieDef, 'departgarbagopesc' => $gareDef, 'datedebutbagopesc' => $debut, 'datefinbagopesc' => $fin),
-            'EXERCICE MENSUEL ESCAL'
-        );
-        $out .= $decl_action_form(
-            'Rapport/triencaissementsexobag/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compagexobg' => $cieDef, 'departgarexobg' => $gareDef, 'datedexobg' => $debut, 'datefexobg' => $fin),
-            'BROUILLARD',
-            'secondary'
-        );
-        $out .= $decl_action_form(
-            'Rapport/triencaissementsexobagesc/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compagexobgesc' => $cieDef, 'departgarexobgesc' => $gareDef, 'datedexobgesc' => $debut, 'datefexobgesc' => $fin),
-            'BROUILLARD ESCAL',
-            'secondary'
-        );
-        $out .= $decl_action_form(
-            'Rapport/bagagemanifestheb/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compaghebbg' => $cieDef, 'departgarhebbg' => $gareDef, 'datedebuthebbg' => $debut, 'datefinhebbg' => $fin),
-            'MANIFEST',
-            'secondary'
-        );
-        $out .= $decl_action_form(
-            'Rapport/bagageescmanifestheb/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compaghebbge' => $cieDef, 'departgarhebbge' => $gareDef, 'datedebuthebbge' => $debut, 'datefinhebbge' => $fin),
-            'MANIFEST ESCAL',
-            'secondary'
-        );
-        if ($canArchiver) {
+        if ($scope !== 'escal') {
+            $out .= $decl_action_form(
+                'Rapport/exercicesbagop/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
+                array('_compagbagop' => $cieDef, 'departgarbagop' => $gareDef, 'datedebutbagop' => $debut, 'datefinbagop' => $fin),
+                'EXERCICE MENSUEL'
+            );
+            $out .= $decl_action_form(
+                'Rapport/triencaissementsexobag/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
+                array('_compagexobg' => $cieDef, 'departgarexobg' => $gareDef, 'datedexobg' => $debut, 'datefexobg' => $fin),
+                'BROUILLARD',
+                'secondary'
+            );
+            $out .= $decl_action_form(
+                'Rapport/bagagemanifestheb/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
+                array('_compaghebbg' => $cieDef, 'departgarhebbg' => $gareDef, 'datedebuthebbg' => $debut, 'datefinhebbg' => $fin),
+                'MANIFEST',
+                'secondary'
+            );
+        }
+        if ($showEscalBtns) {
+            $out .= $decl_action_form(
+                'Rapport/exercicesbagopesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compagbagopesc' => $cieDef, 'departgarbagopesc' => $gareEsc, 'datedebutbagopesc' => $debut, 'datefinbagopesc' => $fin),
+                'EXERCICE MENSUEL ESCAL'
+            );
+            $out .= $decl_action_form(
+                'Rapport/triencaissementsexobagesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compagexobgesc' => $cieDef, 'departgarexobgesc' => $gareEsc, 'datedexobgesc' => $debut, 'datefexobgesc' => $fin),
+                'BROUILLARD ESCAL',
+                'secondary'
+            );
+            $out .= $decl_action_form(
+                'Rapport/bagageescmanifestheb/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compaghebbge' => $cieDef, 'departgarhebbge' => $gareEsc, 'datedebuthebbge' => $debut, 'datefinhebbge' => $fin),
+                'MANIFEST ESCAL',
+                'secondary'
+            );
+        }
+        if ($canArchiver && $scope !== 'escal') {
             $out .= $decl_action_form(
                 'Historique_Passagers/archivre/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
                 array('archivrecompag' => $cieDef, 'archivredepargare' => $gareDef, 'debutenreg' => $debut, 'finenreg' => $fin),
@@ -205,41 +230,45 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
             );
         }
     } else {
-        $out .= $decl_action_form(
-            'Rapport/etatsplis1/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compagnpli' => $cieDef, 'deptgaresidpli' => $gareDef, 'datesdebutspli' => $debut, 'datesfinspli' => $fin),
-            'EXERCICE MENSUEL'
-        );
-        $out .= $decl_action_form(
-            'Rapport/etatsplis1esc/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compagnpliesc' => $cieDef, 'deptgaresidpliesc' => $gareDef, 'datesdebutspliesc' => $debut, 'datesfinspliesc' => $fin),
-            'EXERCICE MENSUEL ESCAL'
-        );
-        $out .= $decl_action_form(
-            'Rapport/etatsverseplis/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compagnplivers' => $cieDef, 'deptgaresidplivers' => $gareDef, 'datesdebutsplivers' => $debut, 'datesfinsplivers' => $fin),
-            'BROUILLARD',
-            'secondary'
-        );
-        $out .= $decl_action_form(
-            'Rapport/etatsverseplisesc/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compagnpliversesc' => $cieDef, 'deptgaresidpliversesc' => $gareDef, 'datesdebutspliversesc' => $debut, 'datesfinspliversesc' => $fin),
-            'BROUILLARD ESCAL',
-            'secondary'
-        );
-        $out .= $decl_action_form(
-            'Rapport/courriermanifestheb/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compagheb' => $cieDef, 'departgarheb' => $gareDef, 'datedebutheb' => $debut, 'datefinheb' => $fin),
-            'MANIFEST',
-            'secondary'
-        );
-        $out .= $decl_action_form(
-            'Rapport/courriermanifesthebesc/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
-            array('_compaghebesc' => $cieDef, 'departgarhebesc' => $gareDef, 'datedebuthebesc' => $debut, 'datefinhebesc' => $fin),
-            'MANIFEST ESCAL',
-            'secondary'
-        );
-        if ($canArchiver) {
+        if ($scope !== 'escal') {
+            $out .= $decl_action_form(
+                'Rapport/etatsplis1/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
+                array('_compagnpli' => $cieDef, 'deptgaresidpli' => $gareDef, 'datesdebutspli' => $debut, 'datesfinspli' => $fin),
+                'EXERCICE MENSUEL'
+            );
+            $out .= $decl_action_form(
+                'Rapport/etatsverseplis/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
+                array('_compagnplivers' => $cieDef, 'deptgaresidplivers' => $gareDef, 'datesdebutsplivers' => $debut, 'datesfinsplivers' => $fin),
+                'BROUILLARD',
+                'secondary'
+            );
+            $out .= $decl_action_form(
+                'Rapport/courriermanifestheb/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
+                array('_compagheb' => $cieDef, 'departgarheb' => $gareDef, 'datedebutheb' => $debut, 'datefinheb' => $fin),
+                'MANIFEST',
+                'secondary'
+            );
+        }
+        if ($showEscalBtns) {
+            $out .= $decl_action_form(
+                'Rapport/etatsplis1esc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compagnpliesc' => $cieDef, 'deptgaresidpliesc' => $gareEsc, 'datesdebutspliesc' => $debut, 'datesfinspliesc' => $fin),
+                'EXERCICE MENSUEL ESCAL'
+            );
+            $out .= $decl_action_form(
+                'Rapport/etatsverseplisesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compagnpliversesc' => $cieDef, 'deptgaresidpliversesc' => $gareEsc, 'datesdebutspliversesc' => $debut, 'datesfinspliversesc' => $fin),
+                'BROUILLARD ESCAL',
+                'secondary'
+            );
+            $out .= $decl_action_form(
+                'Rapport/courriermanifesthebesc/' . rawurlencode($ckey) . '/' . rawurlencode($gareEsc),
+                array('_compaghebesc' => $cieDef, 'departgarhebesc' => $gareEsc, 'datedebuthebesc' => $debut, 'datefinhebesc' => $fin),
+                'MANIFEST ESCAL',
+                'secondary'
+            );
+        }
+        if ($canArchiver && $scope !== 'escal') {
             $out .= $decl_action_form(
                 'Historique_Passagers/archivrecr/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
                 array('archivrecompagcr' => $cieDef, 'archivredepargarecr' => $gareDef, 'debutenregcr' => $debut, 'finenregcr' => $fin),
@@ -412,7 +441,17 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
             $cieDef = $bloc['compagnies'][0];
         }
         if ($gareDef === '' && !empty($bloc['gares'])) {
-            $gareDef = $bloc['gares'][0];
+            // Préférer un lieu escale (KOM24…) plutôt que la gare d'affiliation (BOB1).
+            $picked = '';
+            if ($codesEscal) {
+                foreach ($bloc['gares'] as $cg) {
+                    if (in_array($cg, $codesEscal, true)) {
+                        $picked = $cg;
+                        break;
+                    }
+                }
+            }
+            $gareDef = ($picked !== '') ? $picked : $bloc['gares'][0];
         }
         $meta = htmlspecialchars($m);
         if ($cieDef !== '' && isset($nomsCie[$cieDef])) {
