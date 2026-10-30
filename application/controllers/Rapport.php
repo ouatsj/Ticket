@@ -470,6 +470,7 @@
         protected function _recette_payload($ckey)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
+            $this->load->helper(array('sous_caisse', 'compte_arret'));
             $date1 = trim((string) $this->input->get_post('datedebut'));
             $date2 = trim((string) $this->input->get_post('datefin'));
             $typ = trim((string) $this->input->get_post('type'));
@@ -477,6 +478,9 @@
             $nm = trim((string) $this->input->get_post('nom'));
             $comp = trim((string) $this->input->get_post('_compag'));
             $gid = trim((string) $this->input->get_post('gareconnect'));
+            if (function_exists('sous_caisse_gexp_historique')) {
+                $gid = sous_caisse_gexp_historique($gid);
+            }
             $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
@@ -960,6 +964,7 @@
         protected function _depense_payload($ckey)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
+            $this->load->helper(array('sous_caisse', 'compte_arret'));
             $date1 = trim((string) $this->input->get_post('datedebut'));
             $date2 = trim((string) $this->input->get_post('datefin'));
             $typ = $this->_depense_critere_saisi($this->input->get_post('type'));
@@ -967,6 +972,9 @@
             $nm = $this->_depense_critere_saisi($this->input->get_post('nom'));
             $comp = trim((string) $this->input->get_post('_compag'));
             $gid = trim((string) $this->input->get_post('gareconnect'));
+            if (function_exists('sous_caisse_gexp_historique')) {
+                $gid = sous_caisse_gexp_historique($gid);
+            }
             $sousgare = (int) $this->input->get_post('sousgareconnect');
             $escale_ops = trim((string) $this->input->get_post('escale_ops'));
             $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
@@ -1011,6 +1019,7 @@
                 'nom' => $nm, '_compag' => $comp, 'gareconnect' => $gid,
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => $sousgare > 0 ? (string) $sousgare : '',
+                'escale' => trim((string) $this->input->get_post('escale')),
                 'escale_ops' => $escale_ops,
             )));
             return array(
@@ -1049,6 +1058,7 @@
         protected function _depot_payload($ckey)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
+            $this->load->helper(array('sous_caisse', 'compte_arret'));
             $date1 = trim((string) $this->input->get_post('datedebut'));
             $date2 = trim((string) $this->input->get_post('datefin'));
             $typ = trim((string) $this->input->get_post('type'));
@@ -1056,6 +1066,9 @@
             $nm = trim((string) $this->input->get_post('nom'));
             $comp = trim((string) $this->input->get_post('_compag'));
             $gid = trim((string) $this->input->get_post('gareconnect'));
+            if (function_exists('sous_caisse_gexp_historique')) {
+                $gid = sous_caisse_gexp_historique($gid);
+            }
             $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
@@ -1098,6 +1111,8 @@
                 'nom' => $nm, '_compag' => $comp, 'gareconnect' => $gid,
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+                'escale' => trim((string) $this->input->get_post('escale')),
+                'escale_ops' => trim((string) $this->input->get_post('escale_ops')),
             )));
             return array(
                 'titre' => 'ETATS DES DEPOTS DE ' . $cieNom . ' ' . $garNom . ' DU ' . $days . ' AU ' . $days1,
@@ -4909,12 +4924,11 @@
                 ? etat_declaration_lister_mois($ekey, $mapFamilles[$type], '', $compFilter, $codesLister)
                 : etat_declaration_lister_mois($ekey, $mapFamilles[$type], $gareFilter, $compFilter);
 
-            // Hubs : fusionner uniquement les mois DÉJÀ déclarés des lieux escale (pas l'activité brute).
-            if ($scope !== 'escal' && $codesEscalAffilies) {
-                $famMerge = ($type === 'ticket')
-                    ? array('ticket_escal')
-                    : array($type);
-                $dataEsc = etat_declaration_lister_mois($ekey, $famMerge, '', $compFilter, $codesEscalAffilies);
+            // Hubs tickets : fusionner uniquement les mois ticket_escal des vrais lieux d'escale.
+            // Ne jamais fusionner bagage/courrier des escales (ni destinations d'itinéraire type BOBO)
+            // dans le hub de la gare — sinon Ouaga affiche les années courrier de Bobo (2023…).
+            if ($scope !== 'escal' && $codesEscalAffilies && $type === 'ticket') {
+                $dataEsc = etat_declaration_lister_mois($ekey, array('ticket_escal'), '', $compFilter, $codesEscalAffilies);
                 foreach ($dataEsc['mois'] as $mEsc => $blocEsc) {
                     if (!isset($data['mois'][$mEsc])) {
                         $data['mois'][$mEsc] = $blocEsc;
@@ -5067,6 +5081,7 @@
             $this->property['hub_ckey'] = $ckey;
             $this->property['hub_gid'] = $g;
             $this->property['hub_can_archiver'] = $canArchiver;
+            $this->property['hub_can_annuler'] = in_array($role, array('1', '2'), true);
             $this->property['hub_retour'] = $this->_etat_retour_url($ckey, $gareconnect, $userconnected, $sousgareconnect);
             $this->property['hub_ctx'] = array(
                 'gareconnect' => $gareconnect,
@@ -5076,8 +5091,83 @@
             if ($scope === 'escal') {
                 $this->property['hub_ctx']['scope'] = 'escal';
             }
+            $this->property['hub_flash'] = $this->session->flashdata('decl_annuler_msg');
+            $this->property['hub_flash_err'] = $this->session->flashdata('decl_annuler_err');
             $this->property['bundle_datatables'] = false;
             return $this->layout->view('_rapport/declarer_hub', $this->property);
+        }
+
+        /**
+         * Admin / Superviseur : annuler une déclaration mensuelle erronée.
+         * Retire le verrou + les flags tampon → le mois disparaît du hub et peut être redéclaré.
+         */
+        public function annuler_declaration($ckey, $g)
+        {
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            if (!in_array($role, array('1', '2'), true)) {
+                show_error('Annulation réservée à l\'Administrateur ou au Superviseur.', 403);
+                return;
+            }
+            $this->load->helper('etat_lettres');
+            $this->entreprise = $this->m_entreprises->get_key($ckey);
+            $ekey = (int) $this->entreprise->ekey;
+            $type = strtolower(trim((string) $this->input->post('hub_type')));
+            if (!in_array($type, array('ticket', 'bagage', 'courrier'), true)) {
+                $type = 'ticket';
+            }
+            $scope = strtolower(trim((string) $this->input->post('scope')));
+            if ($scope !== 'escal') {
+                $scope = '';
+            }
+            $mois = trim((string) $this->input->post('mois'));
+            $comp = trim((string) $this->input->post('compagnie'));
+            $codeGare = $this->_normalize_recap_gare_code_filter($this->input->post('code_gare'));
+            if ($codeGare === '') {
+                $codeGare = $this->_normalize_recap_gare_code_filter($g);
+            }
+            $mapFamilles = array(
+                'ticket' => ($scope === 'escal') ? 'ticket_escal' : 'ticket_etats',
+                'bagage' => 'bagage',
+                'courrier' => 'courrier',
+            );
+            $famille = $mapFamilles[$type];
+            $famPost = trim((string) $this->input->post('famille'));
+            if ($famPost !== '' && in_array($famPost, array('ticket_etats', 'ticket_escal', 'bagage', 'courrier'), true)) {
+                $famille = $famPost;
+            }
+
+            $qs = http_build_query(array_filter(array(
+                'compagnie' => $comp,
+                'code_gare' => $codeGare,
+                'gareconnect' => trim((string) $this->input->post('gareconnect')),
+                'userconnected' => trim((string) $this->input->post('userconnected')),
+                'sousgareconnect' => trim((string) $this->input->post('sousgareconnect')),
+                'scope' => $scope,
+            )));
+            $redirect = 'Rapport/declarer_hub/' . rawurlencode($ckey) . '/' . rawurlencode($g) . '/' . rawurlencode($type);
+            if ($qs !== '') {
+                $redirect .= '?' . $qs;
+            }
+
+            if ($comp === '' || $codeGare === '' || !preg_match('/^\d{4}-\d{2}$/', $mois)) {
+                $this->session->set_flashdata('decl_annuler_err', 'Impossible d\'annuler : compagnie, gare et mois sont requis.');
+                redirect($redirect);
+                return;
+            }
+
+            $res = etat_declaration_annuler($ekey, $comp, $famille, $mois, $codeGare);
+            if (!empty($res['ok']) && ((int) $res['deleted'] > 0 || (int) $res['reset'] > 0)) {
+                $this->session->set_flashdata(
+                    'decl_annuler_msg',
+                    $res['message'] . ' (' . (int) $res['deleted'] . ' verrou(x), ' . (int) $res['reset'] . ' élément(s) rétabli(s)).'
+                );
+            } else {
+                $this->session->set_flashdata(
+                    'decl_annuler_err',
+                    !empty($res['message']) ? $res['message'] : 'Annulation impossible.'
+                );
+            }
+            redirect($redirect);
         }
 
         /*public function manifest($ckey, $g)
@@ -9475,6 +9565,7 @@
         protected function _versementbanq_payload($ckey)
         {
             $this->entreprise = $this->m_entreprises->get_key($ckey);
+            $this->load->helper(array('sous_caisse', 'compte_arret'));
             $date1 = trim((string) $this->input->get_post('datedebut'));
             $date2 = trim((string) $this->input->get_post('datefin'));
             $typ = trim((string) $this->input->get_post('type'));
@@ -9482,6 +9573,9 @@
             $nm = trim((string) $this->input->get_post('nom'));
             $comp = trim((string) $this->input->get_post('_compag'));
             $gid = trim((string) $this->input->get_post('gareconnect'));
+            if (function_exists('sous_caisse_gexp_historique')) {
+                $gid = sous_caisse_gexp_historique($gid);
+            }
             $atr = roleattribut_guard_post_hint($this->entreprise->ekey);
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
@@ -9515,6 +9609,8 @@
                 'nom' => $nm, '_compag' => $comp, 'gareconnect' => $gid,
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
+                'escale' => trim((string) $this->input->get_post('escale')),
+                'escale_ops' => trim((string) $this->input->get_post('escale_ops')),
             )));
             return array(
                 'titre' => 'ETATS DES VERSEMENTS BANQUE DE ' . $cieNom . ' DU ' . $days . ' AU ' . $days1,

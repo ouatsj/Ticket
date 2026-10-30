@@ -50,7 +50,7 @@
                 AND gr.genre_depot = 'Banque'
                 AND v.ferme_caisvers = 0
                 AND v.actifvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 AND v.validop = '$conect'
                 ORDER BY v.id_versements DESC")->result();
@@ -72,7 +72,7 @@
                 AND gr.genre_depot = 'Banque'
                 AND v.actifvers = 0
                 AND v.ferme_caisvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.validop = '$conect'
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 ORDER BY v.id_versements DESC")->row();
@@ -98,7 +98,7 @@
                 AND gr.genre_depot = 'Banque'
                 AND v.ferme_caisvers = 0
                 AND v.actifvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 AND v.validopad = '$conect'
                 ORDER BY v.id_versements DESC")->result();
@@ -120,7 +120,7 @@
                 AND gr.genre_depot = 'Banque'
                 AND v.actifvers = 0
                 AND v.ferme_caisvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.validopad = '$conect'
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 ORDER BY v.id_versements DESC")->row();
@@ -150,7 +150,7 @@
                 AND gr.genre_depot <> 'Banque'
                 AND gr.genre_depot <> 'Particulier'
                 AND v.ferme_caisvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 AND v.validop = '$conect'
                 ORDER BY v.id_versements DESC")->result();
@@ -171,7 +171,7 @@
                 AND v.approuveversement = 0
                 AND v.actifvers = 0
                 AND v.id_versements = '$pk'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND gr.genre_depot <> 'Banque'
                 AND gr.genre_depot <> 'Particulier'
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
@@ -203,7 +203,7 @@
                 AND gr.genre_depot <> 'Banque'
                 AND gr.genre_depot <> 'Particulier'
                 AND v.ferme_caisvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 AND v.validopad = '$conect'
                 ORDER BY v.id_versements DESC")->result();
@@ -224,7 +224,7 @@
                 AND v.approuveversement = 0
                 AND v.actifvers = 0
                 AND v.id_versements = '$pk'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND gr.genre_depot <> 'Banque'
                 AND gr.genre_depot <> 'Particulier'
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
@@ -254,7 +254,7 @@
                 AND gr.genre_depot <> 'Banque'
                 AND v.actifvers = 0
                 AND v.ferme_caisvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 AND v.validop = '$conect'
                 ORDER BY v.id_versements DESC")->result();
@@ -276,7 +276,7 @@
                 AND v.actifvers = 0
                 AND gr.genre_depot <> 'Banque'
                 AND v.ferme_caisvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 AND v.validop = '$conect'
                 ORDER BY v.id_versements DESC")->row();
@@ -302,7 +302,7 @@
                 AND gr.genre_depot <> 'Banque'
                 AND v.actifvers = 0
                 AND v.ferme_caisvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 AND v.validopad = '$conect'
                 ORDER BY v.id_versements DESC")->result();
@@ -324,7 +324,7 @@
                 AND v.actifvers = 0
                 AND gr.genre_depot <> 'Banque'
                 AND v.ferme_caisvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 AND v.validopad = '$conect'
                 ORDER BY v.id_versements DESC")->row();
@@ -342,7 +342,7 @@
             AND cs.id_caiss = '$idc'
             AND v.ferme_caisvers = 0
             AND v.is_actifverser = 1
-            AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+            " . sous_caisse_filtre_gare_sql('cs', $gid) . "
             AND v.type_versement <> 'Bordereau_bancairecourrier'
             AND v.validop = '$conect'
             GROUP BY cs.id_caiss")->row();
@@ -360,7 +360,7 @@
             AND cs.id_caiss = '$idc'
             AND v.ferme_caisvers = 0
             AND v.is_actifverserad = 1
-            AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+            " . sous_caisse_filtre_gare_sql('cs', $gid) . "
             AND v.type_versement <> 'Bordereau_bancairecourrier'
             AND v.validopad = '$conect'
             GROUP BY cs.id_caiss")->row();
@@ -380,7 +380,7 @@
             AND v.is_actifverser = 1
             AND cs.id_caiss = '$idc'
             AND gr.genre_depot = 'Banque'
-            AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+            " . sous_caisse_filtre_gare_sql('cs', $gid) . "
             AND v.type_versement <> 'Bordereau_bancairecourrier'
             AND v.validop = '$conect'
             GROUP BY cs.id_caiss")->row();
@@ -400,7 +400,7 @@
             AND v.is_actifverserad = 1
             AND cs.id_caiss = '$idc'
             AND gr.genre_depot = 'Banque'
-            AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+            " . sous_caisse_filtre_gare_sql('cs', $gid) . "
             AND v.type_versement <> 'Bordereau_bancairecourrier'
             AND v.validopad = '$conect'
             GROUP BY cs.id_caiss")->row();
@@ -420,7 +420,7 @@
                     WHERE e.ekey = '$cd'
                     AND v.actifvers = 0
                     AND v.ferme_caisvers = 1
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.valid_cptablevers = 0
                     AND v.validop = '$uop'
                     ORDER BY v.date_versement")->result();
@@ -435,7 +435,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cd'
                     AND v.ferme_caisvers = 1
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.validop = '$uop'
                     AND v.actifvers = 0
                     AND v.valid_cptablevers = 0
@@ -493,7 +493,7 @@
                     AND v.compkey_vers = '$cop'
                     AND v.valid_cptablevers = 1
                     AND v.actifvers = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.validop = '$uop'
                     AND v.date_versement BETWEEN '$d' AND '$f'")->result();
             }elseif($n === '')
@@ -508,7 +508,7 @@
                     AND v.valid_cptablevers = 1
                     AND v.actifvers = 0
                     AND v.type_versement = '$t'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.validop = '$uop'
                     AND v.date_versement BETWEEN '$d' AND '$f'")->result();
             }
@@ -524,7 +524,7 @@
                     AND v.actifvers = 0
                     AND v.type_versement = '$t'
                     AND v.nom_beneficiaire = '$n'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.date_versement BETWEEN '$d' AND '$f'")->result();
         }
 
@@ -541,7 +541,7 @@
                 AND r.actif_rect = 0
                 AND r.ferme_caisrecet = 0
                 AND cs.id_caiss = '$idc'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalid = '$usc'
                 GROUP BY cs.id_caiss")->row();
@@ -561,7 +561,7 @@
                 AND r.actif_rect = 0
                 AND r.ferme_caisrecet = 0
                 AND cs.id_caiss = '$idc'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalidad = '$usc'
                 GROUP BY cs.id_caiss")->row();
@@ -580,7 +580,7 @@
                 AND d.actif_deps = 0
                 AND d.ferme_caisdep = 0
                 AND cs.id_caiss = '$idc'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalid = '$usc'
                 GROUP BY cs.id_caiss")->row();
@@ -600,7 +600,7 @@
                 AND d.actif_deps = 0
                 AND d.ferme_caisdep = 0
                 AND cs.id_caiss = '$idc'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalidad = '$usc'
                 GROUP BY cs.id_caiss")->row();
@@ -619,7 +619,7 @@
                 AND d.actif_deps = 0
                 AND d.ferme_caisdep = 0
                 AND cs.id_caiss = '$idc'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalid = '$usc'
@@ -640,7 +640,7 @@
                 AND d.actif_deps = 0
                 AND d.ferme_caisdep = 0
                 AND cs.id_caiss = '$idc'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalidad = '$usc'
@@ -658,7 +658,7 @@
                 AND d.is_validdepo = 1
                 AND cs.id_caiss = '$idc'
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opvalid = '$usc'
                 AND d.type_depot <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
@@ -677,7 +677,7 @@
                 AND d.is_actifdepoad = 1
                 AND cs.id_caiss = '$idc'
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opvalidad = '$usc'
                 AND d.type_depot <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
@@ -701,7 +701,7 @@
                 AND v.ferme_caisvers = 0
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 AND v.actifvers = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.date_versement <= '$today'
                 AND cs.id_caiss = '$idcai'
                 AND v.validop = '$idcx'
@@ -725,7 +725,7 @@
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '$cd'
             AND v.arret_caisvers = 0
-            AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+            " . sous_caisse_filtre_gare_sql('cs', $idg) . "
             AND cs.id_caiss = '$idcais'
             AND v.idop_versement = '$cx'
             AND v.type_versement <> 'Bordereau_bancairecourrier'
@@ -768,7 +768,7 @@
                 WHERE e.ekey = '$cd'
                 {$active_sql}
                 {$date_sql}
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 {$pending_sql}
                 {$op_sql}
@@ -811,7 +811,7 @@
                 {$active_sql}
                 {$pending_sql}
                 {$date_sql}
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 {$caisse_sql}
                 {$op_sql}
                 AND d.type_depense <> 'Courrier'")->row();
@@ -848,7 +848,7 @@
                 {$active_sql}
                 {$pending_sql}
                 {$date_sql}
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 {$op_sql}
                 AND d.sousgidepens = '$sg'
@@ -870,7 +870,7 @@
                 WHERE e.ekey = '$cd'
                 AND d.arret_caisdepo = 0
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND d.idop_depot = '$cx'
                 AND d.type_depot <> 'Courrier'
@@ -898,7 +898,7 @@
                 AND v.idop_versement = '$idcx'
                 AND v.date_versement <= '$today'
                 AND cs.id_caiss = '$idcai'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 AND cu.is_conect = 1
                 GROUP BY cs.id_caiss")->row();
@@ -923,7 +923,7 @@
                 AND v.idop_versement = '$idcx'
                 AND v.date_versement <= '$today'
                 AND cs.id_caiss = '$idcai'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 GROUP BY cs.id_caiss, v.idop_versement")->result();
         }
@@ -1040,7 +1040,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND cs.id_caiss = '$idcai'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND v.typpersonnel = '$idcx'
                 AND v.active_verse = 0
                 AND v.actifvers = 0
@@ -1061,7 +1061,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND cs.id_caiss = '$idcai'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND v.typpersonnel = '$idcx'
                 AND v.active_verse = 0
                 AND v.actifvers = 0
@@ -1089,7 +1089,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND cs.id_caiss = '$idcai'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND v.typpersonnel = '$idcx'
                 AND v.approuveversement = 0
                 AND v.actifvers = 0
@@ -1111,7 +1111,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND cs.id_caiss = '$idcai'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND v.typpersonnel = '$idcx'
                 AND v.approuveversement = 0
                 AND v.actifvers = 0
@@ -1133,7 +1133,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cd'
                     AND v.compkey_vers = '$cop'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.date_versement BETWEEN '$d' AND '$f'")->result();
             }elseif($n === '')
@@ -1146,7 +1146,7 @@
                     WHERE e.ekey = '$cd'
                     AND v.compkey_vers = '$cop'
                     AND v.type_versement = '$t'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.date_versement BETWEEN '$d' AND '$f'")->result();
             }
@@ -1159,7 +1159,7 @@
                     AND v.compkey_vers = '$cop'
                     AND v.type_versement = '$t'
                     AND v.nom_beneficiaire = '$n'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.date_versement BETWEEN '$d' AND '$f'")->result();
         }
@@ -1177,7 +1177,7 @@
                     WHERE e.ekey = '$cid'
                     AND v.compkey_vers = '$cop'
                     AND v.actifvers = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.validop = '$usc'
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
@@ -1195,7 +1195,7 @@
                     AND v.compkey_vers = '$cop'
                     AND v.actifvers = 0
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.validop = '$usc'
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
                     ORDER BY v.date_versement ASC")->result();
@@ -1212,7 +1212,7 @@
                     AND v.compkey_vers = '$cop'
                     AND gr.genre_depot = '$gr'
                     AND v.actifvers = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.validop = '$usc'
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
@@ -1229,7 +1229,7 @@
                     AND gr.genre_depot = '$gr'
                     AND v.nom_beneficiaire = '$nm'
                     AND v.actifvers = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.validop = '$usc'
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
@@ -1250,7 +1250,7 @@
                     WHERE e.ekey = '$cid'
                     AND v.compkey_vers = '$cop'
                     AND v.actifvers = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.validop = '$usc'
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
@@ -1267,7 +1267,7 @@
                     WHERE e.ekey = '$cid'
                     AND v.compkey_vers = '$cop'
                     AND v.actifvers = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.validop = '$usc'
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
@@ -1285,7 +1285,7 @@
                     AND v.compkey_vers = '$cop'
                     AND gr.genre_depens = '$gr'
                     AND v.actifvers = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.validop = '$usc'
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
@@ -1302,7 +1302,7 @@
                     AND gr.genre_depens = '$gr'
                     AND v.nom_beneficiaire = '$nm'
                     AND v.actifvers = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.validop = '$usc'
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
@@ -1320,7 +1320,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND v.type_versement = '$pk'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 GROUP BY gr.genre_depot")->result();
 
@@ -1340,7 +1340,7 @@
                 WHERE e.ekey = '$cid'
                 AND v.type_versement = '$typ'
                 AND gr.genre_depot = '$gr'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.actifvers = 1
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 GROUP BY gr.genre_depot, v.type_versement, v.nom_beneficiaire")->result();
@@ -1358,7 +1358,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND v.type_versement = '$pk'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 GROUP BY gr.genre_depens")->result();
 
@@ -1378,7 +1378,7 @@
                 WHERE e.ekey = '$cid'
                 AND v.type_versement = '$typ'
                 AND gr.genre_depens = '$gr'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND v.actifvers = 1
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 GROUP BY gr.genre_depens, v.type_versement, v.nom_beneficiaire")->result();

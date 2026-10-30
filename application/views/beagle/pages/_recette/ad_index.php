@@ -493,11 +493,13 @@
         
         <?= form_open("", array('class' => 'modal-body form', 'id' => 'recetForm')); ?>
         <div class="form-group row">
-            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+            <?php $gare_tri = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : $bus_stop->idengare; ?>
+            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?= htmlspecialchars((string) $gare_tri, ENT_QUOTES, 'UTF-8'); ?>">
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
             <input type="hidden" name="idcaisse" value="<?= $caisseident->id_caiss; ?>" id="idcaissr">
+            <?= function_exists('caissier_escale_hidden_inputs') ? caissier_escale_hidden_inputs() : ''; ?>
             <div class="form-group col-sm-4">
             <label>COMPAGNIE</label>
                 <select class="form-control form-control-sm" name="_compag">

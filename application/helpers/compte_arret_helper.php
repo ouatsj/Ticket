@@ -3047,11 +3047,29 @@ if (!function_exists('caissier_escale_filtrer_lignes')) {
      */
     function caissier_escale_filtrer_lignes($rows)
     {
+        if (!is_array($rows)) {
+            return $rows;
+        }
         $ops = caissier_escale_ops_from_request();
-        if (!$ops || !is_array($rows)) {
+        if (!$ops) {
             return $rows;
         }
         $CI =& get_instance();
+
+        // Historique caissier escale : la requête SQL borne déjà via sous_caisse
+        // (escale_cle). Un 2e filtre sur escale_ops (vendeurs) excluait le caissier
+        // lui-même → listes vides recettes / dépôts / versements.
+        $sousCaisseActive = function_exists('sous_caisse_cle_page') && sous_caisse_cle_page() !== '';
+        if ($sousCaisseActive) {
+            foreach ($rows as $row) {
+                if (is_object($row) && isset($row->commentaire_recet)) {
+                    $row->commentaire_recet = caissier_escale_commentaire_visible($row->commentaire_recet);
+                }
+            }
+
+            return $rows;
+        }
+
         $ids = array();
         foreach ($ops as $id) {
             $id = (int) $id;

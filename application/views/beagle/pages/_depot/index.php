@@ -370,7 +370,8 @@ $retour_depot = $depuis_escale
         
         <?= form_open("", array('class' => 'modal-body form', 'id' => 'depotForm')); ?>
         <div class="form-group row">
-            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+            <?php $gare_tri = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : $bus_stop->idengare; ?>
+            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?= htmlspecialchars((string) $gare_tri, ENT_QUOTES, 'UTF-8'); ?>">
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">

@@ -51,7 +51,7 @@
                 JOIN genre_depot gr ON pt.idgenre_depot = gr.id_genredepot
                 WHERE pt.arret_caisdepo = 0
                 AND pt.actif_depo = 1
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 ORDER BY pt.id_depot DESC")->result();
             }
             return $this->db->query(
@@ -60,7 +60,7 @@
                 WHERE pt.arret_caisdepo = 0
                 AND pt.id_depot = '$pk'
                 AND pt.actif_depo = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 ORDER BY pt.id_depot DESC")->row();
         }
 
@@ -83,7 +83,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND pt.type_depot = 'externe'
                 AND gr.genre_depot = 'Bancaire'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalid = '$usc'
                 {$hors}
@@ -104,7 +104,7 @@
                 AND pt.type_depot = 'externe'
                 AND pt.id_depot = '$pk'
                 AND gr.genre_depot = 'Bancaire'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalid = '$usc'
                 ORDER BY pt.id_depot DESC")->row();
@@ -211,7 +211,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND pt.type_depot = 'externe'
                 AND gr.genre_depot = 'Bancaire'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalidad = '$usc'
                 {$hors}
@@ -232,7 +232,7 @@
                 AND pt.type_depot = 'externe'
                 AND pt.id_depot = '$pk'
                 AND gr.genre_depot = 'Bancaire'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalidad = '$usc'
                 ORDER BY pt.id_depot DESC")->row();
@@ -252,7 +252,7 @@
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
                 AND cs.id_caiss = '$idcais'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'";
 
             if ($pk === FALSE) {
@@ -290,7 +290,7 @@
                 AND pt.actif_depo = 0
                 AND cs.id_caiss = '$idcais'
                 AND gr.genre_depot <> 'Bancaire'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalid = '$usc'
                 ORDER BY pt.id_depot DESC")->result();
@@ -309,7 +309,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND pt.id_depot = '$pk'
                 AND gr.genre_depot <> 'Bancaire'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalid = '$usc'
                 ORDER BY pt.id_depot DESC")->row();
@@ -332,7 +332,7 @@
                 AND pt.actif_depo = 0
                 AND cs.id_caiss = '$idcais'
                 AND gr.genre_depot <> 'Bancaire'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalidad = '$usc'
                 ORDER BY pt.id_depot DESC")->result();
@@ -351,7 +351,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND pt.id_depot = '$pk'
                 AND gr.genre_depot <> 'Bancaire'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalidad = '$usc'
                 ORDER BY pt.id_depot DESC")->row();
@@ -440,7 +440,7 @@
                 AND d.arret_caisdepo = 0
                 AND cs.id_caiss = '$idcais'
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opvalid = '$usc'
                 AND d.type_depot <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
@@ -464,7 +464,7 @@
                 AND d.arret_caisdepo = 0
                 AND cs.id_caiss = '$idcais'
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opvalidad = '$usc'
                 AND d.type_depot <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
@@ -489,7 +489,7 @@
                 AND d.idop_depot = '$conect'
                 AND cs.id_caiss = '$idcais'
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opvalid = '$usc'
                 AND d.type_depot <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
@@ -515,7 +515,7 @@
                 AND d.idop_depot = '$conect'
                 AND cs.id_caiss = '$idcais'
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opvalidad = '$usc'
                 AND d.type_depot <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
@@ -539,7 +539,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND tp.type_personnel = 'Chef_Guichet'
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.type_depot <> 'Courrier'
                 AND d.opvalid = '$usc'
                 GROUP BY cs.id_caiss")->row();
@@ -562,7 +562,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND tp.type_personnel = 'Chef_Guichet'
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.type_depot <> 'Courrier'
                 AND d.opvalidad = '$usc'
                 GROUP BY cs.id_caiss")->row();
@@ -598,7 +598,7 @@
                 AND d.idop_depot = '$conect'
                 AND d.datedepot <= '$today'
                 AND cu.is_conect = 1
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.type_depot <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
         }
@@ -624,7 +624,7 @@
                 AND d.datedepot <= '$today'
                 AND d.actif_depo = 0
                 AND cu.is_conect = 1
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.type_depot <> 'Courrier'
                 GROUP BY cs.id_caiss")->row();
         }
@@ -765,7 +765,7 @@
                 AND d.datedepot <= '$today'
                 AND d.actif_depo = 0
                 AND d.type_depot <> 'Courrier'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 GROUP BY cs.id_caiss, cu.cpuser_id")->result();
         }
 
@@ -792,7 +792,7 @@
                 JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opvalid = '$uc'
                 AND d.ferme_caisdepo = 1
                 AND d.valid_cptabledepo = 0
@@ -812,7 +812,7 @@
                 JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opvalid = '$uc'
                 AND d.ferme_caisdepo = 1
                 AND d.valid_cptabledepo = 0
@@ -862,7 +862,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -879,7 +879,7 @@
                     WHERE e.ekey = '$cid'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.type_depot = '$typ'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -896,7 +896,7 @@
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.type_depot = '$typ'
                     AND tp.type_personnel = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
             }
@@ -913,7 +913,7 @@
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.type_depot = '$typ'
                     AND tp.type_personnel = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.nom_per = '$nm'
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
@@ -931,7 +931,7 @@
                     AND tp.type_personnel = '$gr'
                     AND d.nom_per = '$nm'
                     AND d.id_depot = '$iddep'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->row();
         }
@@ -952,7 +952,7 @@
                     AND d.compkey_depo = '$comp'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.arret_caisdepo = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalid = '$usc'
                     ORDER BY d.datedepot ASC")->result();
@@ -974,7 +974,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
                     AND tp.type_personnel = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalid = '$usc'
                     ORDER BY d.datedepot ASC")->result();
@@ -994,7 +994,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
                     AND tp.type_personnel = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.nom_per = '$nm'
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalid = '$usc'
@@ -1015,7 +1015,7 @@
                     AND tp.type_personnel = '$gr'
                     AND d.nom_per = '$nm'
                     AND d.id_depot = '$iddep'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalid = '$usc'
                     ORDER BY d.datedepot ASC")->row();
@@ -1037,7 +1037,7 @@
                     AND d.actif_depo = 0
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.arret_caisdepo = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalid = '$usc'
                     ORDER BY d.datedepot ASC")->result();
@@ -1060,7 +1060,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.type_depot = '$typ'
                     AND gr.genre_depot = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalid = '$usc'
                     ORDER BY d.datedepot ASC")->result();
@@ -1080,7 +1080,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
                     AND gr.genre_depot = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.nom_per = '$nm'
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalid = '$usc'
@@ -1101,7 +1101,7 @@
                     AND d.actif_depo = 0
                     AND d.nom_per = '$nm'
                     AND d.id_depot = '$iddep'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalid = '$usc'
                     ORDER BY d.datedepot ASC")->row();
@@ -1123,7 +1123,7 @@
                     AND d.compkey_depo = '$comp'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.arret_caisdepo = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalidad = '$usc'
                     ORDER BY d.datedepot ASC")->result();
@@ -1145,7 +1145,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
                     AND tp.type_personnel = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalidad = '$usc'
                     ORDER BY d.datedepot ASC")->result();
@@ -1165,7 +1165,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
                     AND tp.type_personnel = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.nom_per = '$nm'
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalidad = '$usc'
@@ -1186,7 +1186,7 @@
                     AND tp.type_personnel = '$gr'
                     AND d.nom_per = '$nm'
                     AND d.id_depot = '$iddep'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalidad = '$usc'
                     ORDER BY d.datedepot ASC")->row();
@@ -1208,7 +1208,7 @@
                     AND d.actif_depo = 0
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.arret_caisdepo = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalidad = '$usc'
                     ORDER BY d.datedepot ASC")->result();
@@ -1231,7 +1231,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.type_depot = '$typ'
                     AND gr.genre_depot = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalidad = '$usc'
                     ORDER BY d.datedepot ASC")->result();
@@ -1251,7 +1251,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
                     AND gr.genre_depot = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.nom_per = '$nm'
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalidad = '$usc'
@@ -1272,7 +1272,7 @@
                     AND d.actif_depo = 0
                     AND d.nom_per = '$nm'
                     AND d.id_depot = '$iddep'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalidad = '$usc'
                     ORDER BY d.datedepot ASC")->row();
@@ -1292,7 +1292,7 @@
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
                 AND (pt.idop_depot = " . (int) $us . " OR pt.opvalidchef = " . (int) $us . ")
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND cs.id_caiss = '$idcais'
                 AND pt.type_depot <> 'Courrier'
                 AND pt.is_validdepo = 0
@@ -1310,7 +1310,7 @@
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
                 AND (pt.idop_depot = " . (int) $us . " OR pt.opvalidchef = " . (int) $us . ")
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND cs.id_caiss = '$idcais'
                 AND pt.id_depot = '$pk'
                 AND pt.type_depot <> 'Courrier'
@@ -1337,7 +1337,7 @@
                 AND d.ferme_caisdepo = 0
                 AND d.actif_depo = 0
                 AND cs.id_caiss = '$idcais'
-                AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.datedepot <= '$today'
                 AND d.opvalid = '$conect'
                 AND d.type_depot <> 'Courrier'
@@ -1367,7 +1367,7 @@
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
@@ -1392,7 +1392,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
                     AND d.type_depot = '$typ'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
@@ -1417,7 +1417,7 @@
                     AND d.actif_depo = 0
                     AND d.type_depot = '$typ'
                     AND tp.type_personnel = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
@@ -1443,7 +1443,7 @@
                     AND d.type_depot = '$typ'
                     AND tp.type_personnel = '$gr'
                     AND d.nom_per = '$nm'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
@@ -1465,7 +1465,7 @@
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
                     AND d.type_depot = '$typ'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND tp.type_personnel = '$gr'
                     AND d.nom_per = '$nm'
                     AND d.id_depot = '$iddep'
@@ -1493,7 +1493,7 @@
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
@@ -1517,7 +1517,7 @@
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot = '$typ'
                     AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
@@ -1541,7 +1541,7 @@
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
                     AND d.arret_caisdepo = 0
                     AND d.actif_depo = 0
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot = '$typ'
                     AND gr.genre_depot = '$gr'
                     AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
@@ -1569,7 +1569,7 @@
                     AND d.type_depot = '$typ'
                     AND gr.genre_depot = '$gr'
                     AND d.nom_per = '$nm'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
                     AND d.type_depot <> 'Courrier'
                     ORDER BY d.datedepot ASC")->result();
@@ -1592,7 +1592,7 @@
                     AND d.type_depot = '$typ'
                     AND d.actif_depo = 0
                     AND gr.genre_depot = '$gr'
-                    AND cs.gexp_caiss = '$gid'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.nom_per = '$nm'
                     AND d.id_depot = '$iddep'
                     AND (d.idop_depot = '$adjoint' OR d.opvalidchef = '$adjoint')
@@ -1618,7 +1618,7 @@
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND ar.roleattribut = '$cx'
                 AND d.type_depot <> 'Courrier'
@@ -1641,7 +1641,7 @@
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND d.idop_depot = '$cx'
                 AND d.type_depot <> 'Courrier'
@@ -1663,7 +1663,7 @@
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
                 AND pt.is_validdepo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND pt.idop_depot = '$cx'
                 AND pt.type_depot <> 'Courrier'
@@ -1680,7 +1680,7 @@
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
                 AND pt.is_validdepo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND pt.idop_depot = '$cx'
                 AND pt.id_depot = '$pk'
@@ -1703,7 +1703,7 @@
                 WHERE e.ekey = '$cid'
                 AND pt.approuve = 0
                 AND pt.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND tp.type_personnel = 'Chef_Guichet'
                 AND pt.typersodepot = '$cx'
@@ -1721,7 +1721,7 @@
                 WHERE e.ekey = '$cid'
                 AND pt.approuve = 0
                 AND pt.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND tp.type_personnel = 'Chef_Guichet'
                 AND pt.id_depot = '$pk'
@@ -1748,7 +1748,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND d.idop_depot = '$cx'
                 AND d.actif_depo = 0
@@ -1772,7 +1772,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND d.idop_depot = '$cx'
                 AND d.actif_depo = 0
@@ -1799,7 +1799,7 @@
                 WHERE e.ekey = '$cid'
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND pt.idop_depot = '$cx'
                 AND tp.type_personnel = 'Chef_Guichet'
@@ -1820,7 +1820,7 @@
                 WHERE e.ekey = '$cid'
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND pt.idop_depot = '$cx'
                 AND pt.id_depot = '$pk'
@@ -1848,7 +1848,7 @@
                 WHERE e.ekey = '$cid'
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND pt.idop_depot = '$cx'
                 AND gr.genre_depot <> 'Bancaire'
@@ -1869,7 +1869,7 @@
                 WHERE e.ekey = '$cid'
                 AND pt.arret_caisdepo = 0
                 AND pt.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND pt.idop_depot = '$cx'
                 AND pt.id_depot = '$pk'
@@ -1907,7 +1907,7 @@
                 {$op_sql}
                 AND d.datedepot <= '$today'
                 AND d.type_depot <> 'Courrier'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 GROUP BY cs.id_caiss")->row();
         }
 
@@ -2143,7 +2143,7 @@
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND d.opvalid = '$usc'
                 AND cs.id_caiss = '$idcais'
                 AND d.type_depot <> 'Courrier'
@@ -2168,7 +2168,7 @@
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND d.opvalidad = '$usc'
                 AND cs.id_caiss = '$idcais'
                 AND d.type_depot <> 'Courrier'
@@ -2193,7 +2193,7 @@
                 WHERE e.ekey = '$cid'
                 AND d.arret_caisdepo = 0
                 AND d.actif_depo = 0
-                AND cs.gexp_caiss = '$idg'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 AND cs.id_caiss = '$idcais'
                 AND d.type_depot <> 'Courrier'
                 AND ar.roleattribut = '$u'
@@ -2219,7 +2219,7 @@
                 AND d.is_validdepo = 1
                 AND d.idop_depot = '$conect'
                 AND cs.id_caiss = '$idcais'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND d.type_depot <> 'Courrier'
                 AND d.datedepot <= '$today'
                 GROUP BY cs.id_caiss, d.idop_depot")->result();
@@ -2241,7 +2241,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.compkey_depo = '$comp'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND d.idcaisse_depot = '$cais'
                 AND d.idop_depot = '$conect'
                 AND d.actif_depo = 0
@@ -2280,7 +2280,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.compkey_depo = '$comp'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND d.idcaisse_depot = '$cais'
                 AND d.opvalid = '$conect'
                 AND d.actif_depo = 0
@@ -2305,7 +2305,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND d.compkey_depo = '$comp'
-                AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND d.idcaisse_depot = '$cais'
                 AND d.opvalidad = '$conect'
                 AND d.actif_depo = 0
@@ -2332,7 +2332,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND d.compkey_depo = '$comp'
-                    AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $g) . "
                     AND d.idcaisse_depot = '$cais'
                     AND d.idop_depot = '$conect'
                     AND d.actif_depo = 0
@@ -2355,7 +2355,7 @@
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
                     WHERE e.ekey = '$cid'
                     AND d.compkey_depo = '$comp'
-                    AND cs.gexp_caiss = '$g'" . sous_caisse_scope_sql('cs') . "
+                    " . sous_caisse_filtre_gare_sql('cs', $g) . "
                     AND d.idcaisse_depot = '$cais'
                     AND d.idop_depot = '$conect'
                     AND d.type_depot = '$typ'

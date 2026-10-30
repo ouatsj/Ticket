@@ -47,10 +47,6 @@
                                     data-modal="form-clarrecaptcr-0" data-ekey="<?= $this->session->company->ekey;?>">
                                 <i></i>&nbsp;DECLARATION COURRIERS&nbsp;
                             </button>
-                            <a class="btn btn-secondary btn-space"
-                               href="<?= site_url('Rapport/declarer_hub/' . $this->session->company->ekey . '/' . $bus_stop->idengare . '/courrier') . '?' . $decl_hub_qs; ?>">
-                                <i></i>&nbsp;COURRIERS DECLARER&nbsp;
-                            </a>
                             <?php
                               if (!function_exists('etat_declaration_gare_a_escales')) {
                                   get_instance()->load->helper('etat_lettres');
@@ -71,28 +67,16 @@
                                     data-modal="form-clarrecaptcresc-0" data-ekey="<?= $this->session->company->ekey;?>">
                                 <i></i>&nbsp;DECLARATION COURRIERSESCAL&nbsp;
                             </button>
-                            <a class="btn btn-secondary btn-space"
-                               href="<?= site_url('Rapport/declarer_hub/' . $this->session->company->ekey . '/' . $bus_stop->idengare . '/courrier') . '?' . $decl_hub_qs; ?>">
-                                <i></i>&nbsp;COURRIERSESCAL DECLARER&nbsp;
-                            </a>
                             <?php endif; ?>
                             <button class="btn btn-secondary btn-space md-trigger"
                                     data-modal="form-clarrecaptbg-0" data-ekey="<?= $this->session->company->ekey;?>">
                                 <i></i>&nbsp;DECLARATION BAGAGES&nbsp;
                             </button>
-                            <a class="btn btn-secondary btn-space"
-                               href="<?= site_url('Rapport/declarer_hub/' . $this->session->company->ekey . '/' . $bus_stop->idengare . '/bagage') . '?' . $decl_hub_qs; ?>">
-                                <i></i>&nbsp;BAGAGES DECLARER&nbsp;
-                            </a>
                             <?php if ($decl_has_escales): ?>
                             <button class="btn btn-secondary btn-space md-trigger"
                                     data-modal="form-clarrecaptbgesc-0" data-ekey="<?= $this->session->company->ekey;?>">
                                 <i></i>&nbsp;DECLARATION BAGAGES ESCAL&nbsp;
                             </button>
-                            <a class="btn btn-secondary btn-space"
-                               href="<?= site_url('Rapport/declarer_hub/' . $this->session->company->ekey . '/' . $bus_stop->idengare . '/bagage') . '?' . $decl_hub_qs; ?>">
-                                <i></i>&nbsp;BAGAGES ESCAL DECLARER&nbsp;
-                            </a>
                             <button class="btn btn-secondary btn-space md-trigger"
                                     data-modal="form-recaptes-0" data-ekey="<?= $this->session->company->ekey; ?>">
                                 <i></i>&nbsp;RECAP EX MENSUEL ESCAL&nbsp;

@@ -21,6 +21,9 @@ $codesEscal = (isset($hub_codes_escal) && is_array($hub_codes_escal)) ? $hub_cod
 $ckey = isset($hub_ckey) ? $hub_ckey : '';
 $gid = isset($hub_gid) ? $hub_gid : '';
 $canArchiver = !empty($hub_can_archiver);
+$canAnnuler = !empty($hub_can_annuler);
+$hubFlash = isset($hub_flash) ? (string) $hub_flash : '';
+$hubFlashErr = isset($hub_flash_err) ? (string) $hub_flash_err : '';
 $retour = isset($hub_retour) ? $hub_retour : '#';
 $ctx = isset($hub_ctx) && is_array($hub_ctx) ? $hub_ctx : array();
 $labelsMois = array(
@@ -111,8 +114,8 @@ $decl_pick_gare_escal = function ($gareDef, $bloc) use ($codesEscal, $scope) {
     return ($codesEscal) ? $codesEscal[0] : $gareDef;
 };
 
-$decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
-    $type, $ckey, $gid, $canArchiver, $decl_action_form, $decl_pick_gare_escal, $hasEscales, $scope
+$decl_render_actions = function ($bloc, $cieDef, $gareDef, $moisKey) use (
+    $type, $ckey, $gid, $canArchiver, $canAnnuler, $decl_action_form, $decl_pick_gare_escal, $hasEscales, $scope, $ctx
 ) {
     $debut = $bloc['debut'];
     $fin = $bloc['fin'];
@@ -277,6 +280,42 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
             );
         }
     }
+
+    if ($canAnnuler && $cieDef !== '' && $gareDef !== '' && preg_match('/^\d{4}-\d{2}$/', (string) $moisKey)) {
+        $famAnnuler = 'ticket_etats';
+        if ($type === 'bagage') {
+            $famAnnuler = 'bagage';
+        } elseif ($type === 'courrier') {
+            $famAnnuler = 'courrier';
+        } elseif ($scope === 'escal' || ($hasEscalTicket && !$hasTicket)) {
+            $famAnnuler = 'ticket_escal';
+        }
+        $html = form_open(
+            'Rapport/annuler_declaration/' . rawurlencode($ckey) . '/' . rawurlencode($gid),
+            array(
+                'class' => 'decl-action-form decl-annuler-form',
+                'onsubmit' => "return confirm('Annuler la déclaration de ce mois ? L\\'utilisateur pourra ensuite redéclarer.');",
+            )
+        );
+        foreach ($ctx as $k => $v) {
+            if ($v === '' || $v === null) {
+                continue;
+            }
+            $html .= form_hidden($k, (string) $v);
+        }
+        $html .= form_hidden('hub_type', (string) $type);
+        $html .= form_hidden('mois', (string) $moisKey);
+        $html .= form_hidden('compagnie', (string) $cieDef);
+        $html .= form_hidden('code_gare', (string) $gareDef);
+        $html .= form_hidden('famille', $famAnnuler);
+        if ($scope === 'escal') {
+            $html .= form_hidden('scope', 'escal');
+        }
+        $html .= '<button type="submit" class="decl-action-btn danger">ANNULER DECLARATION</button>';
+        $html .= form_close();
+        $out .= $html;
+    }
+
     $out .= '</div>';
     return $out;
 };
@@ -329,14 +368,18 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
 }
 .decl-action-btn.secondary { background: #fff; color: #0b3d91; }
 .decl-action-btn.warn { background: #1a1c1e; border-color: #1a1c1e; color: #fff; }
+.decl-action-btn.danger { background: #b42318; border-color: #b42318; color: #fff; }
 .decl-empty { padding: 28px; text-align: center; color: #5c6370; background: #fff; border-radius: 12px; }
+.decl-flash { border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-size: .92rem; }
+.decl-flash.ok { background: #e8f5e9; border: 1px solid #a5d6a7; color: #1b5e20; }
+.decl-flash.err { background: #fdecea; border: 1px solid #f5c2c0; color: #7a1f1a; }
 </style>
 
 <div class="decl-hub container-fluid py-3">
   <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
     <div>
       <h2><?= htmlspecialchars($titre); ?></h2>
-      <p class="muted mb-0">Mois déjà déclarés uniquement. Les boutons ouvrent les récaps EX mensuels (ticket / bagage / courrier, dont escal).</p>
+      <p class="muted mb-0">Mois déjà déclarés de cette gare uniquement. Onglets Tickets / Bagages / Courriers (et Escal si affilié) — un seul bouton DECLARER suffit.</p>
     </div>
     <a class="btn btn-secondary" href="<?= htmlspecialchars($retour); ?>">Retour</a>
   </div>
@@ -350,9 +393,19 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
     <a class="<?= $type === 'courrier' ? 'active' : ''; ?>" href="<?= htmlspecialchars($hubSwitch('courrier')); ?>">Courriers</a>
   </div>
 
+  <?php if ($hubFlash !== ''): ?>
+    <div class="decl-flash ok"><?= htmlspecialchars($hubFlash); ?></div>
+  <?php endif; ?>
+  <?php if ($hubFlashErr !== ''): ?>
+    <div class="decl-flash err"><?= htmlspecialchars($hubFlashErr); ?></div>
+  <?php endif; ?>
+
   <div class="decl-help">
     <strong>DECLARATION</strong> = figer le mois (récap EX mensuel) ·
     <strong>DECLARER</strong> = consulter le récap EX mensuel du mois déclaré ·
+    <?php if ($canAnnuler): ?>
+      <strong>ANNULER DECLARATION</strong> = retirer un mois déclaré par erreur (admin / superviseur) pour permettre une nouvelle déclaration ·
+    <?php endif; ?>
     <?php if ($scope === 'escal'): ?>
       <strong>Escal</strong> : lieux affiliés à cette gare. Filtrez un lieu pour lancer le récap.
     <?php else: ?>
@@ -487,7 +540,7 @@ $decl_render_actions = function ($bloc, $cieDef, $gareDef) use (
                 <p class="text-warning mb-0">Sélectionnez une compagnie<?= $gareLocked ? '' : ' et une gare'; ?> (filtre ci-dessus) pour lancer les états.</p>
               <?php else: ?>
                 <p class="muted mb-0">Période <?= htmlspecialchars($bloc['debut']); ?> → <?= htmlspecialchars($bloc['fin']); ?></p>
-                <?= $decl_render_actions($bloc, $cieDef, $gareDef); ?>
+                <?= $decl_render_actions($bloc, $cieDef, $gareDef, $m); ?>
               <?php endif; ?>
             </div>
           <?php endif; ?>

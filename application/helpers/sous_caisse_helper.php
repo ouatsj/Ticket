@@ -348,6 +348,71 @@ if (!function_exists('sous_caisse_scope_sql')) {
     }
 }
 
+if (!function_exists('sous_caisse_filtre_gare_sql')) {
+    /**
+     * Filtre gare pour les tris historiques.
+     * En escale : sous-caisse par escale_cle (ignore un gareconnect = code lieu DIS10…).
+     * Hors escale : gare + caisse mère uniquement.
+     *
+     * @param string $alias
+     * @param string $gid
+     * @return string
+     */
+    function sous_caisse_filtre_gare_sql($alias, $gid)
+    {
+        if (!preg_match('/^[a-z][a-z0-9_]*$/', (string) $alias)) {
+            $alias = 'cs';
+        }
+        $gid = trim((string) $gid);
+        if (function_exists('sous_caisse_cle_page') && sous_caisse_cle_page() !== ''
+            && function_exists('caissier_escale_caisse_sql')
+        ) {
+            return ' ' . caissier_escale_caisse_sql($alias, $gid);
+        }
+        $CI =& get_instance();
+        $frag = ' AND ' . $alias . '.gexp_caiss = ' . $CI->db->escape($gid);
+        if (function_exists('sous_caisse_scope_sql')) {
+            $frag .= sous_caisse_scope_sql($alias);
+        }
+
+        return $frag;
+    }
+}
+
+if (!function_exists('sous_caisse_gexp_historique')) {
+    /**
+     * Gare d'affiliation de la sous-caisse escale (BOB1), pas le code lieu (DIS10).
+     *
+     * @param string $gid
+     * @return string
+     */
+    function sous_caisse_gexp_historique($gid)
+    {
+        $gid = trim((string) $gid);
+        if (!function_exists('sous_caisse_cle_page')) {
+            return $gid;
+        }
+        $cle = sous_caisse_cle_page();
+        if ($cle === '' || !sous_caisse_colonnes_ok()) {
+            return $gid;
+        }
+        $CI =& get_instance();
+        $row = $CI->db->query(
+            "SELECT gexp_caiss FROM caisse
+             WHERE parent_caiss > 0
+               AND REPLACE(TRIM(escale_cle), '|', '~') = ?
+             ORDER BY id_caiss ASC
+             LIMIT 1",
+            array($cle)
+        )->row();
+        if ($row && trim((string) $row->gexp_caiss) !== '') {
+            return trim((string) $row->gexp_caiss);
+        }
+
+        return $gid;
+    }
+}
+
 if (!function_exists('sous_caisse_predicat')) {
     /**
      * Fragments SQL : une caisse, ou la caisse mère et sa sous-caisse.

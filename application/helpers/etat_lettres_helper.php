@@ -201,7 +201,10 @@ function etat_declaration_normaliser_gare($CI, $codeGare)
 }
 
 /**
- * Codes équivalents d'une gare (code_gaexp + garesid) pour éviter BOB35 vs BOB43.
+ * Codes équivalents d'une gare pour le hub Déclarer.
+ * Même compagnie uniquement (code + garesid + homonymes nom) —
+ * ne croise plus les compagnies via garesid (ex. NIA36→NIA5),
+ * ce qui créait des années / mois sans activité sur la gare courante.
  *
  * @return string[]
  */
@@ -213,24 +216,55 @@ function etat_declaration_aliases_gare($CI, $codeGare)
     }
     $aliases = array($raw);
     $row = $CI->db->query(
-        'SELECT code_gaexp, garesid FROM gare_exp
-         WHERE code_gaexp = ? OR garesid = ?
+        'SELECT code_gaexp, garesid, nom_gaep, id_compagd FROM gare_exp
+         WHERE code_gaexp = ?
          LIMIT 1',
-        array($raw, $raw)
+        array($raw)
     )->row();
+    if (!$row) {
+        // Code passé = garesid : prendre la ligne canonique même compagnie si possible.
+        $row = $CI->db->query(
+            'SELECT code_gaexp, garesid, nom_gaep, id_compagd FROM gare_exp
+             WHERE garesid = ?
+             ORDER BY (code_gaexp = garesid) DESC, code_gaexp ASC
+             LIMIT 1',
+            array($raw)
+        )->row();
+    }
     if ($row) {
         $code = trim((string) $row->code_gaexp);
         $sid = trim((string) $row->garesid);
+        $cie = isset($row->id_compagd) ? $row->id_compagd : null;
+        $nom = trim((string) $row->nom_gaep);
         if ($code !== '') {
             $aliases[] = $code;
         }
-        if ($sid !== '') {
-            $aliases[] = $sid;
+        // garesid = autre code, uniquement s'il appartient à la même compagnie.
+        if ($sid !== '' && $sid !== $code && $cie !== null && $cie !== '') {
+            $same = $CI->db->query(
+                'SELECT code_gaexp FROM gare_exp
+                 WHERE code_gaexp = ? AND id_compagd = ?
+                 LIMIT 1',
+                array($sid, $cie)
+            )->row();
+            if ($same && trim((string) $same->code_gaexp) !== '') {
+                $aliases[] = trim((string) $same->code_gaexp);
+            }
         }
-    }
-    $norm = etat_declaration_normaliser_gare($CI, $raw);
-    if ($norm !== '') {
-        $aliases[] = $norm;
+        // Doublons techniques même compagnie + même nom (BOB35 vs BOB43).
+        if ($nom !== '' && $cie !== null && $cie !== '') {
+            $twins = $CI->db->query(
+                'SELECT code_gaexp FROM gare_exp
+                 WHERE nom_gaep = ? AND id_compagd = ?',
+                array($nom, $cie)
+            )->result();
+            foreach ($twins as $t) {
+                $c = trim((string) $t->code_gaexp);
+                if ($c !== '') {
+                    $aliases[] = $c;
+                }
+            }
+        }
     }
     return array_values(array_unique(array_filter($aliases, function ($v) {
         return $v !== '' && $v !== '0';
@@ -410,6 +444,19 @@ function etat_declaration_codes_escal_affilies($ekey, $gid)
                 foreach (role17_codes_gaexp_par_nom($nom) as $codeLieu) {
                     if (isset($codesVenteAutres[$codeLieu])) {
                         continue;
+                    }
+                    // Destinations d'itinéraire (BOBO, BANFORA…) ≠ lieux d'escale de vente.
+                    // Une gare siège (code = garesid) n'est affiliée que via vente_escale (étape 1).
+                    $geLieu = $CI->db->query(
+                        'SELECT code_gaexp, garesid FROM gare_exp WHERE code_gaexp = ? LIMIT 1',
+                        array($codeLieu)
+                    )->row();
+                    if ($geLieu) {
+                        $cL = trim((string) $geLieu->code_gaexp);
+                        $sL = trim((string) $geLieu->garesid);
+                        if ($cL !== '' && $cL === $sL && $cL !== $gid && $cL !== $norm) {
+                            continue;
+                        }
                     }
                     $codes[$codeLieu] = $codeLieu;
                 }
@@ -1022,6 +1069,7 @@ function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleComp
     // Historique : déclarations faites via tampons seuls (avant etat_lettre_declaration).
     // Scan complet tant qu'aucune année passée n'est en table (évite de masquer 2023–2025
     // si seuls quelques mois récents ont été seedés). Ensuite, rescan des 4 derniers mois.
+    // Exception : filtre gare précis → scan complet (trouves les trous type févr.–avr. 2026).
     $hasAnneePassee = false;
     $anneeCourante = date('Y');
     foreach (array_keys($out['mois']) as $mHub) {
@@ -1030,9 +1078,11 @@ function etat_declaration_lister_mois($ekey, $familles, $codeGare = '', $cleComp
             break;
         }
     }
-    $moisMinTampon = ($hasAnneePassee && count($out['mois']) >= 6)
-        ? date('Y-m', strtotime('-4 months'))
-        : '';
+    $moisMinTampon = ($aliases && count($aliases) <= 8)
+        ? ''
+        : (($hasAnneePassee && count($out['mois']) >= 6)
+            ? date('Y-m', strtotime('-4 months'))
+            : '');
     $tampons = etat_declaration_mois_depuis_tampons(
         $CI,
         (int) $ekey,
@@ -1326,10 +1376,6 @@ function etat_declaration_mois_depuis_tampons($CI, $ekey, array $familles, $code
     }
 
     if ($needBagage) {
-        $filtreGareExp = '';
-        if ($inAliasesSql !== '') {
-            $filtreGareExp = " AND (ex.code_gaexp IN ({$inAliasesSql}) OR ex.garesid IN ({$inAliasesSql}))";
-        }
         foreach (array(
             array('bagages', 'date_create', 'exobg'),
             array('bagagesesc', 'date_createesc', 'exobagesc'),
@@ -1340,17 +1386,31 @@ function etat_declaration_mois_depuis_tampons($CI, $ekey, array $familles, $code
             }
             $filtreMoisBag = ($table === 'bagages') ? $filtreMoisBg : $filtreMoisBgEsc;
             if ($table === 'bagages') {
-                $sql = "SELECT DATE_FORMAT(bg.{$colDate}, '%Y-%m') AS mois, dest.id_compaga AS cie, ex.code_gaexp AS g
+                // Lieu réel = idgarebag (sinon gaexp ligne via lgidbagage / programme).
+                // Beaucoup de bagages n'ont plus de progidbagage : INNER JOIN programme les masquait.
+                $filtreGareBg = '';
+                if ($inAliasesSql !== '') {
+                    $filtreGareBg = " AND (
+                        (NULLIF(TRIM(bg.idgarebag), '') IS NOT NULL AND bg.idgarebag IN ({$inAliasesSql}))
+                        OR (
+                            (bg.idgarebag IS NULL OR TRIM(bg.idgarebag) = '')
+                            AND COALESCE(lg.gaexp_lg, g.gaexp_lg) IN ({$inAliasesSql})
+                        )
+                    )";
+                }
+                $sql = "SELECT DATE_FORMAT(bg.{$colDate}, '%Y-%m') AS mois, dest.id_compaga AS cie,
+                               COALESCE(NULLIF(TRIM(bg.idgarebag), ''), lg.gaexp_lg, g.gaexp_lg) AS g
                         FROM bagages bg
-                        JOIN programme pr ON bg.progidbagage = pr.code_progr
-                        JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                        JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                        JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                        JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                        JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        LEFT JOIN programme pr ON bg.progidbagage = pr.code_progr
+                        LEFT JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                        LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
+                        LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+                        LEFT JOIN gare_dest dest
+                            ON (lg.gadest_lg = dest.code_gadest OR g.gadest_lg = dest.code_gadest)
+                        LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                        LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                         WHERE e.ekey = {$ekey} AND bg.{$colFlag} = 1
-                          {$filtreCie}{$filtreGareExp}{$filtreMoisBag}
+                          {$filtreCie}{$filtreGareBg}{$filtreMoisBag}
                         GROUP BY mois, cie, g";
             } else {
                 // Lieu réel = idgarebagesc (DIS10/BOR26…), pas gaexp de la ligne parent (BOB1).
@@ -1500,18 +1560,27 @@ function etat_lettre_tampon_existe($CI, $ekey, $cle, $famille, $mois, $codeGare 
         ),
         'bagage' => array(
             "SELECT 1 FROM bagages bg
-             JOIN programme pr ON bg.progidbagage = pr.code_progr
-             JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-             JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-             JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-             JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-             JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-             JOIN entreprise e ON c.id_entrep = e.id_entreprise
+             LEFT JOIN programme pr ON bg.progidbagage = pr.code_progr
+             LEFT JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+             LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
+             LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+             LEFT JOIN gare_dest dest
+                 ON (lg.gadest_lg = dest.code_gadest OR g.gadest_lg = dest.code_gadest)
+             LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+             LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
              WHERE e.ekey = {$ekey} AND dest.id_compaga = {$cleSql}
              AND bg.date_create >= {$debutSql}
              AND bg.date_create < {$finSql}
              AND bg.exobg = 1
-             {$filtreGareExp}
+             " . (($gareMatch !== '')
+                ? " AND (
+                    (NULLIF(TRIM(bg.idgarebag), '') IS NOT NULL AND bg.idgarebag = {$gareMatch})
+                    OR (
+                        (bg.idgarebag IS NULL OR TRIM(bg.idgarebag) = '')
+                        AND COALESCE(lg.gaexp_lg, g.gaexp_lg) = {$gareMatch}
+                    )
+                  )"
+                : '') . "
              LIMIT 1",
             "SELECT 1 FROM bagagesesc bg
              JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
@@ -1612,4 +1681,227 @@ function etat_lettre_enregistrer($ekey, $cle, $famille, $mois, array $lettres, $
 function etat_lettre_vider_cache()
 {
     // Le cache statique de etat_lettre_charger_regles() vit le temps de la requête.
+}
+
+/**
+ * Annule une déclaration mensuelle (admin) : retire le verrou table + les flags tampon.
+ * Le mois disparaît du hub Déclarer et peut être redéclaré.
+ *
+ * @return array{ok:bool,deleted:int,reset:int,message:string}
+ */
+function etat_declaration_annuler($ekey, $cle, $famille, $mois, $codeGare = '')
+{
+    $out = array('ok' => false, 'deleted' => 0, 'reset' => 0, 'message' => '');
+    $ekey = (int) $ekey;
+    $cle = trim((string) $cle);
+    $famille = trim((string) $famille);
+    $mois = trim((string) $mois);
+    if ($ekey <= 0 || $cle === '' || $famille === '' || !preg_match('/^\d{4}-\d{2}$/', $mois)) {
+        $out['message'] = 'Paramètres incomplets.';
+        return $out;
+    }
+    if (!in_array($famille, array('ticket_etats', 'ticket_escal', 'bagage', 'courrier'), true)) {
+        $out['message'] = 'Famille inconnue.';
+        return $out;
+    }
+    if (!etat_lettre_ensure()) {
+        $out['message'] = 'Table déclaration indisponible.';
+        return $out;
+    }
+    $CI = get_instance();
+    $gare = etat_declaration_normaliser_gare($CI, $codeGare);
+    if ($gare === '') {
+        $out['message'] = 'Gare obligatoire pour annuler.';
+        return $out;
+    }
+    $aliases = etat_declaration_aliases_gare($CI, $gare);
+    if (!$aliases) {
+        $aliases = array($gare);
+    }
+    $debut = $mois . '-01';
+    $finExcl = date('Y-m-d', strtotime($debut . ' +1 month'));
+    $cleSql = $CI->db->escape($cle);
+    $debutSql = $CI->db->escape($debut);
+    $finSql = $CI->db->escape($finExcl);
+    $inAliases = implode(',', array_map(array($CI->db, 'escape'), $aliases));
+
+    // Garesid liés aux alias (filtre passager / non_passager / escal).
+    $garesidList = array();
+    $qSid = $CI->db->query(
+        "SELECT DISTINCT garesid, code_gaexp FROM gare_exp
+         WHERE code_gaexp IN ({$inAliases}) OR garesid IN ({$inAliases})"
+    );
+    if ($qSid) {
+        foreach ($qSid->result() as $r) {
+            $sid = trim((string) $r->garesid);
+            $cg = trim((string) $r->code_gaexp);
+            if ($sid !== '') {
+                $garesidList[$sid] = $sid;
+            }
+            if ($cg !== '') {
+                $garesidList[$cg] = $cg;
+            }
+        }
+    }
+    foreach ($aliases as $a) {
+        $garesidList[$a] = $a;
+    }
+    $inGaresid = implode(',', array_map(array($CI->db, 'escape'), array_values($garesidList)));
+
+    $prev = $CI->db->db_debug;
+    $CI->db->db_debug = false;
+    $CI->db->trans_start();
+
+    $CI->db->query(
+        "DELETE FROM etat_lettre_declaration
+         WHERE entreprise_ekey = ?
+           AND cle_compagnie = ?
+           AND famille = ?
+           AND mois = ?
+           AND code_gare IN ({$inAliases})",
+        array($ekey, $cle, $famille, $mois)
+    );
+    $deleted = (int) $CI->db->affected_rows();
+
+    $reset = 0;
+    $updates = array();
+
+    if ($famille === 'ticket_etats') {
+        $exprP = etat_lettre_expr_gare_passager('p');
+        $updates[] = "UPDATE passager p
+            JOIN programme pr ON p.code_pro = pr.code_progr
+            JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+            JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            SET p.exop = 0
+            WHERE e.ekey = {$ekey}
+              AND dest.id_compaga = {$cleSql}
+              AND p.datep_create >= {$debutSql}
+              AND p.datep_create < {$finSql}
+              AND IFNULL(p.exop, 0) = 1
+              AND {$exprP} IN ({$inGaresid})";
+        $exprNp = etat_lettre_expr_gare_non_passager('np');
+        $updates[] = "UPDATE non_passager np
+            JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
+            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            SET np.exonp = 0
+            WHERE e.ekey = {$ekey}
+              AND dest.id_compaga = {$cleSql}
+              AND np.datevente >= {$debutSql}
+              AND np.datevente < {$finSql}
+              AND IFNULL(np.exonp, 0) = 1
+              AND {$exprNp} IN ({$inGaresid})";
+    } elseif ($famille === 'ticket_escal') {
+        $exprE = etat_lettre_expr_gare_escal('esp');
+        $updates[] = "UPDATE escalclients esp
+            JOIN lignes lg ON esp.lignintescal = lg.ident_ligne
+            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            SET esp.exopes = 0
+            WHERE e.ekey = {$ekey}
+              AND dest.id_compaga = {$cleSql}
+              AND esp.datedepescal >= {$debutSql}
+              AND esp.datedepescal < {$finSql}
+              AND IFNULL(esp.exopes, 0) = 1
+              AND {$exprE} IN ({$inGaresid})";
+    } elseif ($famille === 'bagage') {
+        $updates[] = "UPDATE bagages bg
+            LEFT JOIN programme pr ON bg.progidbagage = pr.code_progr
+            LEFT JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+            LEFT JOIN lignes g ON lh.ligne_id = g.ident_ligne
+            LEFT JOIN lignes lg ON bg.lgidbagage = lg.ident_ligne
+            LEFT JOIN gare_dest dest
+                ON (lg.gadest_lg = dest.code_gadest OR g.gadest_lg = dest.code_gadest)
+            LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
+            SET bg.exobg = 0
+            WHERE e.ekey = {$ekey}
+              AND dest.id_compaga = {$cleSql}
+              AND bg.date_create >= {$debutSql}
+              AND bg.date_create < {$finSql}
+              AND IFNULL(bg.exobg, 0) = 1
+              AND (
+                (NULLIF(TRIM(bg.idgarebag), '') IS NOT NULL AND bg.idgarebag IN ({$inAliases}))
+                OR (
+                    (bg.idgarebag IS NULL OR TRIM(bg.idgarebag) = '')
+                    AND COALESCE(lg.gaexp_lg, g.gaexp_lg) IN ({$inAliases})
+                )
+              )";
+        if ($CI->db->table_exists('bagagesesc') && $CI->db->field_exists('exobagesc', 'bagagesesc')) {
+            $updates[] = "UPDATE bagagesesc bg
+                JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
+                JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                SET bg.exobagesc = 0
+                WHERE e.ekey = {$ekey}
+                  AND dest.id_compaga = {$cleSql}
+                  AND bg.date_createesc >= {$debutSql}
+                  AND bg.date_createesc < {$finSql}
+                  AND IFNULL(bg.exobagesc, 0) = 1
+                  AND bg.idgarebagesc IN ({$inAliases})";
+        }
+    } elseif ($famille === 'courrier') {
+        $updates[] = "UPDATE courriers_exp e
+            JOIN code_courriers cd ON e.id_codecourrier = cd.codecolisid
+            JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+            JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+            JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+            JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+            JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+            SET e.exocr = 0
+            WHERE ep.ekey = {$ekey}
+              AND dest.id_compaga = {$cleSql}
+              AND e.dateenvoi >= {$debutSql}
+              AND e.dateenvoi < {$finSql}
+              AND IFNULL(e.exocr, 0) = 1
+              AND (ex.code_gaexp IN ({$inAliases}) OR ex.garesid IN ({$inGaresid}))";
+        if ($CI->db->table_exists('courriers_expesc') && $CI->db->field_exists('exocresc', 'courriers_expesc')) {
+            $updates[] = "UPDATE courriers_expesc es
+                JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
+                JOIN lignes lg ON cd.idlignes = lg.ident_ligne
+                JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
+                SET es.exocresc = 0
+                WHERE ep.ekey = {$ekey}
+                  AND dest.id_compaga = {$cleSql}
+                  AND es.dateenvoiesc >= {$debutSql}
+                  AND es.dateenvoiesc < {$finSql}
+                  AND IFNULL(es.exocresc, 0) = 1
+                  AND NULLIF(TRIM(es.code_gaexp_vendu), '') IN ({$inAliases})";
+        }
+    }
+
+    foreach ($updates as $sql) {
+        $CI->db->query($sql);
+        $n = (int) $CI->db->affected_rows();
+        if ($n > 0) {
+            $reset += $n;
+        }
+    }
+
+    $CI->db->trans_complete();
+    $CI->db->db_debug = $prev;
+
+    if ($CI->db->trans_status() === false) {
+        $out['message'] = 'Échec de l\'annulation (transaction).';
+        return $out;
+    }
+
+    $out['ok'] = true;
+    $out['deleted'] = $deleted;
+    $out['reset'] = $reset;
+    if ($deleted === 0 && $reset === 0) {
+        $out['message'] = 'Aucune déclaration trouvée pour ce mois / gare.';
+    } else {
+        $out['message'] = 'Déclaration annulée : le mois peut être redéclaré.';
+    }
+    return $out;
 }

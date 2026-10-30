@@ -224,7 +224,10 @@
                                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                                         WHERE e.ekey = '$cd'
                                         AND dp.ferme_caisdepo = 0
+                                        AND dp.arret_caisdepo = 0
+                                        AND dp.is_actifdepo = 1
                                         AND dp.is_validdepo = 1
+                                        AND IFNULL(dp.actif_depo, 0) = 0
                                         AND dp.type_depot <> 'Courrier'
                                         AND cs.id_caiss = '$item->id_caiss'
                                         AND dp.opvalid = '$ut'
@@ -446,8 +449,10 @@
                                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
                                         WHERE e.ekey = '$cd'
                                         AND dp.ferme_caisdepo = 0
+                                        AND dp.arret_caisdepo = 0
                                         AND dp.is_validdepo = 1
                                         AND dp.is_actifdepoad = 1
+                                        AND IFNULL(dp.actif_depo, 0) = 0
                                         AND dp.type_depot <> 'Courrier'
                                         AND cs.id_caiss = '$item->id_caiss'
                                         AND dp.opvalidad = '$ut'
