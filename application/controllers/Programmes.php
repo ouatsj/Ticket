@@ -94,6 +94,8 @@
                 'heures_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_itineraire_etape', 'm_entreprises', 'm_sousgare'),
                 'link_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_itineraire_etape', 'm_entreprises', 'm_sousgare'),
                 'unlink_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_entreprises'),
+                'apercu_annuler_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_programme_reconduction', 'm_entreprises'),
+                'annuler_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_programme_reconduction', 'm_entreprises'),
                 'get_correspondance' => array('m_programme', 'm_programme_correspondance', 'm_entreprises'),
                 'sousgares_correspondance' => array('m_programme_correspondance', 'm_entreprises'),
                 'declare_sortie' => array('m_programme', 'm_programme_reconduction', 'm_entreprises'),
@@ -1672,11 +1674,17 @@
          * Supprime le lien (programmes conservés).
          * POST Programmes/unlink_correspondance/{ekey}
          * body: id_lien (préféré) OU code_progr_principal (supprime tous les liens du principal)
+         * Réservé admin (userole 1).
          */
         public function unlink_correspondance($ckey)
         {
             session_release_lock();
             $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_admin_correspondance()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
             $idLien = (int) $this->input->post('id_lien');
             if ($idLien <= 0) {
                 $idLien = (int) $this->input->get('id_lien');
@@ -1694,6 +1702,82 @@
                 $out = $this->m_programme_correspondance->unlink($principal);
             }
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Aperçu annulation complète (garde principal, purge suite/dérivé).
+         * GET/POST Programmes/apercu_annuler_correspondance/{ekey} — id_lien
+         * Admin uniquement.
+         */
+        public function apercu_annuler_correspondance($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_admin_correspondance()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            $idLien = (int) $this->input->post('id_lien');
+            if ($idLien <= 0) {
+                $idLien = (int) $this->input->get('id_lien');
+            }
+            if ($idLien <= 0) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'params_manquants'),
+                ));
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $out = $this->m_programme_correspondance->apercu_annuler(
+                $idLien,
+                $this->session->company->ekey
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Annulation complète admin : coupe le lien, purge hub/tronçon, conserve le principal.
+         * POST Programmes/annuler_correspondance/{ekey} — id_lien
+         */
+        public function annuler_correspondance($ckey)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_admin_correspondance()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            if ($this->input->method(TRUE) !== 'POST') {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'method'),
+                ));
+            }
+            $idLien = (int) $this->input->post('id_lien');
+            if ($idLien <= 0) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'params_manquants'),
+                ));
+            }
+            if (!isset($this->m_programme_correspondance)) {
+                $this->load->model('Programme_correspondance_model', 'm_programme_correspondance');
+            }
+            $out = $this->m_programme_correspondance->annuler_by_id(
+                $idLien,
+                $this->session->company->ekey
+            );
+            return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Annulation / unlink correspondance : compte admin uniquement (userole 1).
+         */
+        protected function _peut_admin_correspondance()
+        {
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            return $role === '1';
         }
 
         /**
@@ -1719,6 +1803,7 @@
                 $liens = $asPrincipal;
             }
             $lien = !empty($liens) ? $liens[0] : null;
+            $isAdminCorr = $this->_peut_admin_correspondance();
             $out = array(
                 'ok' => true,
                 'lien' => $lien,
@@ -1726,6 +1811,8 @@
                 'nb_liens' => count($liens),
                 'verrouille' => false,
                 'nb_ventes' => 0,
+                'is_admin' => $isAdminCorr,
+                'peut_annuler_lien' => $isAdminCorr,
             );
             if ($lien) {
                 $out['principal'] = $this->m_programme_correspondance->prog_detail($ekey, $lien->code_progr_principal);
@@ -1739,6 +1826,7 @@
                 $suites = array();
                 foreach ($liens as $l) {
                     $lockL = $this->m_programme_correspondance->statut_verrouillage($l);
+                    $lockTr = $this->m_programme_correspondance->statut_verrouillage_troncons($l);
                     $suites[] = array(
                         'id_lien' => isset($l->id_lien) ? (int) $l->id_lien : 0,
                         'code_progr_suite' => $l->code_progr_suite,
@@ -1748,6 +1836,9 @@
                             ? $this->m_programme_correspondance->prog_detail($ekey, $l->code_progr_derive) : null,
                         'verrouille' => !empty($lockL['verrouille']),
                         'nb_ventes' => isset($lockL['nb_ventes']) ? (int) $lockL['nb_ventes'] : 0,
+                        'verrouille_troncons' => !empty($lockTr['verrouille']),
+                        'nb_ventes_troncons' => isset($lockTr['nb_ventes']) ? (int) $lockTr['nb_ventes'] : 0,
+                        'peut_annuler' => $isAdminCorr,
                     );
                 }
                 $out['suites'] = $suites;

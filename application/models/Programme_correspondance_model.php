@@ -134,6 +134,20 @@ class Programme_correspondance_model extends CI_Model
                 "ALTER TABLE {$this->table} ADD INDEX idx_principal (code_progr_principal)"
             );
         }
+        if (!$this->db->field_exists('suite_origine', $this->table)) {
+            $this->db->query(
+                "ALTER TABLE {$this->table}
+                 ADD COLUMN suite_origine VARCHAR(16) NOT NULL DEFAULT 'cree'
+                 AFTER code_progr_derive"
+            );
+        }
+        if (!$this->db->field_exists('derive_origine', $this->table)) {
+            $this->db->query(
+                "ALTER TABLE {$this->table}
+                 ADD COLUMN derive_origine VARCHAR(16) NOT NULL DEFAULT 'cree'
+                 AFTER suite_origine"
+            );
+        }
         return true;
     }
 
@@ -2420,6 +2434,8 @@ class Programme_correspondance_model extends CI_Model
             'code_progr_principal' => $principal->code_progr,
             'code_progr_suite' => $suite->code_progr,
             'code_progr_derive' => $codeDerive,
+            'suite_origine' => $suiteReused ? 'reutilise' : 'cree',
+            'derive_origine' => $deriveReused ? 'reutilise' : 'cree',
             'ekey' => $ekey,
         ));
         if (!$okLien || (int) $this->db->affected_rows() !== 1) {
@@ -2484,6 +2500,52 @@ class Programme_correspondance_model extends CI_Model
             return array('verrouille' => false, 'nb_ventes' => 0, 'codes' => array());
         }
         $codes = $this->codes_ventes_lien($lien);
+        return $this->_count_ventes_actives($codes);
+    }
+
+    /**
+     * Verrouillage pour annulation complète : ventes actives sur suite + dérivé seulement.
+     * Le principal peut garder ses ventes (il est conservé).
+     *
+     * @param object|string $lien_or_principal
+     * @return array{verrouille:bool,nb_ventes:int,codes:string[],nb_suite:int,nb_derive:int}
+     */
+    public function statut_verrouillage_troncons($lien_or_principal)
+    {
+        $lien = is_object($lien_or_principal)
+            ? $lien_or_principal
+            : $this->get_by_principal($lien_or_principal);
+        if (!$lien) {
+            return array(
+                'verrouille' => false,
+                'nb_ventes' => 0,
+                'codes' => array(),
+                'nb_suite' => 0,
+                'nb_derive' => 0,
+            );
+        }
+        $suite = !empty($lien->code_progr_suite) ? trim((string) $lien->code_progr_suite) : '';
+        $derive = !empty($lien->code_progr_derive) ? trim((string) $lien->code_progr_derive) : '';
+        $codes = array();
+        if ($suite !== '') {
+            $codes[] = $suite;
+        }
+        if ($derive !== '') {
+            $codes[] = $derive;
+        }
+        $out = $this->_count_ventes_actives($codes);
+        $out['nb_suite'] = $suite !== '' ? $this->_nb_ventes_code($suite) : 0;
+        $out['nb_derive'] = $derive !== '' ? $this->_nb_ventes_code($derive) : 0;
+        return $out;
+    }
+
+    /**
+     * @param string[] $codes
+     * @return array{verrouille:bool,nb_ventes:int,codes:string[]}
+     */
+    protected function _count_ventes_actives(array $codes)
+    {
+        $codes = array_values(array_unique(array_filter(array_map('strval', $codes))));
         if (empty($codes)) {
             return array('verrouille' => false, 'nb_ventes' => 0, 'codes' => array());
         }
@@ -2500,6 +2562,362 @@ class Programme_correspondance_model extends CI_Model
             'nb_ventes' => $nb,
             'codes' => $codes,
         );
+    }
+
+    /**
+     * @param string $code_progr
+     * @return int
+     */
+    protected function _nb_ventes_code($code_progr)
+    {
+        $code = trim((string) $code_progr);
+        if ($code === '') {
+            return 0;
+        }
+        $row = $this->db->query(
+            "SELECT COUNT(*) AS nb FROM passager
+             WHERE code_pro = ? AND actif_pas = 0",
+            array($code)
+        )->row();
+        return $row ? (int) $row->nb : 0;
+    }
+
+    /**
+     * Origine suite/dérivé (cree|reutilise), avec repli heuristique pour anciens liens.
+     *
+     * @param object $lien
+     * @param string $role suite|derive
+     * @return string
+     */
+    public function origine_troncon($lien, $role)
+    {
+        $col = ($role === 'derive') ? 'derive_origine' : 'suite_origine';
+        if (is_object($lien) && isset($lien->$col) && trim((string) $lien->$col) !== '') {
+            $v = strtolower(trim((string) $lien->$col));
+            return ($v === 'reutilise') ? 'reutilise' : 'cree';
+        }
+        // Anciens liens : même depart_code que le principal ⇒ créé pour la correspondance.
+        $codeTr = ($role === 'derive')
+            ? (isset($lien->code_progr_derive) ? trim((string) $lien->code_progr_derive) : '')
+            : (isset($lien->code_progr_suite) ? trim((string) $lien->code_progr_suite) : '');
+        $codePr = isset($lien->code_progr_principal) ? trim((string) $lien->code_progr_principal) : '';
+        if ($codeTr === '' || $codePr === '') {
+            return 'cree';
+        }
+        $rows = $this->db->query(
+            "SELECT code_progr, depart_code FROM programme
+             WHERE code_progr IN (?, ?)",
+            array($codePr, $codeTr)
+        )->result();
+        $deps = array();
+        foreach ($rows as $r) {
+            $deps[(string) $r->code_progr] = isset($r->depart_code) ? (string) $r->depart_code : '';
+        }
+        if (!isset($deps[$codePr], $deps[$codeTr])) {
+            return 'cree';
+        }
+        if ($deps[$codePr] !== '' && $deps[$codePr] === $deps[$codeTr]) {
+            return 'cree';
+        }
+        return 'reutilise';
+    }
+
+    /**
+     * Aperçu avant annulation complète (admin).
+     *
+     * @param int $id_lien
+     * @param string $ekey
+     * @return array
+     */
+    public function apercu_annuler($id_lien, $ekey = '')
+    {
+        $this->ensure_multi_liens_schema();
+        $lien = $this->get_by_id($id_lien);
+        if (!$lien) {
+            return array('ok' => false, 'error' => 'lien_introuvable');
+        }
+        $ekey = trim((string) $ekey);
+        if ($ekey === '' && !empty($lien->ekey)) {
+            $ekey = (string) $lien->ekey;
+        }
+        $lock = $this->statut_verrouillage_troncons($lien);
+        $suiteOrigine = $this->origine_troncon($lien, 'suite');
+        $deriveOrigine = $this->origine_troncon($lien, 'derive');
+        $suiteCode = !empty($lien->code_progr_suite) ? (string) $lien->code_progr_suite : '';
+        $deriveCode = !empty($lien->code_progr_derive) ? (string) $lien->code_progr_derive : '';
+
+        $idLien = (int) $lien->id_lien;
+        $suiteMeta = $this->_meta_troncon_annuler($suiteCode, $suiteOrigine, $ekey, (int) $lock['nb_suite'], $idLien);
+        $deriveMeta = $this->_meta_troncon_annuler($deriveCode, $deriveOrigine, $ekey, (int) $lock['nb_derive'], $idLien);
+
+        $blocage = null;
+        if (!empty($lock['verrouille'])) {
+            $blocage = 'ventes_troncons';
+        } elseif (!$suiteMeta['peut_supprimer'] && $suiteOrigine === 'cree' && $suiteCode !== '') {
+            // Créé mais non suppressible (reconduction, autre lien) → on détachera / désactivera.
+        }
+
+        $actions = array('delete_lien');
+        if ($suiteCode !== '') {
+            $actions[] = !empty($suiteMeta['peut_supprimer']) ? 'delete_suite' : (
+                ($suiteOrigine === 'reutilise') ? 'detach_suite' : 'desactiver_suite'
+            );
+        }
+        if ($deriveCode !== '') {
+            $actions[] = !empty($deriveMeta['peut_supprimer']) ? 'delete_derive' : (
+                ($deriveOrigine === 'reutilise') ? 'detach_derive' : 'desactiver_derive'
+            );
+        }
+
+        return array(
+            'ok' => true,
+            'id_lien' => (int) $lien->id_lien,
+            'principal' => array(
+                'code' => (string) $lien->code_progr_principal,
+                'detail' => $ekey !== '' ? $this->prog_detail($ekey, $lien->code_progr_principal) : null,
+                'nb_ventes' => $this->_nb_ventes_code($lien->code_progr_principal),
+            ),
+            'suite' => $suiteMeta,
+            'derive' => $deriveMeta,
+            'verrouille' => !empty($lock['verrouille']),
+            'nb_ventes_troncons' => (int) $lock['nb_ventes'],
+            'blocage' => $blocage,
+            'actions_prevues' => $actions,
+            'message' => $blocage === 'ventes_troncons'
+                ? 'Impossible d’annuler : des ventes existent sur le hub ou le tronçon. Reprogrammez ou annulez ces tickets d’abord.'
+                : 'Le départ principal sera conservé. Le hub et le tronçon seront retirés si possible.',
+        );
+    }
+
+    /**
+     * @param string $code
+     * @param string $origine
+     * @param string $ekey
+     * @param int $nbVentes
+     * @param int $except_id_lien
+     * @return array
+     */
+    protected function _meta_troncon_annuler($code, $origine, $ekey, $nbVentes, $except_id_lien = 0)
+    {
+        $code = trim((string) $code);
+        if ($code === '') {
+            return array(
+                'code' => '',
+                'origine' => $origine,
+                'nb_ventes' => 0,
+                'peut_supprimer' => false,
+                'detail' => null,
+                'raison' => 'absent',
+            );
+        }
+        $detail = ($ekey !== '') ? $this->prog_detail($ekey, $code) : null;
+        $peut = false;
+        $raison = '';
+        if ($nbVentes > 0) {
+            $raison = 'ventes';
+        } elseif ($origine === 'reutilise') {
+            $raison = 'reutilise';
+        } elseif ($this->_autre_lien_utilise($code, $except_id_lien)) {
+            $raison = 'autre_lien';
+        } else {
+            if (!isset($this->m_programme)) {
+                $this->load->model('Programme_model', 'm_programme');
+            }
+            $check = $this->m_programme->peut_supprimer($code);
+            if (!empty($check['ok'])) {
+                if (!isset($this->m_programme_reconduction)) {
+                    $this->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+                }
+                if ($this->m_programme_reconduction->get_reco_by_cible($code)) {
+                    $raison = 'reconduction';
+                } else {
+                    $peut = true;
+                    $raison = 'ok';
+                }
+            } else {
+                $raison = isset($check['reason']) ? (string) $check['reason'] : 'refuse';
+                // Historique inactif : on pourra désactiver le programme.
+                if ($raison === 'passagers' && $nbVentes === 0) {
+                    $raison = 'historique';
+                }
+            }
+        }
+        return array(
+            'code' => $code,
+            'origine' => $origine,
+            'nb_ventes' => (int) $nbVentes,
+            'peut_supprimer' => $peut,
+            'detail' => $detail,
+            'raison' => $raison,
+        );
+    }
+
+    /**
+     * True si le code apparaît dans un autre lien que celui fourni (ou n'importe lequel si id=0).
+     *
+     * @param string $code_progr
+     * @param int $except_id_lien
+     * @return bool
+     */
+    protected function _autre_lien_utilise($code_progr, $except_id_lien = 0)
+    {
+        $code = trim((string) $code_progr);
+        if ($code === '') {
+            return false;
+        }
+        $sql = "SELECT id_lien FROM {$this->table}
+                WHERE (code_progr_principal = ? OR code_progr_suite = ? OR code_progr_derive = ?)";
+        $params = array($code, $code, $code);
+        if ((int) $except_id_lien > 0) {
+            $sql .= ' AND id_lien <> ?';
+            $params[] = (int) $except_id_lien;
+        }
+        $sql .= ' LIMIT 1';
+        $row = $this->db->query($sql, $params)->row();
+        return (bool) $row;
+    }
+
+    /**
+     * Annulation complète admin : coupe le lien, purge suite/dérivé créés, garde le principal.
+     *
+     * @param int $id_lien
+     * @param string $ekey
+     * @return array
+     */
+    public function annuler_by_id($id_lien, $ekey = '')
+    {
+        $this->ensure_multi_liens_schema();
+        $apercu = $this->apercu_annuler($id_lien, $ekey);
+        if (empty($apercu['ok'])) {
+            return $apercu;
+        }
+        if (!empty($apercu['verrouille']) || (isset($apercu['blocage']) && $apercu['blocage'] === 'ventes_troncons')) {
+            return array(
+                'ok' => false,
+                'error' => 'ventes_troncons',
+                'message' => isset($apercu['message']) ? $apercu['message']
+                    : 'Impossible d’annuler : ventes sur hub ou tronçon.',
+                'nb_ventes' => isset($apercu['nb_ventes_troncons']) ? (int) $apercu['nb_ventes_troncons'] : 0,
+                'apercu' => $apercu,
+            );
+        }
+
+        $lien = $this->get_by_id($id_lien);
+        if (!$lien) {
+            return array('ok' => false, 'error' => 'lien_introuvable');
+        }
+
+        $principal = (string) $lien->code_progr_principal;
+        $suiteCode = !empty($lien->code_progr_suite) ? (string) $lien->code_progr_suite : '';
+        $deriveCode = !empty($lien->code_progr_derive) ? (string) $lien->code_progr_derive : '';
+        $suiteOrigine = $this->origine_troncon($lien, 'suite');
+        $deriveOrigine = $this->origine_troncon($lien, 'derive');
+
+        if (!isset($this->m_programme)) {
+            $this->load->model('Programme_model', 'm_programme');
+        }
+        if (!isset($this->m_programme_reconduction)) {
+            $this->load->model('Programme_reconduction_model', 'm_programme_reconduction');
+        }
+
+        $this->db->trans_start();
+
+        $this->db->where('id_lien', (int) $lien->id_lien)->delete($this->table);
+
+        $purge = array(
+            'suite' => null,
+            'derive' => null,
+        );
+        if ($suiteCode !== '') {
+            $purge['suite'] = $this->_purge_troncon_apres_annulation(
+                $suiteCode,
+                $suiteOrigine,
+                (int) $lien->id_lien
+            );
+        }
+        if ($deriveCode !== '') {
+            $purge['derive'] = $this->_purge_troncon_apres_annulation(
+                $deriveCode,
+                $deriveOrigine,
+                (int) $lien->id_lien
+            );
+        }
+
+        $this->db->trans_complete();
+        if ($this->db->trans_status() === false) {
+            return array('ok' => false, 'error' => 'echec_transaction');
+        }
+
+        $restants = $this->get_all_by_principal($principal);
+        return array(
+            'ok' => true,
+            'removed' => $lien,
+            'principal' => $principal,
+            'purge' => $purge,
+            'nb_liens' => count($restants),
+            'liens' => $restants,
+            'message' => 'Correspondance annulée. Le départ principal est conservé.',
+        );
+    }
+
+    /**
+     * Après suppression du lien : delete / désactive / ignore selon origine.
+     *
+     * @param string $code
+     * @param string $origine
+     * @param int $except_id_lien lien déjà supprimé
+     * @return array{action:string,code:string,error?:string}
+     */
+    protected function _purge_troncon_apres_annulation($code, $origine, $except_id_lien)
+    {
+        $code = trim((string) $code);
+        $out = array('action' => 'noop', 'code' => $code);
+        if ($code === '') {
+            return $out;
+        }
+        // Toujours re-vérifier qu'aucun autre lien ne pointe dessus.
+        if ($this->_autre_lien_utilise($code, 0)) {
+            $out['action'] = 'detache_conserve';
+            $out['error'] = 'autre_lien';
+            return $out;
+        }
+        if ($origine === 'reutilise') {
+            $out['action'] = 'detache_conserve';
+            return $out;
+        }
+        if ($this->_nb_ventes_code($code) > 0) {
+            // Ne devrait pas arriver (verrouillage en amont).
+            $out['action'] = 'conserve_ventes';
+            $out['error'] = 'ventes';
+            return $out;
+        }
+        if ($this->m_programme_reconduction->get_reco_by_cible($code)) {
+            $this->db->where('code_progr', $code)->update('programme', array(
+                'statut_prog' => 'inactif',
+                'actif_prog' => 1,
+            ));
+            $out['action'] = 'desactive_reconduction';
+            return $out;
+        }
+        $check = $this->m_programme->peut_supprimer($code);
+        if (!empty($check['ok'])) {
+            $this->db->where('code_progr', $code)->delete('programme_siege_bloque');
+            if ($this->m_programme->supprimer_programme($code)) {
+                $out['action'] = 'supprime';
+                return $out;
+            }
+            $out['action'] = 'echec_suppression';
+            $out['error'] = 'echec_suppression';
+            return $out;
+        }
+        // Passagers historiques inactifs : désactiver pour ne plus apparaître en vente.
+        $this->db->where('code_progr', $code)->update('programme', array(
+            'statut_prog' => 'inactif',
+            'actif_prog' => 1,
+        ));
+        $this->db->where('code_progr', $code)->delete('programme_siege_bloque');
+        $out['action'] = 'desactive_historique';
+        return $out;
     }
 
     /**

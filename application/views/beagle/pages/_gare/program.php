@@ -1731,6 +1731,7 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
 (function () {
     var ekey = <?= json_encode($this->session->company->ekey); ?>;
     var base = <?= json_encode(rtrim(site_url('Programmes'), '/')); ?>;
+    var isAdminCorr = <?= json_encode(isset($this->session->agent->userole) && (string) $this->session->agent->userole === '1'); ?>;
     var modalEl = document.getElementById('modal-correspondance');
     if (!modalEl) return;
 
@@ -2054,7 +2055,10 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             ligne_derive_introuvable: 'Aucune ligne hub de la même compagnie (VIP reste VIP, CMT reste CMT).',
             heure_derive_introuvable: 'Aucun horaire VIP/CMT trouvé pour le départ hub (vérifiez les heures de la ligne hub).',
             echec_creation_derive: 'Échec création du départ dérivé.',
-            lien_avec_ventes: 'Impossible : des ventes existent sur ce lien.'
+            lien_avec_ventes: 'Impossible : des ventes existent sur ce lien.',
+            ventes_troncons: 'Impossible d’annuler : des ventes existent sur le hub ou le tronçon.',
+            droit_insuffisant: 'Action réservée à l’administrateur.',
+            echec_transaction: 'Échec de l’annulation (transaction).'
         };
         return map[code] || code || 'Erreur';
     }
@@ -2244,14 +2248,19 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
                     + (row.code_progr_derive ? (' <code>' + row.code_progr_derive + '</code>') : '')
                     + '</div>';
             }
-            if (verrouille) {
-                html += '<div class="small text-danger">Verrouillé (' + nbVentes + ' vente(s))</div>';
+            var verrouilleTr = !!(row.verrouille_troncons);
+            var nbVentesTr = row.nb_ventes_troncons || 0;
+            if (verrouilleTr) {
+                html += '<div class="small text-danger">Hub/tronçon verrouillé (' + nbVentesTr + ' vente(s)) — reprogrammer avant d’annuler</div>';
+            } else if (verrouille && nbVentes > nbVentesTr) {
+                html += '<div class="small text-muted">Ventes sur le principal uniquement (' + nbVentes + ') — annulation possible</div>';
             }
             html += '</div>';
-            if (isPrincipal && idLien && !verrouille) {
-                html += '<button type="button" class="btn btn-sm btn-outline-danger ml-2 js-corr-unlink-lien"'
+            if (isPrincipal && idLien && isAdminCorr) {
+                html += '<button type="button" class="btn btn-sm btn-outline-danger ml-2 js-corr-annuler-lien"'
                     + ' data-id-lien="' + idLien + '"'
-                    + ' title="Supprimer ce lien">Supprimer</button>';
+                    + ' title="Annuler la correspondance (conserve le principal, retire hub et tronçon)">'
+                    + 'Annuler le lien</button>';
             }
             html += '</div>';
         });
@@ -2405,31 +2414,67 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
         });
     }
 
-    function unlinkLienById(idLien) {
+    function annulerLienById(idLien) {
         idLien = parseInt(idLien, 10) || 0;
-        if (idLien <= 0) return;
-        if (!window.confirm('Supprimer ce lien de correspondance ? (les programmes restent)')) return;
-        setMsg('Suppression…', false);
-        var body = new URLSearchParams();
-        body.set('id_lien', String(idLien));
-        appendCsrf(body);
-        fetch(base + '/unlink_correspondance/' + encodeURIComponent(ekey), {
-            method: 'POST',
+        if (idLien <= 0 || !isAdminCorr) return;
+        setMsg('Analyse du lien…', false);
+        var q = new URLSearchParams();
+        q.set('id_lien', String(idLien));
+        fetch(base + '/apercu_annuler_correspondance/' + encodeURIComponent(ekey) + '?' + q.toString(), {
             credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
-            body: body.toString()
-        }).then(parseJsonResponse).then(function (data) {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).then(parseJsonResponse).then(function (ap) {
+            if (!ap || !ap.ok) {
+                var m0 = (ap && ap.message) ? ap.message : corrErrorLabel(ap && ap.error);
+                setMsg(m0 || 'Aperçu impossible', true);
+                return null;
+            }
+            var lines = [];
+            lines.push('Annuler complètement cette correspondance ?');
+            lines.push('');
+            lines.push('• Principal CONSERVÉ : ' + ((ap.principal && ap.principal.code) || '—')
+                + (ap.principal && ap.principal.nb_ventes ? (' (' + ap.principal.nb_ventes + ' vente(s))') : ''));
+            if (ap.suite && ap.suite.code) {
+                lines.push('• Hub : ' + ap.suite.code
+                    + ' → ' + (ap.suite.peut_supprimer ? 'supprimé' : (ap.suite.origine === 'reutilise' ? 'détaché (réutilisé)' : 'désactivé'))
+                    + (ap.suite.nb_ventes ? (' — ' + ap.suite.nb_ventes + ' vente(s)') : ''));
+            }
+            if (ap.derive && ap.derive.code) {
+                lines.push('• Tronçon : ' + ap.derive.code
+                    + ' → ' + (ap.derive.peut_supprimer ? 'supprimé' : (ap.derive.origine === 'reutilise' ? 'détaché (réutilisé)' : 'désactivé'))
+                    + (ap.derive.nb_ventes ? (' — ' + ap.derive.nb_ventes + ' vente(s)') : ''));
+            }
+            if (ap.verrouille || ap.blocage === 'ventes_troncons') {
+                setMsg(ap.message || corrErrorLabel('ventes_troncons'), true);
+                return null;
+            }
+            if (!window.confirm(lines.join('\n'))) {
+                setMsg('', false);
+                return null;
+            }
+            setMsg('Annulation…', false);
+            var body = new URLSearchParams();
+            body.set('id_lien', String(idLien));
+            appendCsrf(body);
+            return fetch(base + '/annuler_correspondance/' + encodeURIComponent(ekey), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: body.toString()
+            }).then(parseJsonResponse);
+        }).then(function (data) {
+            if (data === null || data === undefined) return;
             if (!data || !data.ok) {
                 var msg = (data && data.message) ? data.message : corrErrorLabel(data && data.error);
-                setMsg(msg || 'Échec suppression', true);
+                setMsg(msg || 'Échec annulation', true);
                 return;
             }
-            setMsg('Lien supprimé.', false);
-            setTimeout(function () { window.location.reload(); }, 600);
+            setMsg(data.message || 'Correspondance annulée. Principal conservé.', false);
+            setTimeout(function () { window.location.reload(); }, 700);
         }).catch(function (err) {
             setMsg((err && err.message) ? err.message : 'Erreur réseau', true);
         });
@@ -2443,11 +2488,11 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
         var t = e.target;
         var btn = null;
         var closer = null;
-        var unlinkBtn = null;
+        var annulerBtn = null;
         while (t && t !== document) {
             if (t.classList) {
-                if (t.classList.contains('js-corr-unlink-lien')) {
-                    unlinkBtn = t;
+                if (t.classList.contains('js-corr-annuler-lien')) {
+                    annulerBtn = t;
                     break;
                 }
                 if (t.classList.contains('js-corr-link')) {
@@ -2461,10 +2506,14 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
             }
             t = t.parentNode;
         }
-        if (unlinkBtn) {
+        if (annulerBtn) {
             e.preventDefault();
             e.stopPropagation();
-            unlinkLienById(unlinkBtn.getAttribute('data-id-lien'));
+            if (!isAdminCorr) {
+                setMsg('Action réservée à l’administrateur.', true);
+                return;
+            }
+            annulerLienById(annulerBtn.getAttribute('data-id-lien'));
             return;
         }
         if (btn) {
