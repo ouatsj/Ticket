@@ -2190,7 +2190,12 @@
                     $this->property['conex'] = $conex;
 
                 $this->property['pagetitle'] .= " • ARRÊT COMPTE ESCAL • <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->nom_gaep}•{$bus_stop->nomsousgare}</strong>";
-                $this->property['comptejours'] = $this->m_compte_user->getjours($this->company->ekey, $idc, $gd);
+                $comptejours = $this->m_compte_user->getjours($this->company->ekey, $idc, $gd);
+                // Filet : après arrêt / déconnexion idle, getjours peut encore échouer → conex session.
+                if (!$comptejours && $conex) {
+                    $comptejours = $conex;
+                }
+                $this->property['comptejours'] = $comptejours;
                    
                 $this->property['escalclient'] = $this->m_escalclients->comptes($this->company->ekey, $idc, $gd, $sg);
 

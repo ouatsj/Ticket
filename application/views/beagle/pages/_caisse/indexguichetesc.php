@@ -51,7 +51,11 @@ if ($role17_mode && empty($escale_depart_label)) {
         <div class="card text-center">
             <div class="card-header"></div>
                     
-                <?= form_open("Caisses/valideesc/{$this->session->company->ekey}/{$conex->roleattribut}/{$comptejours->date_conect}/{$comptejours->guser}/{$bus_stop->idsousgare}"); ?>
+                <?php
+                $arret_date = !empty($comptejours->date_conect) ? $comptejours->date_conect : (!empty($conex->date_conect) ? $conex->date_conect : mdate('%Y-%m-%d', now('UTC')));
+                $arret_guser = !empty($comptejours->guser) ? $comptejours->guser : (!empty($conex->guser) ? $conex->guser : (!empty($bus_stop->idengare) ? $bus_stop->idengare : ''));
+                ?>
+                <?= form_open("Caisses/valideesc/{$this->session->company->ekey}/{$conex->roleattribut}/{$arret_date}/{$arret_guser}/{$bus_stop->idsousgare}"); ?>
 
                     <div class="row">
                         <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
@@ -294,7 +298,11 @@ if ($role17_mode && empty($escale_depart_label)) {
             </button>
         </div>
         
-        <?= form_open("Historique_Passagers/pdfepsonrapportes/{$this->session->company->ekey}/{$comptejours->roleattribut}/{$comptejours->username}/{$bus_stop->idengare}/{$conex->roleattribut}/{$bus_stop->idsousgare}", array('class' => 'modal-body form')); ?>
+        <?php
+        $rapport_ra = !empty($comptejours->roleattribut) ? $comptejours->roleattribut : (!empty($conex->roleattribut) ? $conex->roleattribut : '');
+        $rapport_user = !empty($comptejours->username) ? $comptejours->username : (!empty($conex->username) ? $conex->username : '');
+        ?>
+        <?= form_open("Historique_Passagers/pdfepsonrapportes/{$this->session->company->ekey}/{$rapport_ra}/{$rapport_user}/{$bus_stop->idengare}/{$conex->roleattribut}/{$bus_stop->idsousgare}", array('class' => 'modal-body form')); ?>
         <div class="form-group row">
            
             <div class="form-group col-sm-4">

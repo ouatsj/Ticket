@@ -216,7 +216,11 @@
             </button>
         </div>
         
-        <?= form_open("Historique_Passagers/pdfepsonrapportes/{$this->session->company->ekey}/{$comptejours->roleattribut}/{$comptejours->username}/{$bus_stop->idengare}/{$conex->roleattribut}/{$bus_stop->idsousgare}", array('class' => 'modal-body form')); ?>
+        <?php
+        $rapport_ra = !empty($comptejours->roleattribut) ? $comptejours->roleattribut : (!empty($conex->roleattribut) ? $conex->roleattribut : '');
+        $rapport_user = !empty($comptejours->username) ? $comptejours->username : (!empty($conex->username) ? $conex->username : '');
+        ?>
+        <?= form_open("Historique_Passagers/pdfepsonrapportes/{$this->session->company->ekey}/{$rapport_ra}/{$rapport_user}/{$bus_stop->idengare}/{$conex->roleattribut}/{$bus_stop->idsousgare}", array('class' => 'modal-body form')); ?>
         <div class="form-group row">
            
             <div class="form-group col-sm-4">

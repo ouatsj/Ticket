@@ -980,3 +980,55 @@ if (!function_exists('ticket_heure_depart_affiche')) {
         return sprintf('%02d:%02d', (int) floor($gt / 60), (int) ($gt % 60));
     }
 }
+
+if (!function_exists('ticket_code_for_leg')) {
+    /**
+     * Code ticket imprimable par jambe transit.
+     * Jambe 1 = code de base ; jambe 2 = base+'B' (bis) ; 3 = 'C' ; 4 = 'D'.
+     *
+     * @param string $base
+     * @param int $legIndex 1-based
+     * @return string
+     */
+    function ticket_code_for_leg($base, $legIndex = 1)
+    {
+        $base = trim((string) $base);
+        $legIndex = (int) $legIndex;
+        if ($base === '' || $legIndex <= 1) {
+            return $base;
+        }
+        // Déjà suffixé : ne pas doubler.
+        if (preg_match('/[B-D]$/i', $base)) {
+            return $base;
+        }
+        $map = array(2 => 'B', 3 => 'C', 4 => 'D');
+        $suf = isset($map[$legIndex]) ? $map[$legIndex] : ('L' . $legIndex);
+        return $base . $suf;
+    }
+}
+
+if (!function_exists('ticket_parse_code_leg')) {
+    /**
+     * Décode un code bis : "7855-3835B" → base=7855-3835, leg=2.
+     *
+     * @param string $code
+     * @return array{base:string,leg:int,suffix:string}|null
+     */
+    function ticket_parse_code_leg($code)
+    {
+        $code = trim((string) $code);
+        if ($code === '' || !preg_match('/^(.+)([BbCcDd])$/u', $code, $m)) {
+            return null;
+        }
+        $suf = strtoupper($m[2]);
+        $map = array('B' => 2, 'C' => 3, 'D' => 4);
+        if (!isset($map[$suf])) {
+            return null;
+        }
+        return array(
+            'base' => $m[1],
+            'leg' => $map[$suf],
+            'suffix' => $suf,
+        );
+    }
+}

@@ -53,15 +53,130 @@
                     array($codeId)
                 )->row();
             }
-            if ($row && (!isset($data['nom_ligne_vendu']) || trim((string) $data['nom_ligne_vendu']) === '')) {
-                $data['nom_ligne_vendu'] = $row->nom_ligne;
-            }
             if ($lieu !== '') {
                 $data['code_gaexp_vendu'] = $lieu;
             } elseif ($row && (!isset($data['code_gaexp_vendu']) || trim((string) $data['code_gaexp_vendu']) === '')) {
                 $data['code_gaexp_vendu'] = $row->gaexp_lg;
             }
+
+            // OD métier escale : lieu de vente → destination réelle (pas la ligne parent catalogue).
+            // Ex. Dissin → Banfora = DISSIN-BANFORA, et non BOBO-HAMELE.
+            $odEscale = $this->_libelle_od_escale(
+                isset($data['code_gaexp_vendu']) ? $data['code_gaexp_vendu'] : '',
+                isset($data['garearrivecolisesc']) ? $data['garearrivecolisesc'] : ''
+            );
+            if ($odEscale !== '') {
+                $data['nom_ligne_vendu'] = $odEscale;
+            } elseif ($row && (!isset($data['nom_ligne_vendu']) || trim((string) $data['nom_ligne_vendu']) === '')) {
+                $data['nom_ligne_vendu'] = $row->nom_ligne;
+            }
             return $data;
+        }
+
+        /**
+         * Libellé OD escale (ex. DISSIN-BANFORA) depuis code vente + gare d'arrivée.
+         *
+         * @param string $codeGaexpVendu
+         * @param string $gareArrive
+         * @return string
+         */
+        protected function _libelle_od_escale($codeGaexpVendu, $gareArrive)
+        {
+            $dep = trim((string) $codeGaexpVendu);
+            $arr = trim((string) $gareArrive);
+            if ($dep === '' || $arr === '') {
+                return '';
+            }
+            $depRow = $this->db->query(
+                "SELECT nom_gaep FROM gare_exp WHERE code_gaexp = ? LIMIT 1",
+                array($dep)
+            )->row();
+            $depNom = ($depRow && isset($depRow->nom_gaep)) ? trim((string) $depRow->nom_gaep) : '';
+            if ($depNom === '') {
+                return '';
+            }
+            // code_gadest est unique ; idgaresdest ne l'est pas (ex. GUIBA+MANGA = MAN11).
+            // Pas de repli gare_exp : un id zone (MAN11) pointe souvent l'origine parent (MANGA).
+            $arrRow = $this->db->query(
+                "SELECT nom_gadest AS nom FROM gare_dest WHERE code_gadest = ? LIMIT 1",
+                array($arr)
+            )->row();
+            if (!$arrRow || trim((string) $arrRow->nom) === '') {
+                $arrRow = $this->db->query(
+                    "SELECT gd.nom_gadest AS nom
+                     FROM gare_dest gd
+                     WHERE gd.idgaresdest = ?
+                       AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = ?) = 1
+                     LIMIT 1",
+                    array($arr, $arr)
+                )->row();
+            }
+            $arrNom = ($arrRow && isset($arrRow->nom)) ? trim((string) $arrRow->nom) : '';
+            if ($arrNom === '') {
+                return '';
+            }
+
+            return $depNom . '-' . $arrNom;
+        }
+
+        /**
+         * Nom gare d'arrivée : code_gadest d'abord (unique), puis idgaresdest seulement s'il est unique.
+         * idgaresdest est partagé (MAN11=GUIBA|MANGA, PO27=BION|PO|…). Pas de fallback gare_exp
+         * (MAN11 en gaexp = MANGA parent → fausse destination sur le reçu).
+         *
+         * @param string $arriveExpr expression SQL (ex. e.garearrivecolisesc)
+         * @return string
+         */
+        protected function _sql_nom_gare_arrivee_escale($arriveExpr)
+        {
+            $col = preg_replace('/[^a-zA-Z0-9_`.`]/', '', (string) $arriveExpr);
+            if ($col === '') {
+                return "''";
+            }
+
+            return "COALESCE(
+                (SELECT gd.nom_gadest FROM gare_dest gd
+                 WHERE gd.code_gadest = {$col}
+                 LIMIT 1),
+                (SELECT gd.nom_gadest FROM gare_dest gd
+                 WHERE gd.idgaresdest = {$col}
+                   AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = {$col}) = 1
+                 LIMIT 1)
+            )";
+        }
+
+        /**
+         * Expression SQL nom_ligne pour états escale :
+         * 1) nom_ligne_vendu figé à la vente (source de vérité),
+         * 2) OD live code_gaexp_vendu → destination (code_gadest),
+         * 3) ligne catalogue parent.
+         *
+         * @param string $alias alias table courriers_expesc
+         * @return string
+         */
+        protected function _sql_nom_ligne_od_escale($alias = 'e')
+        {
+            $a = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $alias);
+            if ($a === '') {
+                $a = 'e';
+            }
+            $nomArr = $this->_sql_nom_gare_arrivee_escale("{$a}.garearrivecolisesc");
+
+            return "COALESCE(
+                NULLIF(TRIM({$a}.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM({$nomArr})
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM({$a}.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM({$a}.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            )";
         }
         
         
@@ -189,7 +304,29 @@
                 : '';
 
             return $this->db->query(
-                "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, lg.nom_ligne, es.prixcolisesc
+                "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, es.prixcolisesc
                 FROM courriers_expesc es
                 JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -213,7 +350,29 @@
                 {$gareSql}
                 {$opSql}
                 {$ligneSql}
-                GROUP BY COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), es.prixcolisesc"
+                GROUP BY COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), es.prixcolisesc"
             )->result();
         }
 
@@ -221,7 +380,29 @@
         {        
             if($gd === '' AND $tycr === '' AND $cp === ''  AND $al === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -251,12 +432,56 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND es.verifcouresc IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
                     ORDER BY es.dateenvoiesc ASC")->result();
             }
             elseif($tycr === '' AND $cp === '' AND $al === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -287,12 +512,56 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
                     ORDER BY es.dateenvoiesc ASC")->result();
             }
             elseif ($cp === '' AND $al === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -316,12 +585,56 @@
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     AND es.verifcouresc IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
                     ORDER BY es.dateenvoiesc ASC")->result();
             }
             elseif($tycr === '' AND $al === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -352,12 +665,56 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
                     ORDER BY es.dateenvoiesc ASC")->result();
             }
             elseif ($al === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -382,12 +739,56 @@
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     AND es.verifcouresc IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
                     ORDER BY es.dateenvoiesc ASC")->result();
             }
             
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -413,7 +814,29 @@
                     AND cd.naturecoli = '$tycr'
                     AND lg.ident_ligne = '$al'
                     AND es.verifcouresc IN('A', 'C', 'D')
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
                     ORDER BY es.dateenvoiesc ASC")->result();
         }
 
@@ -422,7 +845,29 @@
         $filtreLettres = etat_filtre_lettres('es.verifcouresc', 'es.dateenvoiesc', $cp, 'courrier', $dt1, $dt2);        
             if($tycr === '' AND $cp === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -453,12 +898,56 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
                     ORDER BY es.dateenvoiesc ASC")->result();
             }
             elseif ($cp === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -482,12 +971,56 @@
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     {$filtreLettres}
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
                     ORDER BY es.dateenvoiesc ASC")->result();
             }
             elseif($tycr === ''){
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -519,12 +1052,56 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND dest.id_compaga = '$cp'
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
                     ORDER BY es.dateenvoiesc ASC")->result();
             }
             
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, es.dateenvoiesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -549,7 +1126,29 @@
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
                     {$filtreLettres}
-                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
+                    GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, es.dateenvoiesc
                     ORDER BY es.dateenvoiesc ASC")->result();
         }
 
@@ -557,7 +1156,29 @@
         {        
             if ($gd === '' AND $tycr === '' AND $idconx === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -579,11 +1200,55 @@
                     AND es.prixcolisesc IS NOT NULL
                     AND es.partocouresc IS NULL
                     AND es.actif_couresc = 0
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             elseif ($tycr === '' AND $idconx === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -606,11 +1271,55 @@
                     AND es.partocouresc IS NULL
                     AND es.actif_couresc = 0
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             elseif ($idconx === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -635,11 +1344,55 @@
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -664,10 +1417,54 @@
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -693,7 +1490,29 @@
                     AND ar.roleattribut = '$idconx'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga,, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga,, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
         }
 
         public function expetatspli2($cid, $cp, $dt1, $dt2, $gd = FALSE, $tycr = FALSE, $idconx = FALSE)
@@ -818,7 +1637,29 @@
         {        
             if ($gd === '' AND $idconx === '' AND $tycr === '' AND $cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -838,11 +1679,55 @@
                     AND es.dateenvoiesc >= '$dt1' AND dateenvoiesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND es.prixcolisesc IS NOT NULL
                     AND es.partocouresc IS NULL
-                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), es.prixcolisesc")->result();
+                    GROUP BY cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), es.prixcolisesc")->result();
             }
             elseif ($idconx === '' AND $tycr === '' AND $cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -863,11 +1748,55 @@
                     AND es.prixcolisesc IS NOT NULL
                     AND es.partocouresc IS NULL
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
-                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), es.prixcolisesc")->result();
+                    GROUP BY cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), es.prixcolisesc")->result();
             }
             elseif ($tycr === '' AND $cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -889,11 +1818,55 @@
                     AND es.partocouresc IS NULL
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
-                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), es.prixcolisesc")->result();
+                    GROUP BY cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), es.prixcolisesc")->result();
             }
             elseif ($cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -916,11 +1889,55 @@
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), es.prixcolisesc")->result();
+                    GROUP BY cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), es.prixcolisesc")->result();
             }
             elseif($tycr === '' AND $algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montant, cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
+                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montant, cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -943,11 +1960,55 @@
                     AND dest.id_compaga = '$cp'
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND ar.roleattribut = '$idconx'
-                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), es.prixcolisesc")->result();
+                    GROUP BY cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), es.prixcolisesc")->result();
             }
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresrsc, SUM(prixcolisrsc) AS montant, cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
+                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresrsc, SUM(prixcolisrsc) AS montant, cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -971,10 +2032,54 @@
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
-                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), es.prixcolisesc")->result();
+                    GROUP BY cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), es.prixcolisesc")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -999,7 +2104,29 @@
                     AND cd.naturecoli = '$tycr'
                     AND ar.roleattribut = '$idconx'
                     AND lg.ident_ligne = '$algn'
-                    GROUP BY cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), es.prixcolisesc")->result();
+                    GROUP BY cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), es.prixcolisesc")->result();
         }
 
         public function texpetatspligl($cid, $dt1, $dt2, $gd = FALSE, $cp = FALSE, $idconx = FALSE, $tycr = FALSE, $algn = FALSE)
@@ -1010,7 +2137,29 @@
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
-            $sql = "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, es.prixcolisesc
+            $sql = "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, cd.naturecoli, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, es.prixcolisesc
                     FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1044,7 +2193,29 @@
             if ($filled($algn)) {
                 $sql .= " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
             }
-            $sql .= " GROUP BY COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), es.prixcolisesc, cd.naturecoli";
+            $sql .= " GROUP BY COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), es.prixcolisesc, cd.naturecoli";
             return $this->db->query($sql)->result();
         }
 
@@ -1317,7 +2488,29 @@
             if ($gd === '' || $gd === '0') {
                 return '';
             }
-            $expr = "UPPER(COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne))";
+            $expr = "UPPER(COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ))";
             $rows = $this->db->query(
                 "SELECT DISTINCT UPPER(TRIM(nom_gaep)) AS nom
                  FROM gare_exp
@@ -1350,7 +2543,29 @@
             }        
             if ($gd === '' AND $cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1374,11 +2589,55 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     {$filtreLettres}
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             elseif ($cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1403,12 +2662,56 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     {$filtreLettres}
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             
             elseif ($tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1434,12 +2737,56 @@
                     AND cd.naturecoli <> 'Gros_colis'
                     {$filtreLettres}
                     {$filtreOrigine}
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1458,10 +2805,54 @@
                     {$filtreOrigine}
                     AND cd.naturecoli = '$tycr'
                     {$filtreLettres}
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1481,7 +2872,29 @@
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
                     {$filtreLettres}
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
         }
 
         
@@ -1516,8 +2929,10 @@
                 $extra .= " AND lg.ident_ligne = '" . $this->db->escape_str($al) . "' ";
             }
 
+            $nomLigneExpr = $this->_sql_nom_ligne_od_escale('e');
+
             return $this->db->query(
-                "SELECT COUNT(courrierexpidesc) AS nombres, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolisesc, e.dateenvoiesc FROM courriers_expesc e
+                "SELECT COUNT(courrierexpidesc) AS nombres, SUM(prixcolisesc) AS montantesc, ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, {$nomLigneExpr} AS nom_ligne, cd.naturecoli, e.prixcolisesc, e.dateenvoiesc FROM courriers_expesc e
                 JOIN attributions_role ar ON e.idoperateuresc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1539,7 +2954,7 @@
                 AND e.partocouresc IS NULL
                 {$extra}
                 {$filtreLettres}
-                GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolisesc, e.dateenvoiesc
+                GROUP BY ar.roleattribut, dest.id_compaga, u.first_name, u.last_name, {$nomLigneExpr}, cd.naturecoli, e.prixcolisesc, e.dateenvoiesc
                 ORDER BY e.dateenvoiesc"
             )->result();
         }
@@ -1703,7 +3118,29 @@
         {        
             if ($gd === '' AND $cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolisesc FROM courriers_expesc e
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, e.prixcolisesc FROM courriers_expesc e
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1727,11 +3164,55 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND e.exocresc = 1
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, e.prixcolisesc")->result();
             }
             elseif ($cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoliesc, e.prixcolisesc FROM courriers_expesc e
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoliesc, e.prixcolisesc FROM courriers_expesc e
                     JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1756,11 +3237,55 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND e.exocresc = 1
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, e.prixcolisesc")->result();
             }
             elseif ($cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolisesc FROM courriers_expesc e
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, e.prixcolisesc FROM courriers_expesc e
                     JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1778,11 +3303,55 @@
                     AND e.partocouresc IS NULL
                     AND cd.naturecoli = '$tycr'
                     AND e.exocresc = 1
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, e.prixcolisesc")->result();
             }
             elseif ($tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolisesc FROM courriers_expesc e
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, e.prixcolisesc FROM courriers_expesc e
                     JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1808,12 +3377,56 @@
                     AND cd.naturecoli <> 'Gros_colis'
                     AND e.exocresc = 1
                     AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, e.prixcolisesc")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolisesc FROM courriers_expesc e
+                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, e.prixcolisesc FROM courriers_expesc e
                     JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1832,10 +3445,54 @@
                     AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND e.exocresc = 1
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, e.prixcolisesc")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, e.prixcolisesc FROM courriers_expesc e
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, e.prixcolisesc FROM courriers_expesc e
                     JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1855,14 +3512,58 @@
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
                     AND e.exocresc = 1
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, e.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, e.prixcolisesc")->result();
         }
 
         public function recaptexoplijr($cid, $cp, $dt1, $dt2, $gd = FALSE, $tycr = FALSE, $algn = FALSE)
         {        
             if ($gd === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, h.heure FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, h.heure FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1887,12 +3588,56 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, h.id_heure
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, h.id_heure
                     ORDER BY heure ASC")->result();
             }
             elseif ($tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, h.heure FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, h.heure FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1918,13 +3663,57 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, h.id_heure
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, h.id_heure
                     ORDER BY heure ASC")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, h.heure FROM courriers_expesc es
+                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, h.heure FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1943,11 +3732,55 @@
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     AND es.verifcouresc IN('A', 'C', 'D')
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, h.id_heure
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, h.id_heure
                     ORDER BY heure ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc, h.heure FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc, h.heure FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -1967,7 +3800,29 @@
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
                     AND es.verifcouresc IN('A', 'C', 'D')
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc, h.id_heure
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc, h.id_heure
                     ORDER BY heure ASC")->result();
         }
 
@@ -1977,7 +3832,29 @@
         $filtreLettres = etat_filtre_lettres('e.verifcouresc', 'e.dateenvoiesc', $cp, 'courrier', $dt1, $dt2);        
             if ($gd === '' AND $cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolisesc, h.heure, e.dateenvoiesc FROM courriers_expesc e
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, e.prixcolisesc, h.heure, e.dateenvoiesc FROM courriers_expesc e
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
                     JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
@@ -2000,12 +3877,56 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolisesc, h.id_heure, e.dateenvoiesc
+                    GROUP BY COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), e.prixcolisesc, h.id_heure, e.dateenvoiesc
                     ORDER BY e.dateenvoiesc, h.id_heure")->result();
             }
             elseif ($cp === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolisesc, h.heure, e.dateenvoiesc FROM courriers_expesc e
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, e.prixcolisesc, h.heure, e.dateenvoiesc FROM courriers_expesc e
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
                     JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
@@ -2029,12 +3950,56 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolisesc, h.id_heure, e.dateenvoiesc
+                    GROUP BY COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), e.prixcolisesc, h.id_heure, e.dateenvoiesc
                     ORDER BY e.dateenvoiesc, h.id_heure")->result();
             }
             elseif($tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolisesc, h.heure, e.dateenvoiesc FROM courriers_expesc e
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, e.prixcolisesc, h.heure, e.dateenvoiesc FROM courriers_expesc e
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
                     JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
@@ -2059,13 +4024,57 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
-                    GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolisesc, h.id_heure, e.dateenvoiesc
+                    GROUP BY COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), e.prixcolisesc, h.id_heure, e.dateenvoiesc
                     ORDER BY e.dateenvoiesc, h.id_heure")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolisesc, h.heure, e.dateenvoiesc FROM courriers_expesc e
+                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, e.prixcolisesc, h.heure, e.dateenvoiesc FROM courriers_expesc e
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
                     JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
@@ -2083,11 +4092,55 @@
                     AND COALESCE(NULLIF(TRIM(e.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
                     {$filtreLettres}
-                    GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolisesc, h.id_heure, e.dateenvoiesc
+                    GROUP BY COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), e.prixcolisesc, h.id_heure, e.dateenvoiesc
                     ORDER BY e.dateenvoiesc, h.id_heure")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolisesc, h.heure, e.dateenvoiesc FROM courriers_expesc e
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, e.prixcolisesc, h.heure, e.dateenvoiesc FROM courriers_expesc e
                     JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
                     JOIN ligne_heure lh ON e.departcolisesc = lh.id_ligneheure
@@ -2106,7 +4159,29 @@
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
                     {$filtreLettres}
-                    GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolisesc, h.id_heure, e.dateenvoiesc
+                    GROUP BY COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), e.prixcolisesc, h.id_heure, e.dateenvoiesc
                     ORDER BY e.dateenvoiesc, h.id_heure ASC")->result();
         }
 
@@ -2114,7 +4189,29 @@
         {        
             if ($gd === '' AND $tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2138,11 +4235,55 @@
                     AND cd.naturecoli <> 'Sac_partenaire'
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             elseif ($tycr === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2167,12 +4308,56 @@
                     AND cd.naturecoli <> 'Petit_colis'
                     AND cd.naturecoli <> 'Gros_colis'
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2190,10 +4375,54 @@
                     AND es.partocouresc IS NULL
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2212,14 +4441,58 @@
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
         }
 
         public function recaptpligl($cid, $dt1, $dt2, $gd = FALSE, $tycr = FALSE, $cp = FALSE, $algn = FALSE)
         {        
             if ($gd === '' AND $tycr === '' AND $cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2234,11 +4507,55 @@
                     AND es.dateenvoiesc >= '$dt1' AND dateenvoiesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND es.prixcolisesc IS NOT NULL
                     AND es.partocouresc IS NULL
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             elseif($tycr === '' AND $cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2254,11 +4571,55 @@
                     AND es.dateenvoiesc >= '$dt1' AND dateenvoiesc < DATE_ADD('$dt2', INTERVAL 1 DAY)
                     AND es.prixcolisesc IS NOT NULL
                     AND es.partocouresc IS NULL
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             elseif ($cp === '' AND $algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2275,12 +4636,56 @@
                     AND es.partocouresc IS NULL
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
             
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                return $this->db->query("SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2298,10 +4703,54 @@
                     AND es.partocouresc IS NULL
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+                    "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN sousgare sg ON es.courrierdepartgareesc = sg.idsousgare
                     JOIN code_courriers cd ON es.id_codecourrieresc = cd.codecolisid
                     JOIN expeditreception er ON cd.exprecepident = er.idexprecept 
@@ -2320,7 +4769,29 @@
                     AND COALESCE(NULLIF(TRIM(es.code_gaexp_vendu), ''), gex.code_gaexp) = '$gd'
                     AND lg.ident_ligne = '$algn'
                     AND cd.naturecoli = '$tycr'
-                    GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), cd.naturecoli, es.prixcolisesc")->result();
+                    GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cd.naturecoli, es.prixcolisesc")->result();
         }
 
         public function trecaptpligl($cid, $dt1, $dt2, $cp = FALSE, $gd = FALSE, $tycr = FALSE, $algn = FALSE)
@@ -2331,7 +4802,29 @@
             $cid = $this->db->escape_str($cid);
             $dt1 = $this->db->escape_str($dt1);
             $dt2 = $this->db->escape_str($dt2);
-            $sql = "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
+            $sql = "SELECT COUNT(courrierexpidesc) AS nombresesc, SUM(prixcolisesc) AS montantesc, dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cd.naturecoli, es.prixcolisesc FROM courriers_expesc es
                     JOIN attributions_role ar ON es.idoperateuresc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2364,7 +4857,29 @@
             if ($filled($algn)) {
                 $sql .= " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "'";
             }
-            $sql .= " GROUP BY dest.id_compaga, COALESCE(NULLIF(TRIM(es.nom_ligne_vendu), ''), lg.nom_ligne), es.prixcolisesc";
+            $sql .= " GROUP BY dest.id_compaga, COALESCE(
+                NULLIF(TRIM(es.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = es.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = es.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = es.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(es.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(es.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), es.prixcolisesc";
             return $this->db->query($sql)->result();
         }
         //factures
@@ -2949,6 +5464,8 @@
                 AND e.actif_couresc = 0")->result();
             }
             // Lookup reçu : ne dépendre d’aucun JOIN strict (escale / horaire partiel).
+            $nomLigneOd = $this->_sql_nom_ligne_od_escale('e');
+            $nomDestChoisie = $this->_sql_nom_gare_arrivee_escale('e.garearrivecolisesc');
             $row = $this->db->query(
                 "SELECT e.*, cd.*, sg.*, er.*, lh.*, h.*, lg.*, gex.*, dest.*, c.*, ep.*,
                         sg.nomsousgare AS nomsousgare,
@@ -2958,10 +5475,19 @@
                         h.heure AS heure,
                         cd.nombrecolis AS nombrecolis,
                         cd.naturecoli AS naturecoli,
-                        destarr.nom_gadest AS nom_dest_choisie,
+                        {$nomDestChoisie} AS nom_dest_choisie,
+                        gexvendu.nom_gaep AS nom_escale,
+                        gexvendu.nom_gaep AS nom_gaep_vendu,
+                        {$nomLigneOd} AS nom_ligne,
+                        {$nomLigneOd} AS nom_ligne_od,
                         sga.nomsousgare AS nom_escale_arrivee,
                         sga.idsousgare AS id_escale_arrivee,
-                        (SELECT MIN(sx.idsousgare) FROM sousgare sx WHERE sx.gareprinceid = e.garearrivecolisesc) AS id_sg_principale
+                        (SELECT MIN(sx.idsousgare) FROM sousgare sx
+                         WHERE sx.gareprinceid = COALESCE(
+                             (SELECT gd.idgaresdest FROM gare_dest gd
+                              WHERE gd.code_gadest = e.garearrivecolisesc LIMIT 1),
+                             e.garearrivecolisesc
+                         )) AS id_sg_principale
                 FROM courriers_expesc e
                 LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                 LEFT JOIN sousgare sg ON e.courrierdepartgareesc = sg.idsousgare
@@ -2970,10 +5496,11 @@
                 LEFT JOIN heures h ON lh.heure_identif = h.id_heure
                 LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                 LEFT JOIN gare_exp gex ON lg.gaexp_lg = gex.code_gaexp
+                LEFT JOIN gare_exp gexvendu ON gexvendu.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
                 LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                LEFT JOIN gare_dest destarr ON destarr.idgaresdest = e.garearrivecolisesc
+                LEFT JOIN gare_dest destarr ON destarr.code_gadest = e.garearrivecolisesc
                 LEFT JOIN sousgare sga ON sga.idsousgare = e.sousgarearrividesc
-                LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                LEFT JOIN compagnies c ON COALESCE(destarr.id_compaga, dest.id_compaga) = c.cle_compagnie
                 LEFT JOIN entreprise ep ON c.id_entrep = ep.id_entreprise
                 WHERE e.courrierexpidesc = ?
                 AND (e.actif_couresc = 0 OR e.actif_couresc IS NULL)
@@ -3052,7 +5579,29 @@
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
                 return $this->db->query(
-                "SELECT COUNT(courrierexpidesc) AS nombres, SUM(prixcolisesc) AS montant, lg.ident_ligne, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne, e.prixcolisesc, e.courrierdepartgareesc, dest.id_compaga, ar.roleattribut FROM courriers_expesc e
+                "SELECT COUNT(courrierexpidesc) AS nombres, SUM(prixcolisesc) AS montant, lg.ident_ligne, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, e.prixcolisesc, e.courrierdepartgareesc, dest.id_compaga, ar.roleattribut FROM courriers_expesc e
                 JOIN attributions_role ar ON e.idoperateuresc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -3096,7 +5645,25 @@
             return $this->db->query(
                 "SELECT COUNT(e.courrierexpidesc) AS nombres,
                         SUM(e.prixcolisesc) AS montant,
-                        COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne, 'COURRIER') AS nom_ligne,
+                        COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                                SELECT CONCAT(
+                                    TRIM(gv.nom_gaep), '-',
+                                    TRIM(COALESCE(
+                                        (SELECT gd.nom_gadest FROM gare_dest gd WHERE gd.idgaresdest = e.garearrivecolisesc LIMIT 1),
+                                        (SELECT ge2.nom_gaep FROM gare_exp ge2 WHERE ge2.code_gaexp = e.garearrivecolisesc LIMIT 1),
+                                        NULLIF(TRIM(e.garearrivecolisesc), '')
+                                    ))
+                                )
+                                FROM gare_exp gv
+                                WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                                  AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                                LIMIT 1
+                            ),
+                lg.nom_ligne,
+                            'COURRIER'
+                        ) AS nom_ligne,
                         e.prixcolisesc
                  FROM courriers_expesc e
                  JOIN attributions_role ar ON e.idoperateuresc = ar.roleattribut
@@ -3116,7 +5683,29 @@
                  AND e.dateenvoiesc <= ?
                  AND (ep.ekey IS NULL OR ep.ekey = ?)
                  AND (dest.id_compaga IS NULL OR dest.id_compaga = ?)
-                 GROUP BY COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne), e.prixcolisesc",
+                 GROUP BY COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), e.prixcolisesc",
                 array($idconx, $gd, $today, $cid, $comp)
             )->result();
         }
@@ -3133,7 +5722,29 @@
                         cd.naturecoli, cd.exprecepident, cd.nombrecolis,
                         er.expditid, er.receptid,
                         cl.nom_client, cl.prenom_client, cl.contact_client, cl.type_client,
-                        h.heure, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne
+                        h.heure, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne
                  FROM courriers_expesc e
                  LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                  LEFT JOIN expeditreception er ON cd.exprecepident = er.idexprecept
@@ -3178,7 +5789,25 @@
                         cl.id_client, cl.nom_client, cl.prenom_client, cl.contact_client,
                         cl.type_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
                         h.heure, lh.id_ligneheure,
-                        COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne, '') AS nom_ligne
+                        COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                                SELECT CONCAT(
+                                    TRIM(gv.nom_gaep), '-',
+                                    TRIM(COALESCE(
+                                        (SELECT gd.nom_gadest FROM gare_dest gd WHERE gd.idgaresdest = e.garearrivecolisesc LIMIT 1),
+                                        (SELECT ge2.nom_gaep FROM gare_exp ge2 WHERE ge2.code_gaexp = e.garearrivecolisesc LIMIT 1),
+                                        NULLIF(TRIM(e.garearrivecolisesc), '')
+                                    ))
+                                )
+                                FROM gare_exp gv
+                                WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                                  AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                                LIMIT 1
+                            ),
+                lg.nom_ligne,
+                            ''
+                        ) AS nom_ligne
                  FROM courriers_expesc e
                  LEFT JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                  LEFT JOIN expeditreception er ON cd.exprecepident = er.idexprecept
@@ -3255,7 +5884,29 @@
         public function lg($cid, $gd, $sg)
         {
                 return $this->db->query(
-                "SELECT lg.ident_ligne, COALESCE(NULLIF(TRIM(e.nom_ligne_vendu), ''), lg.nom_ligne) AS nom_ligne FROM courriers_expesc e
+                "SELECT lg.ident_ligne, COALESCE(
+                NULLIF(TRIM(e.nom_ligne_vendu), ''),
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.code_gadest = e.garearrivecolisesc
+                             LIMIT 1),
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = e.garearrivecolisesc
+                               AND (SELECT COUNT(*) FROM gare_dest gx WHERE gx.idgaresdest = e.garearrivecolisesc) = 1
+                             LIMIT 1)
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE gv.code_gaexp = NULLIF(TRIM(e.code_gaexp_vendu), '')
+                      AND NULLIF(TRIM(e.garearrivecolisesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne FROM courriers_expesc e
                 JOIN code_courriers cd ON e.id_codecourrieresc = cd.codecolisid
                 JOIN expeditreception er ON cd.exprecepident = er.idexprecept
                 JOIN sousgare sg ON e.sousgarearrividesc = sg.idsousgare

@@ -539,22 +539,51 @@
         public function getjours($ckey, $idconx, $g)
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
-                        
-            return $this->db->query("SELECT * FROM compte_user cu
+            $ckey = $this->db->escape_str($ckey);
+            $idconx = (int) $idconx;
+            $g = $this->db->escape_str($g);
+
+            // Session active (cas normal).
+            $row = $this->db->query(
+                "SELECT * FROM compte_user cu
                 JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
                 JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
                 JOIN utilisateurs u ON cu.userlog_id = u.uid
                 JOIN user_roles r ON ar.userole = r.id_rols
                 JOIN gares g ON ul.guser = g.idengare
                 JOIN entreprise e ON u.cle_comp = e.ekey
-                WHERE e.ekey = '$ckey'
-                AND ar.roleattribut = '$idconx'
-                AND g.idengare = '$g'
+                WHERE e.ekey = '{$ckey}'
+                AND ar.roleattribut = {$idconx}
+                AND g.idengare = '{$g}'
                 AND cu.is_conect = 1
                 AND ar.activeattrib = 1
-                AND cu.date_conect <= '$today'
+                AND cu.date_conect <= '{$today}'
                 AND ar.activer_role = 0
-                AND ul.comptactif = 0")->row();
+                AND ul.comptactif = 0"
+            )->row();
+            if ($row) {
+                return $row;
+            }
+
+            // Après arrêt / idle logout (is_conect=0, activeattrib=0) :
+            // la page compte + rapport mobile doivent encore résoudre l'opérateur.
+            return $this->db->query(
+                "SELECT * FROM compte_user cu
+                JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
+                JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
+                JOIN utilisateurs u ON cu.userlog_id = u.uid
+                JOIN user_roles r ON ar.userole = r.id_rols
+                JOIN gares g ON ul.guser = g.idengare
+                JOIN entreprise e ON u.cle_comp = e.ekey
+                WHERE e.ekey = '{$ckey}'
+                AND ar.roleattribut = {$idconx}
+                AND g.idengare = '{$g}'
+                AND cu.date_conect <= '{$today}'
+                AND ar.activer_role = 0
+                AND ul.comptactif = 0
+                ORDER BY ar.activeattrib DESC, cu.is_conect DESC
+                LIMIT 1"
+            )->row();
         }
 
         public function get_user($cid, $gid)

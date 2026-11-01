@@ -1933,6 +1933,10 @@
             } else {
                 // Ticket : entreprise entière puis garde gare de vente.
                 $out = $this->m_tamponcode->verifireptra($this->session->company->ekey, $code);
+                // Code bis (ex. 7855-3835B) : résoudre la Nᵉ jambe du transit si pas encore en base.
+                if (!$out) {
+                    $out = $this->_reprog_lookup_code_bis($code);
+                }
             }
 
             // Retour vendu mais pas encore confirmé → non reprogrammable.
@@ -1987,6 +1991,84 @@
             }
 
             return $this->load->view('beagle/pages/_programme/json', array('json' => $out));
+        }
+
+        /**
+         * Résout un code ticket bis (suffixe B/C/D) vers la jambe transit correspondante.
+         * Ex. 7855-3835B → 2ᵉ jambe du groupe tamponcodtr du ticket 7855-3835.
+         *
+         * @param string $code
+         * @return object|null
+         */
+        protected function _reprog_lookup_code_bis($code)
+        {
+            if (!function_exists('ticket_parse_code_leg')) {
+                $this->load->helper('ticket_prix');
+            }
+            $parsed = ticket_parse_code_leg($code);
+            if (!$parsed || (int) $parsed['leg'] < 2) {
+                return null;
+            }
+            $ekey = $this->session->company->ekey;
+            $baseOut = $this->m_tamponcode->verifireptra($ekey, $parsed['base']);
+            if (!$baseOut) {
+                return null;
+            }
+            $baseOut = $this->_reprog_enrich_transit_meta($baseOut);
+            $idx = ((int) $parsed['leg']) - 1;
+            if (empty($baseOut->jambes) || !isset($baseOut->jambes[$idx])) {
+                return null;
+            }
+            $jambe = $baseOut->jambes[$idx];
+            // Si la jambe a déjà un code_ticket distinct (ex. …B), lookup direct.
+            $ct = isset($jambe['code_ticket']) ? trim((string) $jambe['code_ticket']) : '';
+            if ($ct !== '' && strcasecmp($ct, $parsed['base']) !== 0) {
+                $direct = $this->m_tamponcode->verifireptra($ekey, $ct);
+                if ($direct) {
+                    return $direct;
+                }
+            }
+            // Sinon : même code_ticket partagé → résoudre via tampon / code_passager.
+            $tamp = isset($jambe['tamponcod']) ? trim((string) $jambe['tamponcod']) : '';
+            if ($tamp === '' && !empty($jambe['code_passager'])) {
+                $tamp = trim((string) $jambe['code_passager']);
+            }
+            if ($tamp === '') {
+                return null;
+            }
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            if (in_array($role, array('1', '2', '5', '15'), true)) {
+                $byTamp = $this->m_tamponcode->verifirepadmin($ekey, $tamp);
+                if ($byTamp) {
+                    return $byTamp;
+                }
+            }
+            // Fallback : même requête ticket mais filtrée sur code_passager de la jambe.
+            $row = $this->db->query(
+                "SELECT ctp.*, p.*,
+                        cl.nom_client, cl.prenom_client, cl.contact_client,
+                        pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.gareidentif,
+                        h.heure, lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                        ex.nom_gaep, ga.nom_gadest
+                 FROM tamponcode ctp
+                 JOIN passager p ON p.code_passager = ctp.tamponcod
+                 JOIN client cl ON p.id_client_pass = cl.id_client
+                 JOIN programme pr ON p.code_pro = pr.code_progr
+                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                 JOIN heures h ON lh.heure_identif = h.id_heure
+                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                 JOIN entreprise e ON ca.id_entrep = e.id_entreprise
+                 WHERE e.ekey = ?
+                   AND p.code_passager = ?
+                   AND ctp.actif_tamp = 0
+                   AND p.actif_pas = 0
+                 LIMIT 1",
+                array($ekey, $tamp)
+            )->row();
+            return $row ? $row : null;
         }
 
         /**
@@ -4641,7 +4723,7 @@
                                 AND ex.code_gaexp = '$gid'
                                 ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
                         
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         if (!$aregid || empty($aregid->idgaresdest)) {
                             $this->session->set_flashdata(
@@ -4676,7 +4758,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => $sousgare_arr_id,
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -4817,7 +4899,7 @@
                                 AND ex.code_gaexp = '$gid' 
                                 ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -4837,7 +4919,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -4976,7 +5058,7 @@
                                 AND ex.code_gaexp = '$gid'
                                 ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -4996,7 +5078,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -5134,7 +5216,7 @@
                                 AND ex.code_gaexp = '$gid'
                                 ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -5154,7 +5236,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -5283,7 +5365,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -5305,7 +5387,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -5429,7 +5511,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -5451,7 +5533,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -5588,7 +5670,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -5608,7 +5690,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -5730,7 +5812,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -5751,7 +5833,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -5887,7 +5969,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -5907,7 +5989,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -6044,7 +6126,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -6064,7 +6146,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -6198,7 +6280,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -6219,7 +6301,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexesc'),
@@ -6418,7 +6500,7 @@
 
                         $passecompt = $this->db->query("SELECT COUNT(courrierexpidesc) AS id FROM courriers_expesc xp WHERE xp.dateenvoiesc = '$today'")->row();
 
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -6440,7 +6522,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpersoesc'),
@@ -6505,7 +6587,7 @@
                         $passecompt = $this->db->query("SELECT COUNT(courrierexpidesc) AS id FROM courriers_expesc xp WHERE xp.dateenvoiesc = '$today'")->row();
 
                        
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -6525,7 +6607,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpersoesc'),
@@ -6599,7 +6681,7 @@
                         $passecompt = $this->db->query("SELECT COUNT(courrierexpidesc) AS id FROM courriers_expesc xp WHERE xp.dateenvoiesc = '$today'")->row();
 
                             
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -6619,7 +6701,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpersoesc'),
@@ -6699,7 +6781,7 @@
                         $passecompt = $this->db->query("SELECT COUNT(courrierexpidesc) AS id FROM courriers_expesc xp WHERE xp.dateenvoiesc = '$today'")->row();
 
                             
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -6722,7 +6804,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpersoesc'),
@@ -6918,7 +7000,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
                         
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -6940,7 +7022,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpartoesc'),
@@ -7062,7 +7144,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
                         
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -7083,7 +7165,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpartoesc'),
@@ -7203,7 +7285,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
                         
-                        $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                        $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                         $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -7225,7 +7307,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpartoesc'),
@@ -7331,7 +7413,7 @@
                                 AND ex.code_gaexp = '$gid'
                                  ORDER BY dateemis_recuesc DESC LIMIT 1")->row();
 
-                            $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arreg'")->row();
+                            $aregid = $this->db->query("SELECT d.idgaresdest, d.code_gadest FROM gare_dest d WHERE d.code_gadest = '$arreg' LIMIT 1")->row();
 
                             $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
 
@@ -7353,7 +7435,7 @@
                                         'idoperateuresc' => $iduser,
                                         'courrierdepartgareesc' => $reg1,
                                         'quartier_courrieresc' => $quart3,
-                                        'garearrivecolisesc'=> $aregid->idgaresdest,
+                                        'garearrivecolisesc'=> (!empty($aregid->code_gadest) ? $aregid->code_gadest : $arreg),
                                         'sousgarearrividesc' => (($sousgar_id && !empty($sousgar_id->idsousgare)) ? $sousgar_id->idsousgare : $sgid),
                                         'dateenvoiesc' => mdate("%Y-%m-%d", now('UTC')),
                                         'prixcolisesc' => $this->input->post('fraisexpartoesc'),

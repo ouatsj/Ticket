@@ -15,6 +15,26 @@
             parent::__construct();
             setlocale(LC_TIME, 'fr_FR', 'fra');
             $this->property['pagetitle'] = utf8_encode(strftime("%d %b %G", now()));
+            if (!function_exists('ticket_code_for_leg')) {
+                $this->load->helper('ticket_prix');
+            }
+        }
+
+        /**
+         * Code ticket confirmation par jambe : 1 = base, 2 = baseB (bis), 3 = C, 4 = D.
+         *
+         * @param int $legIndex
+         * @return string
+         */
+        protected function _code_ticket_confirm_leg($legIndex = 1)
+        {
+            $base = trim((string) $this->input->post('codeconfirm'));
+            if ($base === '') {
+                $base = trim((string) $this->input->post('code_ticket'));
+            }
+            return function_exists('ticket_code_for_leg')
+                ? ticket_code_for_leg($base, (int) $legIndex)
+                : $base;
         }
 
         /**
@@ -839,7 +859,7 @@
 
                                         $passagerarray1 = array(
                                             'code_passager' => $tampon1,
-                                            'code_ticket' =>$this->input->post('codeconfirm'),
+                                            'code_ticket' =>$this->_code_ticket_confirm_leg(2),
                                             'idcptuser' => $iduser,
                                             'id_client_pass' => $this->input->post('clientconfirme'),
                                             'code_pro' => $h_gdp,
@@ -998,7 +1018,7 @@
                                         $tampon1 = $this->m_tamponcode->create($arraycodetampon1);
                                         $passagerarray1 = array(
                                             'code_passager' => $tampon1,
-                                            'code_ticket' =>$this->input->post('codeconfirm'),
+                                            'code_ticket' =>$this->_code_ticket_confirm_leg(2),
                                             'idcptuser' => $iduser,
                                             'id_client_pass' => $clhid,
                                             'code_pro' => $h_gdp,
@@ -1192,7 +1212,7 @@
 
                                     $passagerarray1 = array(
                                         'code_passager' => $tampon1,
-                                        'code_ticket' =>$this->input->post('codeconfirm'),
+                                        'code_ticket' =>$this->_code_ticket_confirm_leg(2),
                                         'idcptuser' => $iduser,
                                         'id_client_pass' => $this->input->post('clientconfirme'),
                                         'code_pro' => $h_gdp,
@@ -1263,7 +1283,7 @@
 
                                         $passagerarray2 = array(
                                             'code_passager' => $tampon2,
-                                            'code_ticket' => $this->input->post('codeconfirm'),
+                                            'code_ticket' => $this->_code_ticket_confirm_leg(3),
                                             'idcptuser' => $iduser,
                                             'id_client_pass' => $this->input->post('clientconfirme'),
                                             'code_pro' => $h_gdp1,
@@ -1425,7 +1445,7 @@
 
                                     $passagerarray1 = array(
                                         'code_passager' => $tampon1,
-                                        'code_ticket' =>$this->input->post('codeconfirm'),
+                                        'code_ticket' =>$this->_code_ticket_confirm_leg(2),
                                         'idcptuser' => $iduser,
                                         'id_client_pass' => $clhid,
                                         'code_pro' => $h_gdp,
@@ -1496,7 +1516,7 @@
 
                                     $passagerarray2 = array(
                                         'code_passager' => $tampon2,
-                                        'code_ticket' => $this->input->post('codeconfirm'),
+                                        'code_ticket' => $this->_code_ticket_confirm_leg(3),
                                         'idcptuser' => $iduser,
                                         'id_client_pass' => $clhid,
                                         'code_pro' => $h_gdp1,
@@ -1680,7 +1700,7 @@
 
                                         $passagerarray1 = array(
                                             'code_passager' => $tampon1,
-                                            'code_ticket' => $this->input->post('codeconfirm'),
+                                            'code_ticket' => $this->_code_ticket_confirm_leg(2),
                                             'idcptuser' => $iduser,
                                             'id_client_pass' => $this->input->post('clientconfirme'),
                                             'code_pro' => $h_gdp,
@@ -1741,7 +1761,7 @@
 
                                             $passagerarray2 = array(
                                                 'code_passager' => $tampon2,
-                                                'code_ticket' => $this->input->post('codeconfirm'),
+                                                'code_ticket' => $this->_code_ticket_confirm_leg(3),
                                                 'idcptuser' => $iduser,
                                                 'id_client_pass' => $this->input->post('clientconfirme'),
                                                 'code_pro' => $h_gdp1,
@@ -1813,7 +1833,7 @@
 
                                         $passagerarray3 = array(
                                             'code_passager' => $tampon3,
-                                            'code_ticket' => $this->input->post('codeconfirm'),
+                                            'code_ticket' => $this->_code_ticket_confirm_leg(4),
                                             'idcptuser' => $iduser,
                                             'id_client_pass' => $this->input->post('clientconfirme'),
                                             'code_pro' => $h_gdp2,
@@ -1969,7 +1989,7 @@
 
                                         $passagerarray1 = array(
                                             'code_passager' => $tampon1,
-                                            'code_ticket' => $this->input->post('codeconfirm'),
+                                            'code_ticket' => $this->_code_ticket_confirm_leg(2),
                                             'idcptuser' => $iduser,
                                             'id_client_pass' => $clhid,
                                             'code_pro' => $h_gdp,
@@ -2030,7 +2050,7 @@
 
                                         $passagerarray2 = array(
                                             'code_passager' => $tampon2,
-                                            'code_ticket' => $this->input->post('codeconfirm'),
+                                            'code_ticket' => $this->_code_ticket_confirm_leg(3),
                                             'idcptuser' => $iduser,
                                             'id_client_pass' => $clhid,
                                             'code_pro' => $h_gdp1,
@@ -2102,7 +2122,7 @@
 
                                         $passagerarray3 = array(
                                             'code_passager' => $tampon3,
-                                            'code_ticket' => $this->input->post('codeconfirm'),
+                                            'code_ticket' => $this->_code_ticket_confirm_leg(4),
                                             'idcptuser' => $iduser,
                                             'id_client_pass' => $clhid,
                                             'code_pro' => $h_gdp2,

@@ -635,12 +635,25 @@
                 }
             } else {
                 $dep = '';
-                if (!empty($item->nomsousgare)) {
+                if (!empty($item->nom_escale)) {
+                    $dep = trim((string) $item->nom_escale);
+                } elseif (!empty($item->nomsousgare)) {
                     $dep = trim((string) $item->nomsousgare);
                 } elseif (!empty($item->nom_gaep)) {
                     $dep = trim((string) $item->nom_gaep);
                 }
-                $arr = !empty($item->nom_gadest) ? trim((string) $item->nom_gadest) : '';
+                $arr = '';
+                if (!empty($item->nom_dest_ticket)) {
+                    $arr = trim((string) $item->nom_dest_ticket);
+                } elseif (!empty($item->nom_ligne_od) && strpos((string) $item->nom_ligne_od, '-') !== false) {
+                    $p = explode('-', (string) $item->nom_ligne_od, 2);
+                    $arr = isset($p[1]) ? trim($p[1]) : '';
+                    if ($dep === '' && !empty($p[0])) {
+                        $dep = trim($p[0]);
+                    }
+                } elseif (!empty($item->nom_gadest)) {
+                    $arr = trim((string) $item->nom_gadest);
+                }
                 $quart = !empty($item->quartier_escal) ? trim((string) $item->quartier_escal) : '';
                 if ($dep !== '' && $arr !== '') {
                     $item->quartier_escal = $dep . ' - ' . $arr;

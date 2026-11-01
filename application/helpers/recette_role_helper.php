@@ -259,9 +259,13 @@ if (!function_exists('recette_role_nom_agents_sql')) {
 if (!function_exists('recette_role_hors_escale_sql')) {
     /**
      * Exclut les lignes d'une vente escale du compte de la gare / sous-gare.
-     * L'opérateur est le chef après validation ; le vendeur reste dans le nom.
+     * Critères stricts (pas de match sur le nom civil) :
+     * - id opérateur = roleattribut Venteescal (17) avec vente_escale_value, ou
+     * - marqueur [[escale:…]] dans le commentaire recette (après validation chef).
+     * Le match par nom excluait à tort les ventes guichet d'agents multi-rôles
+     * (ex. HEBIE Alassane vendeur NIA5 + venteescal ailleurs).
      *
-     * @param string $nomColumn
+     * @param string $nomColumn colonne nom (conservée pour détection recette / signature appels)
      * @param string $idColumn
      * @return string
      */
@@ -276,29 +280,23 @@ if (!function_exists('recette_role_hors_escale_sql')) {
         if (!$CI->db->field_exists('vente_escale_value', 'attributions_role')) {
             return '';
         }
-        $noms = "SELECT UPPER(TRIM(CONCAT(TRIM(IFNULL(u.first_name, '')), ' ', TRIM(IFNULL(u.last_name, '')))))
-            FROM attributions_role arn
-            JOIN user_login uln ON arn.idgestcompte = uln.uid_login
-            JOIN compte_user cun ON uln.uid_usercpte = cun.cpuser_id
-            JOIN utilisateurs u ON cun.userlog_id = u.uid
-            WHERE arn.userole = 17
-            AND arn.vente_escale_value IS NOT NULL
-            AND TRIM(arn.vente_escale_value) <> ''";
         $ids = "SELECT arn.roleattribut
             FROM attributions_role arn
             WHERE arn.userole = 17
             AND arn.vente_escale_value IS NOT NULL
             AND TRIM(arn.vente_escale_value) <> ''";
-        $sql = ' AND NOT (UPPER(TRIM(' . $nomColumn . ")) IN ({$noms})";
+        $parts = array();
         if ($idColumn !== '') {
-            $sql .= " OR {$idColumn} IN ({$ids})";
+            $parts[] = "{$idColumn} IN ({$ids})";
         }
         if ($nomColumn === 'r.nom') {
-            $sql .= " OR r.commentaire_recet LIKE '%[[escale:%]]%'";
+            $parts[] = "r.commentaire_recet LIKE '%[[escale:%]]%'";
         }
-        $sql .= ')';
+        if (!$parts) {
+            return '';
+        }
 
-        return $sql;
+        return ' AND NOT (' . implode(' OR ', $parts) . ')';
     }
 }
 
@@ -328,27 +326,20 @@ if (!function_exists('recette_role_hors_escale_sauf_saisie_sql')) {
         if (!$CI->db->field_exists('vente_escale_value', 'attributions_role')) {
             return '';
         }
-        $noms = "SELECT UPPER(TRIM(CONCAT(TRIM(IFNULL(u.first_name, '')), ' ', TRIM(IFNULL(u.last_name, '')))))
-            FROM attributions_role arn
-            JOIN user_login uln ON arn.idgestcompte = uln.uid_login
-            JOIN compte_user cun ON uln.uid_usercpte = cun.cpuser_id
-            JOIN utilisateurs u ON cun.userlog_id = u.uid
-            WHERE arn.userole = 17
-            AND arn.vente_escale_value IS NOT NULL
-            AND TRIM(arn.vente_escale_value) <> ''";
+        // Aligné sur hors_escale : pas de match par nom (faux positifs multi-rôles).
+        // Les saisies dont l'auteur est le roleattribut arrêté restent incluses
+        // même si un autre opérateur escale apparaît ailleurs sur la ligne.
         $ids = "SELECT arn.roleattribut
             FROM attributions_role arn
             WHERE arn.userole = 17
             AND arn.vente_escale_value IS NOT NULL
             AND TRIM(arn.vente_escale_value) <> ''";
-        $sql = ' AND NOT ((UPPER(TRIM(' . $nomColumn . ")) IN ({$noms}) AND {$idColumn} <> {$auteur})";
-        $sql .= " OR {$idColumn} IN ({$ids})";
+        $parts = array("({$idColumn} IN ({$ids}) AND {$idColumn} <> {$auteur})");
         if ($nomColumn === 'r.nom') {
-            $sql .= " OR r.commentaire_recet LIKE '%[[escale:%]]%'";
+            $parts[] = "r.commentaire_recet LIKE '%[[escale:%]]%'";
         }
-        $sql .= ')';
 
-        return $sql;
+        return ' AND NOT (' . implode(' OR ', $parts) . ')';
     }
 }
 

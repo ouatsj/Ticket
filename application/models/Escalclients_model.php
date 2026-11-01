@@ -485,9 +485,16 @@
         public function rapportaller($cd, $idcox, $comp, $g)
         {
             // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
+            // Pas de filtre arrcptchefgescal : le rapport agent doit sortir dès l'arrêt,
+            // même si le chef a déjà validé (sinon rapport vide).
             $today = mdate("%Y-%m-%d", now('UTC'));
+            $cd = $this->db->escape_str($cd);
+            $idcox = (int) $idcox;
+            $comp = (int) $comp;
+            $g = $this->db->escape_str($g);
             
-            return $this->db->query("SELECT COUNT(idclescal) AS cd, SUM(prixescal) AS total, lg.ident_ligne, lg.nom_ligne, es.prixescal, dest.id_compaga, ar.roleattribut FROM escalclients es
+            return $this->db->query(
+                "SELECT COUNT(idclescal) AS cd, SUM(prixescal) AS total, lg.ident_ligne, lg.nom_ligne, es.prixescal, dest.id_compaga, ar.roleattribut FROM escalclients es
                 JOIN attributions_role ar ON es.iduseescal = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -499,16 +506,16 @@
                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                WHERE e.ekey = '$cd'
-                AND es.dateescal <= '$today'
-                AND ar.roleattribut = '$idcox'
-                AND ul.guser = '$g'
+                WHERE e.ekey = '{$cd}'
+                AND es.dateescal <= '{$today}'
+                AND ar.roleattribut = {$idcox}
+                AND ul.guser = '{$g}'
                 AND es.arrcptescal = 1
-                AND es.arrcptchefgescal = 0
-                AND dest.id_compaga = '$comp'
-                AND cu.date_conect <= '$today'
+                AND dest.id_compaga = {$comp}
+                AND cu.date_conect <= '{$today}'
                 AND es.cptarrchgescal = 0
-                GROUP BY lg.ident_ligne, es.prixescal, dest.id_compaga, ar.roleattribut")->result();
+                GROUP BY lg.ident_ligne, es.prixescal, dest.id_compaga, ar.roleattribut"
+            )->result();
         }
 
         public function compteur($cd, $idcox, $g)

@@ -29,7 +29,26 @@ if (!$single) {
     return;
 }
 
-// Départ reçu = escale de vente (rôle 17), pas la sous-gare d’affectation guichet.
+// OD reçue = lieu de vente escale → destination choisie (pas la ligne parent catalogue).
+$odFige = '';
+if (!empty($single->nom_ligne_od)) {
+    $odFige = trim((string) $single->nom_ligne_od);
+} elseif (!empty($single->nom_ligne_vendu)) {
+    $odFige = trim((string) $single->nom_ligne_vendu);
+} elseif (!empty($single->nom_ligne) && strpos((string) $single->nom_ligne, '-') !== false) {
+    // Eviter de reprendre un nom_ligne parent écrasé par le JOIN lg.*
+    $cand = trim((string) $single->nom_ligne);
+    $depHint = '';
+    if (!empty($single->nom_escale)) {
+        $depHint = strtoupper(trim((string) $single->nom_escale));
+    } elseif (!empty($single->nom_gaep_vendu)) {
+        $depHint = strtoupper(trim((string) $single->nom_gaep_vendu));
+    }
+    if ($depHint !== '' && strpos(strtoupper($cand), $depHint . '-') === 0) {
+        $odFige = $cand;
+    }
+}
+
 $dep = '';
 if (!empty($escale_depart_label)) {
     $dep = trim((string) $escale_depart_label);
@@ -46,7 +65,10 @@ if (!empty($escale_depart_label)) {
 if ($dep === '' && !empty($single->nom_escale)) {
     $dep = trim((string) $single->nom_escale);
 }
-if ($dep === '' && !empty($single->nom_gaep)) {
+if ($dep === '' && !empty($single->nom_gaep_vendu)) {
+    $dep = trim((string) $single->nom_gaep_vendu);
+}
+if ($dep === '' && !empty($single->nom_gaep) && empty($single->code_gaexp_vendu)) {
     $dep = trim((string) $single->nom_gaep);
 }
 if ($dep === '' && !empty($bus_stop)) {
@@ -63,7 +85,14 @@ if ($dep === '' && !empty($single->nomsousgare)) {
 }
 $arrGare = trim((string) (isset($single->nom_dest_choisie) ? $single->nom_dest_choisie : ''));
 $arrEsc = trim((string) (isset($single->nom_escale_arrivee) ? $single->nom_escale_arrivee : ''));
-if ($arrGare === '') {
+// Ne pas retomber sur le terminus de la ligne parent (ex. HAMELE) si une OD figée existe.
+if ($arrGare === '' && $odFige !== '' && strpos($odFige, '-') !== false) {
+    $partsOd = explode('-', $odFige, 2);
+    if (!empty($partsOd[1])) {
+        $arrGare = trim($partsOd[1]);
+    }
+}
+if ($arrGare === '' && empty($single->code_gaexp_vendu)) {
     $arrGare = trim((string) (isset($single->nom_gadest) ? $single->nom_gadest : ''));
 }
 $arr = $arrGare;
@@ -72,7 +101,11 @@ $idPrinc = isset($single->id_sg_principale) ? (int) $single->id_sg_principale : 
 if ($arrEsc !== '' && $idArr > 0 && $idPrinc > 0 && $idArr !== $idPrinc) {
     $arr = $arrEsc;
 }
-$od = ticket_escale_libre_pos_text($dep . ' - ' . $arr, true);
+if ($odFige !== '') {
+    $od = ticket_escale_libre_pos_text(str_replace('-', ' - ', $odFige), true);
+} else {
+    $od = ticket_escale_libre_pos_text($dep . ' - ' . $arr, true);
+}
 
 $exp_name = '';
 $exp_tel = '';

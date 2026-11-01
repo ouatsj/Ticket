@@ -652,7 +652,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         wrap.style.display = 'block';
         var used = {};
-        used[String(verifiedCode || '').trim().toUpperCase()] = 1;
+        var baseCode = String(verifiedCode || '').trim();
+        used[baseCode.toUpperCase()] = 1;
         var hints = [];
         (jambes || []).forEach(function (j) {
             if (!j) return;
@@ -662,6 +663,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 used[ct.toUpperCase()] = 1;
             }
         });
+        // Même code_ticket sur toutes les jambes : proposer base+B / +C / +D (bis).
+        var bisMap = { 2: 'B', 3: 'C', 4: 'D' };
         var hintIdx = 0;
         for (var leg = 2; leg <= nbrJambes; leg++) {
             var row = document.createElement('div');
@@ -669,11 +672,18 @@ document.addEventListener('DOMContentLoaded', () => {
             row.id = 'reprog_leg_row_' + leg;
             var hint = hints[hintIdx] || '';
             if (hint) hintIdx++;
+            if (!hint && baseCode && bisMap[leg]) {
+                hint = baseCode + bisMap[leg];
+            }
+            var ph = hint
+                ? ('ex. ' + hint + ' (1er code + ' + (bisMap[leg] || 'B') + ')')
+                : ('Code de la ' + leg + 'ᵉ jambe');
             row.innerHTML =
                 '<div class="form-group col-md-6 mb-2">'
-                + '<label class="small mb-0">' + leg + '<sup>e</sup> code (jambe transit)</label>'
+                + '<label class="small mb-0">' + leg + '<sup>e</sup> code (jambe transit) — 1er code + '
+                + (bisMap[leg] || 'B') + '</label>'
                 + '<input class="form-control form-control-sm" type="text" id="code_lookup_leg_' + leg
-                + '" autocomplete="off" placeholder="Code de la ' + leg + 'ᵉ jambe"'
+                + '" autocomplete="off" placeholder="' + String(ph).replace(/"/g, '&quot;') + '"'
                 + (hint ? (' value="' + String(hint).replace(/"/g, '&quot;') + '"') : '') + '>'
                 + '</div>'
                 + '<div class="form-group col-md-6 mb-2">'
@@ -4629,10 +4639,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             );
                             if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
                             if (__reprogQ('erreurSmspunifie')) {
+                                var bisHint = (donnees.code_ticket || cocl || '') + 'B';
                                 __reprogQ('erreurSmspunifie').textContent =
-                                    '1er code OK. Vérifiez les '
-                                    + (window.__reprogState.nbrJambes - 1)
-                                    + ' autre(s) code(s) du transit.';
+                                    '1er code OK. Pour la 2ᵉ jambe, saisissez le même code + B (ex. '
+                                    + bisHint + ')'
+                                    + (window.__reprogState.nbrJambes > 2
+                                        ? ' ; 3ᵉ = +C, 4ᵉ = +D.'
+                                        : '.');
                             }
                             return;
                         }

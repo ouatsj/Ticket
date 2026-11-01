@@ -10,6 +10,45 @@
             $this->load->helper('etat_lettres');
         }
 
+        /**
+         * OD métier bagage escale : gare de vente → destination choisie
+         * (pas la ligne catalogue parent, ex. BOBO-HAMELE → DISSIN-HAMELE).
+         *
+         * @param string $alias alias bagagesesc
+         * @return string
+         */
+        protected function _sql_nom_ligne_od_escale($alias = 'bg')
+        {
+            $a = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $alias);
+            if ($a === '') {
+                $a = 'bg';
+            }
+
+            return "COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = {$a}.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = {$a}.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM({$a}.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM({$a}.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM({$a}.idgarebagesc), ''))
+                      AND NULLIF(TRIM({$a}.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            )";
+        }
+
         /** Délègue au helper bagage (idgarebagesc + gaexp ligne). */
         protected function _sql_gare_esc($gid)
         {
@@ -134,8 +173,13 @@
         public function get($cid, $gd, $bgid = FALSE)
         {
             if ($bgid === FALSE) {
+                $nomLigneOd = $this->_sql_nom_ligne_od_escale('bg');
                 return $this->db->query(
-                "SELECT * FROM bagagesesc bg
+                "SELECT bg.*, cl.*, sg.*, esc.*, h.*, ar.*, ul.*, cu.*,
+                        {$nomLigneOd} AS nom_ligne,
+                        esc.quartier_escal,
+                        dest.nom_gadest, c.nom_compagnie, c.logo, e.ekey
+                FROM bagagesesc bg
                 JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -151,15 +195,20 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND bg.genrebagageesc = 'sans_suivi'
-                AND ex.code_gaexp = '$gd'")->result();
+                AND (bg.idgarebagesc = '$gd' OR ex.code_gaexp = '$gd')")->result();
             }
             // quartier_escal du ticket vérifié (OD libre) — pas le nom de ligne.
             // LEFT JOIN : ne pas perdre le reçu si horaire / ticket / gaexp partiels.
+            $nomLigneOd = $this->_sql_nom_ligne_od_escale('bg');
             $row = $this->db->query(
                 "SELECT bg.*, cl.nom_client, cl.prenom_client, cl.contact_client,
                         esc.quartier_escal, esc.idclescal,
                         sg.nomsousgare, h.heure,
-                        lg.ident_ligne, lg.nom_ligne,
+                        lg.ident_ligne,
+                        {$nomLigneOd} AS nom_ligne,
+                        {$nomLigneOd} AS nom_ligne_od,
+                        gexvendu.nom_gaep AS nom_escale,
+                        COALESCE(destarr.nom_gadest, gexarr.nom_gaep) AS nom_dest_ticket,
                         dest.nom_gadest, dest.id_compaga,
                         c.nom_compagnie, c.logo, e.ekey
                  FROM bagagesesc bg
@@ -170,8 +219,12 @@
                 LEFT JOIN heures h ON lh.heure_identif = h.id_heure
                 LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                 LEFT JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                LEFT JOIN gare_exp gexvendu ON gexvendu.code_gaexp = bg.idgarebagesc
+                    OR gexvendu.garesid = bg.idgarebagesc
                 LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                LEFT JOIN gare_dest destarr ON destarr.idgaresdest = bg.gidarrbagesc
+                LEFT JOIN gare_exp gexarr ON gexarr.code_gaexp = bg.gidarrbagesc
+                LEFT JOIN compagnies c ON COALESCE(destarr.id_compaga, dest.id_compaga) = c.cle_compagnie
                 LEFT JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE bg.id_bagageesc = ?
                 AND (bg.annulebagesc = 0 OR bg.annulebagesc IS NULL)
@@ -458,7 +511,29 @@
             // Pas de filtre session (is_conect / activeattrib) : lisible après arrêt / déconnexion.
             $today = mdate("%Y-%m-%d", now('UTC'));
             
-            return $this->db->query("SELECT COUNT(idoperabagageesc) AS cbg, SUM(prix_bagageesc) AS bagtotal, lg.nom_ligne, bg.prix_bagageesc FROM bagagesesc bg
+            return $this->db->query("SELECT COUNT(idoperabagageesc) AS cbg, SUM(prix_bagageesc) AS bagtotal, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, bg.prix_bagageesc FROM bagagesesc bg
                 JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -480,7 +555,29 @@
                 AND bg.prix_bagageesc IS NOT NULL
                 AND bg.annulebagesc = 0
                 AND bg.actifbagesc = 0
-                GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
+                GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), bg.prix_bagageesc")->result();
         }
 
         /**
@@ -493,7 +590,29 @@
             return $this->db->query(
                 "SELECT COUNT(bg.id_bagageesc) AS cbg,
                         SUM(bg.prix_bagageesc) AS bagtotal,
-                        COALESCE(lg.nom_ligne, 'BAGAGE') AS nom_ligne,
+                        COALESCE(COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), 'BAGAGE') AS nom_ligne,
                         bg.prix_bagageesc
                  FROM bagagesesc bg
                  JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
@@ -513,7 +632,29 @@
                  AND bg.date_createesc <= ?
                  AND (e.ekey IS NULL OR e.ekey = ?)
                  AND (dest.id_compaga IS NULL OR dest.id_compaga = ?)
-                 GROUP BY lg.nom_ligne, bg.prix_bagageesc",
+                 GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), bg.prix_bagageesc",
                 array($idcox, $g, $today, $cd, $comp)
             )->result();
         }
@@ -524,10 +665,11 @@
         public function liste_reimpri_jour($cd, $idcox, $g, $sg)
         {
             $today = mdate('%Y-%m-%d', now('UTC'));
+            $nomLigneOd = $this->_sql_nom_ligne_od_escale('bg');
             return $this->db->query(
                 "SELECT bg.id_bagageesc, bg.codebagesc, bg.prix_bagageesc, bg.contenubagageesc,
                         bg.date_createesc, cl.nom_client, cl.prenom_client, cl.contact_client,
-                        h.heure, lg.nom_ligne
+                        h.heure, {$nomLigneOd} AS nom_ligne
                  FROM bagagesesc bg
                  LEFT JOIN client cl ON bg.clientbagesc = cl.id_client
                  LEFT JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
@@ -550,7 +692,29 @@
         //fiche inventaire
         public function filtrebag($cd, $gid, $db, $df, $cp, $use)
         {
-            return $this->db->query("SELECT SUM(prix_bagageesc) AS bagtotalesc, lg.nom_ligne, cu.username, bg.date_createesc FROM bagagesesc bg
+            return $this->db->query("SELECT SUM(prix_bagageesc) AS bagtotalesc, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, cu.username, bg.date_createesc FROM bagagesesc bg
                 JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -570,7 +734,29 @@
                 AND ex.code_gaexp = '$gid'
                 AND bg.annulebagesc = 0
                 AND bg.actifbagesc = 0
-                GROUP BY lg.nom_ligne, cu.username, bg.date_createesc")->result();
+                GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), cu.username, bg.date_createesc")->result();
         
         }
         public function gets($cid, $gd, $sg, $bgid = FALSE)
@@ -777,7 +963,29 @@
             if ($algn === '') 
             {
                 return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc FROM bagagesesc bg
+                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, dest.id_compaga, bg.prix_bagageesc FROM bagagesesc bg
                     JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -795,10 +1003,54 @@
                     {$gareSql}
                     AND bg.couleurcarnetesc IN('A', 'C')
                     AND bg.prix_bagageesc IS NOT NULL
-                    GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc")->result();
+                    GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), dest.id_compaga, bg.prix_bagageesc")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc FROM bagagesesc bg
+                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, dest.id_compaga, bg.prix_bagageesc FROM bagagesesc bg
                     JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -817,7 +1069,29 @@
                     AND bg.prix_bagageesc IS NOT NULL
                     AND lg.ident_ligne = '$algn'
                     AND bg.couleurcarnetesc IN('A', 'C')
-                    GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc")->result();
+                    GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), dest.id_compaga, bg.prix_bagageesc")->result();
         }
 
         //report comptable
@@ -836,7 +1110,29 @@
                 : '';
 
             return $this->db->query(
-                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc
+                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, bg.prix_bagageesc
                 FROM bagagesesc bg
                 JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -855,7 +1151,29 @@
                 AND bg.prix_bagageesc IS NOT NULL
                 {$gareSql}
                 {$ligneSql}
-                GROUP BY lg.nom_ligne, bg.prix_bagageesc"
+                GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), bg.prix_bagageesc"
             )->result();
         }
 
@@ -874,7 +1192,29 @@
                 : '';
 
             return $this->db->query(
-                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc
+                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, bg.prix_bagageesc
                 FROM bagagesesc bg
                 JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -894,7 +1234,29 @@
                 {$gareSql}
                 {$opSql}
                 {$ligneSql}
-                GROUP BY lg.nom_ligne, bg.prix_bagageesc"
+                GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), bg.prix_bagageesc"
             )->result();
         }
 
@@ -912,7 +1274,29 @@
                 : '';
 
             return $this->db->query(
-                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc
+                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, dest.id_compaga, bg.prix_bagageesc
                 FROM bagagesesc bg
                 JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -930,7 +1314,29 @@
                 AND bg.prix_bagageesc IS NOT NULL
                 {$gareSql}
                 {$ligneSql}
-                GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc"
+                GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), dest.id_compaga, bg.prix_bagageesc"
             )->result();
         }
 
@@ -948,7 +1354,29 @@
                 : '';
 
             return $this->db->query(
-                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc
+                "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, dest.id_compaga, bg.prix_bagageesc
                 FROM bagagesesc bg
                 JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -967,7 +1395,29 @@
                 {$gareSql}
                 {$opSql}
                 {$ligneSql}
-                GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagageesc"
+                GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), dest.id_compaga, bg.prix_bagageesc"
             )->result();
         }
 
@@ -1011,7 +1461,29 @@
         $filtreLettres = etat_filtre_lettres('bg.couleurcarnetesc', 'bg.date_createesc', $cp, 'bagage', $dt1, $dt2);        
             if($algn === '') {
                 return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc, bg.date_createesc FROM  bagagesesc bg
+                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, bg.prix_bagageesc, bg.date_createesc FROM  bagagesesc bg
                     JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1030,11 +1502,55 @@
                     {$filtreLettres}
                     AND ex.code_gaexp = '$gd'
                     AND dest.id_compaga = '$cp'
-                    GROUP BY lg.nom_ligne, bg.date_createesc, bg.prix_bagageesc
+                    GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), bg.date_createesc, bg.prix_bagageesc
                     ORDER BY bg.date_createesc ASC")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc, bg.date_create FROM  bagagesesc bg
+                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, bg.prix_bagageesc, bg.date_create FROM  bagagesesc bg
                     JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1054,7 +1570,29 @@
                     AND ex.code_gaexp = '$gd'
                     AND dest.id_compaga = '$cp'
                     AND lg.ident_ligne = '$algn'
-                    GROUP BY lg.nom_ligne, bg.date_createesc, bg.prix_bagageesc
+                    GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), bg.date_createesc, bg.prix_bagageesc
                     ORDER BY bg.date_createesc ASC")->result();
         }
 
@@ -1064,7 +1602,29 @@
             if ($algn === '') 
             {
                 return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc FROM  bagagesesc bg
+                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, bg.prix_bagageesc FROM  bagagesesc bg
                     JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1084,10 +1644,54 @@
                     AND bg.isvalidbagesc = 1
                     AND dest.id_compaga = '$cp'
                     AND bg.exobagesc = 1
-                    GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
+                    GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), bg.prix_bagageesc")->result();
             }
                 return $this->db->query(
-                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, lg.nom_ligne, bg.prix_bagageesc FROM bagagesesc bg
+                    "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ) AS nom_ligne, bg.prix_bagageesc FROM bagagesesc bg
                     JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1108,7 +1712,29 @@
                     AND bg.isvalidbagesc = 1
                     AND bg.exobagesc = 1
                     AND lg.ident_ligne = '$algn'
-                    GROUP BY lg.nom_ligne, bg.prix_bagageesc")->result();
+                    GROUP BY COALESCE(
+                (
+                    SELECT CONCAT(
+                        TRIM(gv.nom_gaep),
+                        '-',
+                        TRIM(COALESCE(
+                            (SELECT gd.nom_gadest FROM gare_dest gd
+                             WHERE gd.idgaresdest = bg.gidarrbagesc
+                             LIMIT 1),
+                            (SELECT ge2.nom_gaep FROM gare_exp ge2
+                             WHERE ge2.code_gaexp = bg.gidarrbagesc
+                             LIMIT 1),
+                            NULLIF(TRIM(bg.gidarrbagesc), '')
+                        ))
+                    )
+                    FROM gare_exp gv
+                    WHERE (gv.code_gaexp = NULLIF(TRIM(bg.idgarebagesc), '')
+                           OR gv.garesid = NULLIF(TRIM(bg.idgarebagesc), ''))
+                      AND NULLIF(TRIM(bg.gidarrbagesc), '') IS NOT NULL
+                    LIMIT 1
+                ),
+                lg.nom_ligne
+            ), bg.prix_bagageesc")->result();
         }
 
         public function reportbagcptgr($cid, $cp, $gid, $dt1, $dt2, $algn = FALSE)

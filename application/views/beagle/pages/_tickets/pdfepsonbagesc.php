@@ -43,29 +43,48 @@ if ($quart !== ''
     $dest_ticket = trim($m[2]);
 }
 
+// OD figée / recalculée (idgarebagesc → gidarrbagesc), prioritaire sur le parent catalogue.
+$odFige = '';
+if (!empty($item->nom_ligne_od)) {
+    $odFige = trim((string) $item->nom_ligne_od);
+} elseif (!empty($item->nom_ligne) && strpos((string) $item->nom_ligne, '-') !== false) {
+    $odFige = trim((string) $item->nom_ligne);
+}
+
 if ($escale_ticket === '') {
     if (!empty($escale_depart_label)) {
         $escale_ticket = trim((string) preg_replace('/\s*\([^)]*\)\s*$/', '', (string) $escale_depart_label));
+    } elseif (!empty($item->nom_escale)) {
+        $escale_ticket = trim((string) $item->nom_escale);
     } elseif (!empty($bus_stop->garenom)) {
         $escale_ticket = trim((string) $bus_stop->garenom);
     } elseif (!empty($item->nomsousgare)) {
         $escale_ticket = trim((string) $item->nomsousgare);
+    } elseif ($odFige !== '' && strpos($odFige, '-') !== false) {
+        $escale_ticket = trim(explode('-', $odFige, 2)[0]);
     }
 }
 
 if ($dest_ticket === '') {
-    // Fallback : terminus ligne seulement si le ticket n'a pas d'OD parseable.
     if (!empty($item->nom_dest_ticket)) {
         $dest_ticket = trim((string) $item->nom_dest_ticket);
-    } elseif (!empty($item->nom_gadest)) {
+    } elseif ($odFige !== '' && strpos($odFige, '-') !== false) {
+        $partsOd = explode('-', $odFige, 2);
+        $dest_ticket = isset($partsOd[1]) ? trim($partsOd[1]) : '';
+    } elseif (!empty($item->nom_gadest) && empty($item->idgarebagesc)) {
+        // Terminus parent seulement hors vente escale.
         $dest_ticket = trim((string) $item->nom_gadest);
     }
 }
 
 $escale_ticket = ticket_escale_libre_pos_text($escale_ticket, true);
 $dest_ticket = ticket_escale_libre_pos_text($dest_ticket, true);
-$od = trim($escale_ticket . ($escale_ticket !== '' && $dest_ticket !== '' ? ' - ' : '') . $dest_ticket);
-$od = ticket_escale_libre_pos_text($od, true);
+if ($odFige !== '') {
+    $od = ticket_escale_libre_pos_text(str_replace('-', ' - ', $odFige), true);
+} else {
+    $od = trim($escale_ticket . ($escale_ticket !== '' && $dest_ticket !== '' ? ' - ' : '') . $dest_ticket);
+    $od = ticket_escale_libre_pos_text($od, true);
+}
 
 $client = ticket_escale_libre_pos_text(
     trim((string) (isset($item->nom_client) ? $item->nom_client : '') . ' ' . (isset($item->prenom_client) ? $item->prenom_client : '')),
