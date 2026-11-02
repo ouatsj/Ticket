@@ -1720,12 +1720,43 @@
             }
 
             $ekey = $this->company->ekey;
+            // Gare de la caisse (segment URL), pas idengare du sous-gare escale (ex. DIS10 vs BOB1).
             $g = roleattribut_guard_normalize_gare_id($ekey, $g ? $g : $this->input->post('gareconnect'));
             $idc = (int) $idc;
             $db = trim((string) $this->input->post('date_debut'));
             $df = trim((string) $this->input->post('date_fin'));
             $sgid = (int) $this->input->post('sousgareconnect');
-            $iduser = (int) roleattribut_guard_post_hint($ekey);
+            $hint = trim((string) $this->input->post('userconnected'));
+            if ($hint === '' || $hint === '0') {
+                if ($this->session->userdata('agent') && !empty($this->session->agent->roleattribut)) {
+                    $hint = (string) $this->session->agent->roleattribut;
+                }
+            }
+            // Lier l'opérateur à la gare caisse : évite RA mère → satellit (BOB1↔DIS10, OUA1↔BOR26/KOM24).
+            $iduser = 0;
+            if (function_exists('roleattribut_guard_caisse_profil_consult') && $g !== '' && $hint !== '') {
+                $consult = roleattribut_guard_caisse_profil_consult($ekey, $g, $hint);
+                if (is_array($consult) && (int) $consult['roleattribut'] > 0) {
+                    $iduser = (int) $consult['roleattribut'];
+                }
+            }
+            if ($iduser <= 0 && $g !== '' && $hint !== '' && function_exists('recette_role_ids_meme_personne')) {
+                foreach (recette_role_ids_meme_personne((int) $hint) as $ra_try) {
+                    if (function_exists('roleattribut_guard_is_usable')
+                        && roleattribut_guard_is_usable((int) $ra_try, $g)
+                    ) {
+                        $iduser = (int) $ra_try;
+                        break;
+                    }
+                }
+            }
+            if ($iduser <= 0 && function_exists('roleattribut_guard_operateur') && $g !== '' && $hint !== '') {
+                $op = roleattribut_guard_operateur($ekey, $g, $hint);
+                $iduser = (int) $op['roleattribut'];
+            }
+            if ($iduser <= 0) {
+                $iduser = (int) roleattribut_guard_post_hint($ekey, array('idgarecode', 'gareconnect'));
+            }
 
             $back = 'caisses/' . $ekey . '/gTv/' . $g . '/' . $idc
                 . '/arretcaisseprincipale/' . ($iduser > 0 ? $iduser : 0) . '/'
@@ -2101,6 +2132,12 @@
             $det_rec = caisse_validation_detenteur_sql('r.idopera', 'r.operavalidchef');
             $det_dep = caisse_validation_detenteur_sql('d.idop_dep', 'd.opevalidchef');
             $det_depo = caisse_validation_detenteur_sql('d.idop_depot', 'd.opvalidchef');
+            // Lignes retirées (soft-delete) : exclues comme dans les files de validation.
+            $actifRec = ' AND IFNULL(r.actif_rect, 0) = 0 ';
+            $actifDep = ' AND IFNULL(d.actif_deps, 0) = 0 ';
+            $actifDepo = ' AND IFNULL(d.actif_depo, 0) = 0 ';
+            $actifVers = ' AND IFNULL(v.actifvers, 0) = 0 ';
+
             $run(
                 "SELECT {$det_rec} AS ra, COUNT(*) AS nb FROM recette r
                 WHERE " . sous_caisse_predicat('r.idcaisse', $idc) . " AND r.date_recet BETWEEN ? AND ?
@@ -2109,6 +2146,7 @@
                 AND IFNULL(r.is_actifrecet, 0) = 0
                 AND IFNULL(r.is_actifrecetad, 0) = 0
                 AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)
+                {$actifRec}
                 " . sprintf($horsCourrier, 'r.type_recet') . " {$fr}
                 GROUP BY {$det_rec}",
                 $b, 'recette', 'chef'
@@ -2121,6 +2159,7 @@
                 AND IFNULL(r.is_actifrecetad, 0) = 0
                 AND IFNULL(r.is_actifrecet, 0) = 0
                 AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)
+                {$actifRec}
                 " . sprintf($horsCourrier, 'r.type_recet') . " {$fr}
                 GROUP BY {$det_rec}",
                 $b, 'recette', 'attente'
@@ -2132,6 +2171,7 @@
                 AND IFNULL(r.is_actifrecetad, 0) = 1
                 AND IFNULL(r.is_actifrecet, 0) = 0
                 AND IFNULL(r.arret_caisrecet, 0) = 0
+                {$actifRec}
                 " . sprintf($horsCourrier, 'r.type_recet') . " {$fr}
                 GROUP BY IFNULL(r.operavalidad, 0)",
                 $b, 'recette', 'adjoint'
@@ -2143,6 +2183,7 @@
                 AND IFNULL(r.is_actifrecetad, 0) = 1
                 AND IFNULL(r.is_actifrecet, 0) = 0
                 AND IFNULL(r.arret_caisrecet, 0) = 1
+                {$actifRec}
                 " . sprintf($horsCourrier, 'r.type_recet') . " {$fr}
                 GROUP BY IFNULL(r.operavalid, 0)",
                 $b, 'recette', 'principale'
@@ -2156,6 +2197,7 @@
                 AND IFNULL(d.is_actifdep, 0) = 0
                 AND IFNULL(d.is_actifdepad, 0) = 0
                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
+                {$actifDep}
                 " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
                 GROUP BY {$det_dep}",
                 $b, 'depense', 'chef'
@@ -2168,6 +2210,7 @@
                 AND IFNULL(d.is_actifdepad, 0) = 0
                 AND IFNULL(d.is_actifdep, 0) = 0
                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
+                {$actifDep}
                 " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
                 GROUP BY {$det_dep}",
                 $b, 'depense', 'attente'
@@ -2179,6 +2222,7 @@
                 AND IFNULL(d.is_actifdepad, 0) = 1
                 AND IFNULL(d.is_actifdep, 0) = 0
                 AND IFNULL(d.arret_caisdep, 0) = 0
+                {$actifDep}
                 " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
                 GROUP BY IFNULL(d.opevalidad, 0)",
                 $b, 'depense', 'adjoint'
@@ -2190,6 +2234,7 @@
                 AND IFNULL(d.is_actifdepad, 0) = 1
                 AND IFNULL(d.is_actifdep, 0) = 0
                 AND IFNULL(d.arret_caisdep, 0) = 1
+                {$actifDep}
                 " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
                 GROUP BY IFNULL(d.opevalid, 0)",
                 $b, 'depense', 'principale'
@@ -2204,6 +2249,7 @@
                 AND IFNULL(d.is_validdepo, 0) = 0
                 AND IFNULL(d.arret_caisdepo, 0) = 0
                 AND COALESCE(d.valid_depo, '') <> 'valid'
+                {$actifDepo}
                 " . sprintf($horsCourrier, 'd.type_depot') . " {$fp}
                 GROUP BY {$det_depo}",
                 $b, 'depot', 'chef'
@@ -2217,6 +2263,7 @@
                 AND IFNULL(d.is_validdepo, 0) = 0
                 AND IFNULL(d.arret_caisdepo, 0) = 0
                 AND COALESCE(d.valid_depo, '') = 'valid'
+                {$actifDepo}
                 " . sprintf($horsCourrier, 'd.type_depot') . " {$fp}
                 GROUP BY {$det_depo}",
                 $b, 'depot', 'attente'
@@ -2228,6 +2275,7 @@
                 AND IFNULL(d.is_actifdepoad, 0) = 1
                 AND IFNULL(d.is_actifdepo, 0) = 0
                 AND IFNULL(d.arret_caisdepo, 0) = 0
+                {$actifDepo}
                 " . sprintf($horsCourrier, 'd.type_depot') . " {$fp}
                 GROUP BY IFNULL(d.opvalidad, 0)",
                 $b, 'depot', 'adjoint'
@@ -2239,6 +2287,7 @@
                 AND IFNULL(d.is_actifdepoad, 0) = 1
                 AND IFNULL(d.is_actifdepo, 0) = 0
                 AND IFNULL(d.arret_caisdepo, 0) = 1
+                {$actifDepo}
                 " . sprintf($horsCourrier, 'd.type_depot') . " {$fp}
                 GROUP BY IFNULL(d.opvalid, 0)",
                 $b, 'depot', 'principale'
@@ -2255,6 +2304,7 @@
                 AND IFNULL(v.active_verse, 0) = 0
                 AND IFNULL(v.valider_vers, 0) = 0
                 AND IFNULL(v.arret_caisvers, 0) = 0
+                {$actifVers}
                 {$horsVers} {$fv}
                 GROUP BY v.idop_versement",
                 $b, 'versement', 'chef'
@@ -2268,6 +2318,7 @@
                 AND IFNULL(v.is_actifverserad, 0) = 0
                 AND IFNULL(v.valider_vers, 0) = 0
                 AND IFNULL(v.arret_caisvers, 0) = 0
+                {$actifVers}
                 {$horsVers} {$fv}
                 GROUP BY v.idop_versement",
                 $b, 'versement', 'attente'
@@ -2279,6 +2330,7 @@
                 AND IFNULL(v.is_actifverser, 0) = 0
                 AND IFNULL(v.is_actifverserad, 0) = 1
                 AND IFNULL(v.arret_caisvers, 0) = 0
+                {$actifVers}
                 {$horsVers} {$fv}
                 GROUP BY IFNULL(v.validopad, 0)",
                 $b, 'versement', 'adjoint'
@@ -2290,6 +2342,7 @@
                 AND IFNULL(v.is_actifverserad, 0) = 1
                 AND IFNULL(v.is_actifverser, 0) = 0
                 AND IFNULL(v.arret_caisvers, 0) = 1
+                {$actifVers}
                 {$horsVers} {$fv}
                 GROUP BY IFNULL(v.validop, 0)",
                 $b, 'versement', 'principale'

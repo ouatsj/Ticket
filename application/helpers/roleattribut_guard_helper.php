@@ -109,9 +109,9 @@ if (!function_exists('caisse_carte_profil_ra')) {
 
 if (!function_exists('roleattribut_guard_caisse_profil_consult')) {
     /**
-     * Admin/superviseur (ou consultant 13/14) : si l'URL vise un caissier (4)
-     * ou adjoint caisse (18) de la gare, retourne ce profil pour la lecture
-     * des opérations (sans basculer la session via connect_gare_exclusive).
+     * Admin/superviseur (ou consultant 13/14) : si l'URL vise un caissier (4),
+     * adjoint caisse (18) ou chef guichet (5/16) de la gare, retourne ce profil
+     * pour la lecture des opérations (sans basculer la session via connect_gare_exclusive).
      *
      * @return array{roleattribut:int,conex:object,userole:string}|null
      */
@@ -130,7 +130,7 @@ if (!function_exists('roleattribut_guard_caisse_profil_consult')) {
             $ekey,
             $gare_id,
             $hint,
-            array('4', '18'),
+            array('4', '5', '16', '18'),
             false
         );
         if (!$cible) {

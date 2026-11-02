@@ -2955,6 +2955,14 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
             }
         }
         $in_valid = implode(',', $validateurs);
+        // Sous-caisse : le périmètre id_caiss suffit (versement banque / dépenses du caissier inclus).
+        $filtre = ($cle_solde !== '')
+            ? function ($id_col, $nom_col) {
+                unset($id_col, $nom_col);
+
+                return '';
+            }
+            : $scope;
         $base = "JOIN caisse cs ON %s = cs.id_caiss
             JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
             JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
@@ -2973,7 +2981,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 AND IFNULL(r.is_actifrecet, 0) = 0
                 AND IFNULL(r.actif_rect, 0) = 0
                 AND IFNULL(r.type_recet, '') <> 'Courrier'
-                {$qui_r} " . $scope('r.idopera', 'r.nom')
+                {$qui_r} " . $filtre('r.idopera', 'r.nom')
             );
             $depenses = $montant(
                 "SELECT SUM(d.montant_depens) AS total FROM depense d "
@@ -2982,7 +2990,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 AND IFNULL(d.is_actifdep, 0) = 0
                 AND IFNULL(d.actif_deps, 0) = 0
                 AND IFNULL(d.type_depense, '') <> 'Courrier'
-                {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
+                {$qui_d} " . $filtre('d.idop_dep', 'd.nom_perso')
             );
             $depots = $montant(
                 "SELECT SUM(dp.montant_depot) AS total FROM depot dp "
@@ -2990,13 +2998,13 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 AND dp.ferme_caisdepo = 0 AND dp.is_validdepo = 1 AND dp.is_actifdepoad = 1
                 AND IFNULL(dp.is_actifdepo, 0) = 0
                 AND IFNULL(dp.type_depot, '') <> 'Courrier'
-                {$qui_p} " . $scope('dp.idop_depot', 'dp.nom_pre')
+                {$qui_p} " . $filtre('dp.idop_depot', 'dp.nom_pre')
             );
             $versements = $montant(
                 "SELECT SUM(v.montant_verser) AS total FROM versements v "
                 . sprintf($base, 'v.idcaisse_versement') . "
                 AND v.ferme_caisvers = 0 AND v.is_actifverserad = 1
-                AND v.type_versement <> 'Courrier' {$qui_v} " . $scope('v.idop_versement', 'v.nom_beneficiaire')
+                AND v.type_versement <> 'Courrier' {$qui_v} " . $filtre('v.idop_versement', 'v.nom_beneficiaire')
             );
         } else {
             $qui_r = $tous_validateurs ? '' : "AND r.operavalid IN ({$in_valid})";
@@ -3009,7 +3017,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 AND r.ferme_caisrecet = 0 AND r.is_actifrecet = 1
                 AND IFNULL(r.actif_rect, 0) = 0
                 AND IFNULL(r.type_recet, '') <> 'Courrier'
-                {$qui_r} " . $scope('r.idopera', 'r.nom')
+                {$qui_r} " . $filtre('r.idopera', 'r.nom')
             );
             $depenses = $montant(
                 "SELECT SUM(d.montant_depens) AS total FROM depense d "
@@ -3017,20 +3025,20 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 AND d.ferme_caisdep = 0 AND d.is_actifdep = 1
                 AND IFNULL(d.actif_deps, 0) = 0
                 AND IFNULL(d.type_depense, '') <> 'Courrier'
-                {$qui_d} " . $scope('d.idop_dep', 'd.nom_perso')
+                {$qui_d} " . $filtre('d.idop_dep', 'd.nom_perso')
             );
             $depots = $montant(
                 "SELECT SUM(dp.montant_depot) AS total FROM depot dp "
                 . sprintf($base, 'dp.idcaisse_depot') . "
                 AND dp.ferme_caisdepo = 0 AND dp.is_validdepo = 1
                 AND IFNULL(dp.type_depot, '') <> 'Courrier'
-                {$qui_p} " . $scope('dp.idop_depot', 'dp.nom_pre')
+                {$qui_p} " . $filtre('dp.idop_depot', 'dp.nom_pre')
             );
             $versements = $montant(
                 "SELECT SUM(v.montant_verser) AS total FROM versements v "
                 . sprintf($base, 'v.idcaisse_versement') . "
                 AND v.ferme_caisvers = 0 AND v.is_actifverser = 1
-                AND v.type_versement <> 'Courrier' {$qui_v} " . $scope('v.idop_versement', 'v.nom_beneficiaire')
+                AND v.type_versement <> 'Courrier' {$qui_v} " . $filtre('v.idop_versement', 'v.nom_beneficiaire')
             );
         }
 
@@ -3301,6 +3309,34 @@ if (!function_exists('caissier_escale_page_active')) {
         $ops = function_exists('caissier_escale_ops_from_request') ? caissier_escale_ops_from_request() : null;
 
         return !empty($ops);
+    }
+}
+
+if (!function_exists('caissier_escale_align_bus_stop')) {
+    /**
+     * Escale : le sous-gare d'URL est souvent celui du lieu affilié (DIS10/BOR26/KOM24)
+     * alors que la caisse est sur la gare mère (BOB1/OUA1). Force idengare = gare caisse
+     * pour que les formulaires (gareconnect) ne remappent pas le RA vers la gare satellit.
+     *
+     * @param object|null $bus_stop
+     * @param string $gare_caisse code_gaexp / idengare de la caisse (segment URL)
+     * @return object|null
+     */
+    function caissier_escale_align_bus_stop($bus_stop, $gare_caisse)
+    {
+        if (!$bus_stop || !is_object($bus_stop)) {
+            return $bus_stop;
+        }
+        $gare_caisse = trim((string) $gare_caisse);
+        if ($gare_caisse === '' || !function_exists('caissier_escale_page_active') || !caissier_escale_page_active()) {
+            return $bus_stop;
+        }
+        $actuelle = isset($bus_stop->idengare) ? trim((string) $bus_stop->idengare) : '';
+        if ($actuelle !== '' && $actuelle !== $gare_caisse) {
+            $bus_stop->idengare = $gare_caisse;
+        }
+
+        return $bus_stop;
     }
 }
 

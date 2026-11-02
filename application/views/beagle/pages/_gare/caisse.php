@@ -163,6 +163,15 @@
                         $hors_d = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
                         $hors_dp = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('dp.nom_pre', 'dp.idop_depot') : '';
                         $hors_v = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
+                        $caisse_v_sql = function_exists('sous_caisse_predicat_famille')
+                            ? ('AND ' . sous_caisse_predicat_famille('cs.id_caiss', $item->id_caiss))
+                            : ("AND cs.id_caiss = '" . (int) $item->id_caiss . "'");
+                        $valid_v_sql = function_exists('sous_caisse_validateurs_sql')
+                            ? ('AND ' . sous_caisse_validateurs_sql('v.validop', $ut))
+                            : ("AND v.validop = '" . (int) $ut . "'");
+                        // Sous-gare de la carte, ou sous-caisse d'escale rattachée (Dissin → Bobo).
+                        $sgare_v_sql = "AND (v.sgareidvers = '" . (int) $gare_stop->idsousgare . "'"
+                            . " OR (cs.parent_caiss IS NOT NULL AND cs.parent_caiss > 0 AND cs.parent_caiss = '" . (int) $item->id_caiss . "'))";
 
 
                         $versements = $this->db->query(
@@ -176,11 +185,10 @@
                             AND v.is_actifverser = 1
                             AND v.type_versement <> 'Courrier'
                             AND v.type_versement <> 'Bordereau_bancairecourrier'
-                            AND cs.id_caiss = '$item->id_caiss'
-                            AND v.validop = '$ut'
-			                AND v.sgareidvers = '$gare_stop->idsousgare'
-                            {$hors_v}
-                            GROUP BY cs.id_caiss, v.sgareidvers")->row();
+                            {$caisse_v_sql}
+                            {$valid_v_sql}
+			                {$sgare_v_sql}
+                            {$hors_v}")->row();
                             $recettes = $this->db->query(
                                 "SELECT SUM(montant_recet) AS montant_recet FROM recette r
                                 JOIN caisse cs ON r.idcaisse = cs.id_caiss
@@ -388,6 +396,14 @@
                         $hors_d = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
                         $hors_dp = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('dp.nom_pre', 'dp.idop_depot') : '';
                         $hors_v = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement') : '';
+                        $caisse_v_sql = function_exists('sous_caisse_predicat_famille')
+                            ? ('AND ' . sous_caisse_predicat_famille('cs.id_caiss', $item->id_caiss))
+                            : ("AND cs.id_caiss = '" . (int) $item->id_caiss . "'");
+                        $valid_v_sql = function_exists('sous_caisse_validateurs_sql')
+                            ? ('AND ' . sous_caisse_validateurs_sql('v.validopad', $ut))
+                            : ("AND v.validopad = '" . (int) $ut . "'");
+                        $sgare_v_sql = "AND (v.sgareidvers = '" . (int) $gare_stop->idsousgare . "'"
+                            . " OR (cs.parent_caiss IS NOT NULL AND cs.parent_caiss > 0 AND cs.parent_caiss = '" . (int) $item->id_caiss . "'))";
 
 
                         $versements = $this->db->query(
@@ -401,11 +417,10 @@
                             AND v.is_actifverserad = 1
                             AND v.type_versement <> 'Courrier'
                             AND v.type_versement <> 'Bordereau_bancairecourrier'
-                            AND cs.id_caiss = '$item->id_caiss'
-                            AND v.validopad = '$ut'
-                            AND v.sgareidvers = '$gare_stop->idsousgare'
-                            {$hors_v}
-                            GROUP BY cs.id_caiss, v.sgareidvers")->row();
+                            {$caisse_v_sql}
+                            {$valid_v_sql}
+                            {$sgare_v_sql}
+                            {$hors_v}")->row();
                             $recettes = $this->db->query(
                                 "SELECT SUM(montant_recet) AS montant_recet FROM recette r
                                 JOIN caisse cs ON r.idcaisse = cs.id_caiss
@@ -591,6 +606,20 @@
                         </div>
                             
                         <? $cd = $this->session->company->ekey;
+                            $gare_caisse_chef = !empty($item->gexp_caiss) ? $item->gexp_caiss : (string) $item->idengare;
+                            // Solde / liens chef = profil 5/16 de la gare (pas le RA admin).
+                            $chef_ra = 0;
+                            if (function_exists('roleattribut_guard_is_supervisor') && roleattribut_guard_is_supervisor()
+                                && function_exists('caisse_carte_profil_ra')) {
+                                $chef_ra = (int) caisse_carte_profil_ra($gare_caisse_chef, 5);
+                                if ($chef_ra <= 0) {
+                                    $chef_ra = (int) caisse_carte_profil_ra($gare_caisse_chef, 16);
+                                }
+                            }
+                            if ($chef_ra <= 0) {
+                                $chef_ra = !empty($conex->roleattribut) ? (int) $conex->roleattribut : 0;
+                            }
+                            $ra_chef_lien = $chef_ra > 0 ? $chef_ra : (int) $conex->roleattribut;
 
                             $solde_ad = 0;
                             $hors_r = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
@@ -613,7 +642,7 @@
                                 AND v.type_versement <> 'Courrier'
                                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                                 AND cs.id_caiss = '$item->id_caiss'
-                                AND v.idop_versement = '$conex->roleattribut'
+                                AND v.idop_versement = '{$ra_chef_lien}'
 				                AND v.sgareidvers = '$gare_stop->idsousgare'
                                 AND ex.code_gaexp = '$item->gexp_caiss'
                                 {$hors_v}
@@ -634,7 +663,7 @@
                                 AND IFNULL(r.actif_rect, 0) = 0
                                 AND r.type_recet <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
-                                AND (r.idopera = '$conex->roleattribut' OR r.operavalidchef = '$conex->roleattribut')
+                                AND (r.idopera = '{$ra_chef_lien}' OR r.operavalidchef = '{$ra_chef_lien}')
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND r.recetsgid = '$gare_stop->idsousgare'
                                 {$hors_r}
@@ -655,7 +684,7 @@
                                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
                                 AND d.type_depense <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
-                                AND (d.idop_dep = '$conex->roleattribut' OR d.opevalidchef = '$conex->roleattribut')
+                                AND (d.idop_dep = '{$ra_chef_lien}' OR d.opevalidchef = '{$ra_chef_lien}')
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND d.sousgidepens = '$gare_stop->idsousgare'
                                 {$hors_d}
@@ -674,7 +703,7 @@
                                 AND IFNULL(dp.actif_depo, 0) = 0
                                 AND dp.type_depot <> 'Courrier'
                                 AND cs.id_caiss = '$item->id_caiss'
-                                AND (dp.idop_depot = '$conex->roleattribut' OR dp.opvalidchef = '$conex->roleattribut')
+                                AND (dp.idop_depot = '{$ra_chef_lien}' OR dp.opvalidchef = '{$ra_chef_lien}')
                                 AND ex.code_gaexp = '$item->gexp_caiss'
 				                AND dp.sousgdepot = '$gare_stop->idsousgare'
                                 {$hors_dp}
@@ -695,7 +724,7 @@
                             <p class="form-group text-center">Solde <?= $item->nom_caisse; ?>:<?=number_format($solde_ad, 0, '', ' ');?>F</p>
                             <a href="<?= site_url('caisses/'
                             .$this->session->company->ekey.'/cais/'
-                                .$item->gexp_caiss.'/'.$item->id_caiss.'/'.$conex->roleattribut.'/recette_adjoint/'.$gare_stop->idsousgare.'/'.mdate("%d/%m/%Y", now('UTC'))); ?>"
+                                .$item->gexp_caiss.'/'.$item->id_caiss.'/'.$ra_chef_lien.'/recette_adjoint/'.$gare_stop->idsousgare.'/'.mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
                                 RECETTES&nbsp;:&nbsp;<?= number_format((float) $rad, 0, '', ' '); ?>F
@@ -703,21 +732,21 @@
                             
                             <a href="<?= site_url('caisses/'
                                 . $this->session->company->ekey . '/cais/'
-                                . $item->gexp_caiss. '/'. $item->id_caiss.'/' . $conex->roleattribut. '/depot_adjoint/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
+                                . $item->gexp_caiss. '/'. $item->id_caiss.'/' . $ra_chef_lien. '/depot_adjoint/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
                                 DEPOTS&nbsp;:&nbsp;<?= number_format((float) $dpad, 0, '', ' '); ?>F
                             </a>
 
                             <a href="<?= site_url('caisses/'.$this->session->company->ekey.'/cais/'
-                            .$item->gexp_caiss.'/'.$item->id_caiss.'/'.$conex->roleattribut.'/autreversement_adjoint/'.$gare_stop->idsousgare.'/'.mdate("%d/%m/%Y", now('UTC'))); ?>"
+                            .$item->gexp_caiss.'/'.$item->id_caiss.'/'.$ra_chef_lien.'/autreversement_adjoint/'.$gare_stop->idsousgare.'/'.mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
                                 VERSEMENT&nbsp;:&nbsp;<?= number_format((float) $vad, 0, '', ' '); ?>F
                             </a>
                             <a href="<?= site_url('caisses/'
                                 . $this->session->company->ekey . '/cais/'
-                                . $item->gexp_caiss. '/'. $item->id_caiss.'/' . $conex->roleattribut. '/depense_adjoint/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
+                                . $item->gexp_caiss. '/'. $item->id_caiss.'/' . $ra_chef_lien. '/depense_adjoint/'. $gare_stop->idsousgare.'/' . mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
                                 DEPENSES&nbsp;:&nbsp;<?= number_format((float) $dad, 0, '', ' '); ?>F
@@ -725,7 +754,7 @@
                             
                             <a href="<?= site_url('caisses/'
                                 . $this->session->company->ekey . '/cais/'
-                                . $item->gexp_caiss. '/'. $item->id_caiss.'/' . $conex->roleattribut. '/arretcaisse_adjoint/'. $gare_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>"
+                                . $item->gexp_caiss. '/'. $item->id_caiss.'/' . $ra_chef_lien. '/arretcaisse_adjoint/'. $gare_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>"
                                 class="btn btn-block btn-rounded text-dark bg-white">
                                 <span class="fas fa-eye"></span>
                                 ARRÊT COMPTE CHEF GUICHET

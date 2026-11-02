@@ -261,7 +261,24 @@
        {
            $this->company = $this->m_entreprises->get_key($ckey);
             $this->property['company'] = $this->company;
+            $idsg = (int) $idsg;
+            if ($idsg <= 0) {
+                $sg_row = $this->db->query(
+                    "SELECT s.idsousgare FROM sousgare s
+                     JOIN gare_exp gd ON s.gareprinceid = gd.code_gaexp
+                     JOIN gares g ON gd.garesid = g.idengare
+                     WHERE g.idengare = ? OR gd.code_gaexp = ? OR gd.garesid = ?
+                     ORDER BY s.idsousgare ASC LIMIT 1",
+                    array($cdg, $cdg, $cdg)
+                )->row();
+                if ($sg_row) {
+                    $idsg = (int) $sg_row->idsousgare;
+                }
+            }
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $idsg);
+            if (function_exists('caissier_escale_align_bus_stop')) {
+                $bus_stop = caissier_escale_align_bus_stop($bus_stop, $cdg);
+            }
             $this->property['bus_stop'] = $bus_stop;
             $cpr_requested = $cpr;
             $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
@@ -614,12 +631,27 @@
                     }
                     $escale_ops = $this->_escale_ops_ids();
                     if ($escale_ops) {
+                        $niveau_escale = $this->_escale_niveau_caisse();
                         $this->property['versements'] = $this->m_versements->liste_caisse_escale(
-                            $this->company->ekey, $cdg, $escale_ops, $this->_escale_niveau_caisse(), 'banque'
+                            $this->company->ekey, $cdg, $escale_ops, $niveau_escale, 'banque'
                         );
                         $total_escale = $this->_total_lignes($this->property['versements'], 'montant_verser');
                         $this->property['montantvervesbank'] = (object) array('montant_bank' => $total_escale, 'total' => $total_escale);
                         $this->property['montantverves'] = (object) array('montant_verser' => $total_escale, 'montant_solde' => $total_escale, 'total' => $total_escale);
+                        if (function_exists('caissier_escale_solde_ouvert')) {
+                            // Solde de la sous-caisse entière (tous validateurs) : le tiroir escale
+                            // mélange recettes/versements de plusieurs RA.
+                            $this->property['solde_escale_ouvert'] = caissier_escale_solde_ouvert(
+                                $this->company->ekey,
+                                $cid,
+                                $cdg,
+                                $cpr,
+                                $escale_ops,
+                                $niveau_escale,
+                                trim((string) $this->input->get('escale')),
+                                true
+                            );
+                        }
                     }
                     
                     $this->property['caisses'] = $this->m_caisse->getcaisse($this->company->ekey);
@@ -1228,36 +1260,34 @@
 
         public function retirerrecette($ckey, $recet)
         {
+            return $this->supprimerrecette($ckey, $recet);
+        }
+
+        /**
+         * Admin : suppression définitive d'une recette (DELETE).
+         */
+        public function supprimerrecette($ckey, $recet)
+        {
             $this->company = $this->m_entreprises->get_key($ckey);
             if (!$this->company || (string) $this->session->agent->userole !== '1') {
-                show_error('Seul le compte admin peut retirer une recette.', 403);
+                show_error('Seul le compte admin peut supprimer une recette.', 403);
                 return;
             }
+            if (strtoupper((string) $this->input->method(true)) !== 'POST') {
+                show_error('Méthode non autorisée.', 405);
+                return;
+            }
+            $id = (int) $recet;
             $ligne = $this->db->query(
-                'SELECT * FROM recette WHERE id_recette = ? LIMIT 1',
-                array((int) $recet)
+                'SELECT id_recette FROM recette WHERE id_recette = ? LIMIT 1',
+                array($id)
             )->row();
             $retour = saisie_url_retour();
-            if (!$ligne || !saisie_peut_retirer(
-                isset($ligne->idopera) ? $ligne->idopera : 0,
-                isset($ligne->ferme_caisrecet) ? $ligne->ferme_caisrecet : 0,
-                isset($ligne->valid_cptablerecet) ? $ligne->valid_cptablerecet : 0,
-                isset($ligne->active_recet) ? $ligne->active_recet : 0,
-                isset($ligne->arret_caisrecet) ? $ligne->arret_caisrecet : 0
-            )) {
-                $this->session->set_flashdata('error', 'Cette recette ne peut pas être retirée.');
+            if (!$ligne || !saisie_peut_supprimer()) {
+                $this->session->set_flashdata('error', 'Cette recette ne peut pas être supprimée.');
             } else {
-                // Retrait complet : plus visible ni comptabilisée (caissier, adjoint, soldes, totaux).
-                $this->m_recette->update($recet, array(
-                    'actif_rect' => 1,
-                    'is_actifrecet' => 0,
-                    'is_actifrecetad' => 0,
-                    'is_validerecet' => 0,
-                    'active_recet' => 0,
-                    'arret_caisrecet' => 0,
-                    'valid_recet' => 'rejet',
-                ));
-                $this->session->set_flashdata('success', 'La recette a été retirée. Son auteur peut la ressaisir.');
+                $this->db->query('DELETE FROM recette WHERE id_recette = ? LIMIT 1', array($id));
+                $this->session->set_flashdata('success', 'La recette a été supprimée définitivement.');
             }
             if ($retour !== '') {
                 redirect($retour);
@@ -1409,7 +1439,11 @@
                 $identifiant_gare = $this->input->post('idgarecode');
                 $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
                 $gid = $this->input->post('gareconnect');
-                $iduser = roleattribut_guard_post_hint($this->company->ekey);
+                // Escale : prioriser la gare caisse (idgarecode) pour ne pas remap RA via sous-gare affilié.
+                $gare_keys = (function_exists('caissier_escale_page_active') && caissier_escale_page_active())
+                    ? array('idgarecode', 'gareconnect')
+                    : 'gareconnect';
+                $iduser = roleattribut_guard_post_hint($this->company->ekey, $gare_keys);
                 $sgid = $this->input->post('sousgareconnect');
                 $idcmpt = $this->input->post('compconnected');
 
@@ -11767,11 +11801,11 @@
                 );
                 $ver = $this->m_versements->create($arrayvers);
                 $this->property['UPDATE_SUSSESS'] = TRUE;
-                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versement/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versement/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
 
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'.  mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             
         }
 
@@ -11802,10 +11836,10 @@
                 );
                 $ver = $this->m_versements->update($idversbank, $upvers);
                 $this->property['UPDATE_SUSSESS'] = TRUE;
-                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versement/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versement/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             }
             else
-            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')));
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'.mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
             
 
         }
@@ -11945,32 +11979,34 @@
 
         public function retirerversement($ckey, $idvers)
         {
+            return $this->supprimerversement($ckey, $idvers);
+        }
+
+        /**
+         * Admin : suppression définitive d'un versement (DELETE).
+         */
+        public function supprimerversement($ckey, $idvers)
+        {
             $this->company = $this->m_entreprises->get_key($ckey);
             if (!$this->company || (string) $this->session->agent->userole !== '1') {
-                show_error('Seul le compte admin peut retirer un versement.', 403);
+                show_error('Seul le compte admin peut supprimer un versement.', 403);
                 return;
             }
+            if (strtoupper((string) $this->input->method(true)) !== 'POST') {
+                show_error('Méthode non autorisée.', 405);
+                return;
+            }
+            $id = (int) $idvers;
             $ligne = $this->db->query(
-                'SELECT * FROM versements WHERE id_versements = ? LIMIT 1',
-                array((int) $idvers)
+                'SELECT id_versements FROM versements WHERE id_versements = ? LIMIT 1',
+                array($id)
             )->row();
             $retour = saisie_url_retour();
-            if (!$ligne || !saisie_peut_retirer(
-                isset($ligne->idop_versement) ? $ligne->idop_versement : 0,
-                isset($ligne->ferme_caisvers) ? $ligne->ferme_caisvers : 0,
-                isset($ligne->valid_cptablevers) ? $ligne->valid_cptablevers : 0,
-                isset($ligne->active_verse) ? $ligne->active_verse : 0,
-                isset($ligne->arret_caisvers) ? $ligne->arret_caisvers : 0
-            )) {
-                $this->session->set_flashdata('error', 'Ce versement ne peut pas être retiré.');
+            if (!$ligne || !saisie_peut_supprimer()) {
+                $this->session->set_flashdata('error', 'Ce versement ne peut pas être supprimé.');
             } else {
-                // Retrait complet : plus visible caissier, adjoint, ni soldes.
-                $this->m_versements->update($idvers, array(
-                    'actifvers' => 1,
-                    'is_actifverser' => 0,
-                    'is_actifverserad' => 0,
-                ));
-                $this->session->set_flashdata('success', 'Le versement a été retiré. Son auteur peut le ressaisir.');
+                $this->db->query('DELETE FROM versements WHERE id_versements = ? LIMIT 1', array($id));
+                $this->session->set_flashdata('success', 'Le versement a été supprimé définitivement.');
             }
             if ($retour !== '') {
                 redirect($retour . (function_exists('caissier_escale_query_suffix') ? caissier_escale_query_suffix() : ''));
@@ -12333,27 +12369,59 @@
         public function options($ckey, $cdg, $cid, $icx, $type = 'recette_adjoint', $idsg, $d = FALSE, $m = FALSE, $y = FALSE)
         {
            $this->company = $this->m_entreprises->get_key($ckey);
-                $idsg = escale_idsousgare_saisie($idsg);
+                $idsg = (int) escale_idsousgare_saisie($idsg);
+                if ($idsg <= 0) {
+                    $sg_row = $this->db->query(
+                        "SELECT s.idsousgare FROM sousgare s
+                         JOIN gare_exp gd ON s.gareprinceid = gd.code_gaexp
+                         JOIN gares g ON gd.garesid = g.idengare
+                         WHERE g.idengare = ? OR gd.code_gaexp = ? OR gd.garesid = ?
+                         ORDER BY s.idsousgare ASC LIMIT 1",
+                        array($cdg, $cdg, $cdg)
+                    )->row();
+                    if ($sg_row) {
+                        $idsg = (int) $sg_row->idsousgare;
+                    }
+                }
 
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $idsg);
+                if (function_exists('caissier_escale_align_bus_stop')) {
+                    $bus_stop = caissier_escale_align_bus_stop($bus_stop, $cdg);
+                }
                 $this->property['bus_stop'] = $bus_stop;
                 $icx_requested = $icx;
-                $operateur = $this->_gare_connexion_operateur($this->company->ekey, $cdg, $icx);
-                $icx = $operateur['roleattribut'];
                 $date_seg = ($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC'));
-                roleattribut_guard_redirect_if_url_mismatch(
-                    'caisses/' . $this->company->ekey . '/cais/' . $cdg . '/' . $cid . '/' . $icx . '/' . $type . '/' . $idsg . '/' . $date_seg,
-                    $icx_requested,
-                    $icx
-                );
-                $conex = $operateur['conex'];
-                $userole = $operateur['userole'];
+
+                // Admin / superviseur : lire le chef (5/16) de l'URL sans remap session.
+                $consult = function_exists('roleattribut_guard_caisse_profil_consult')
+                    ? roleattribut_guard_caisse_profil_consult($this->company->ekey, $cdg, $icx_requested)
+                    : null;
+                $consult_profil = is_array($consult)
+                    && (int) $consult['roleattribut'] > 0
+                    && in_array((string) $consult['userole'], array('5', '16'), true);
+
+                if ($consult_profil) {
+                    $icx = (int) $consult['roleattribut'];
+                    $conex = $consult['conex'];
+                    $userole = $consult['userole'];
+                } else {
+                    $operateur = $this->_gare_connexion_operateur($this->company->ekey, $cdg, $icx);
+                    $icx = $operateur['roleattribut'];
+                    roleattribut_guard_redirect_if_url_mismatch(
+                        'caisses/' . $this->company->ekey . '/cais/' . $cdg . '/' . $cid . '/' . $icx . '/' . $type . '/' . $idsg . '/' . $date_seg,
+                        $icx_requested,
+                        $icx
+                    );
+                    $conex = $operateur['conex'];
+                    $userole = $operateur['userole'];
+                }
                 if (!$conex || (int) $icx <= 0) {
                     roleattribut_guard_fail_redirect_gare_caisse($this->company->ekey, $cdg);
                 }
                 $this->property['conex'] = $conex;
                 $this->property['caisse_operateur_roleattribut'] = $icx;
                 $this->property['caisse_operateur_userole'] = $userole;
+                $this->property['caisse_consult_profil'] = $consult_profil;
 
                 $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
                             WHERE s.gareprinceid = '$cdg'")->row();

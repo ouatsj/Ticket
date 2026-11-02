@@ -1794,27 +1794,36 @@
                 : 'dp.is_validdepo = 1';
 
             if ($superviseur) {
-                // Uniquement le caissier principal actif de la gare (même règle que la carte caisse).
-                // Pas les anciens caissiers désactivés, ni le RA admin.
+                // Caissier principal de la gare + tous ses RA (ex. BOB1=39 et DIS10=352),
+                // pour que les écritures d'escale (sous-caisse, validop lieu) entrent dans le total.
                 $attrib = "JOIN attributions_role ar ON ar.roleattribut = %s
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login AND ul.guser = cs.gexp_caiss
-                    WHERE ar.userole = 4
-                    AND ar.activer_role = 0
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    WHERE ar.activer_role = 0
                     AND ul.comptactif = 0
-                    AND ar.roleattribut = (
+                    AND ar.roleattribut IN (
                         SELECT ar2.roleattribut
-                        FROM attributions_role ar2
-                        JOIN user_login ul2 ON ar2.idgestcompte = ul2.uid_login
-                        WHERE ul2.guser = cs.gexp_caiss
-                          AND ar2.userole = 4
-                          AND ar2.activer_role = 0
-                          AND ul2.comptactif = 0
-                        ORDER BY ar2.activeattrib DESC, ar2.roleattribut ASC
-                        LIMIT 1
+                        FROM attributions_role ar0
+                        JOIN user_login ul0 ON ar0.idgestcompte = ul0.uid_login
+                        JOIN compte_user cu0 ON ul0.uid_usercpte = cu0.cpuser_id
+                        JOIN compte_user cu2 ON cu2.userlog_id = cu0.userlog_id
+                        JOIN user_login ul2 ON ul2.uid_usercpte = cu2.cpuser_id
+                        JOIN attributions_role ar2 ON ar2.idgestcompte = ul2.uid_login
+                        WHERE ar0.roleattribut = (
+                            SELECT ar3.roleattribut
+                            FROM attributions_role ar3
+                            JOIN user_login ul3 ON ar3.idgestcompte = ul3.uid_login
+                            WHERE ul3.guser = cs.gexp_caiss
+                              AND ar3.userole = 4
+                              AND ar3.activer_role = 0
+                              AND ul3.comptactif = 0
+                            ORDER BY ar3.activeattrib DESC, ar3.roleattribut ASC
+                            LIMIT 1
+                        )
                     )";
             } else {
+                // Même personne, tous ses RA (gare + lieux d'escale), sans exiger ul.guser = gexp.
                 $attrib = "JOIN attributions_role ar ON ar.roleattribut = %s
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login AND ul.guser = cs.gexp_caiss
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
                     WHERE cu.cpuser_id = '{$cpuser_id}'
                     AND ar.activer_role = 0

@@ -28,6 +28,64 @@ if (!function_exists('recette_role_is_validateur_adjoint')) {
     }
 }
 
+if (!function_exists('recette_role_session_agit_comme')) {
+    /**
+     * Rôle d'action effectif : admin/superviseur agit comme le caissier (4) ou adjoint (18)
+     * de la page consultée (conex), sinon le userole de session.
+     *
+     * @param object|null $conex
+     * @param bool $profil_adjoint
+     * @return string
+     */
+    function recette_role_session_agit_comme($conex = null, $profil_adjoint = false)
+    {
+        $CI =& get_instance();
+        $session_role = '';
+        if ($CI->session->userdata('agent') && isset($CI->session->agent->userole)) {
+            $session_role = (string) $CI->session->agent->userole;
+        }
+        if (function_exists('roleattribut_guard_is_supervisor') && roleattribut_guard_is_supervisor()) {
+            if ($conex && !empty($conex->userole)
+                && in_array((string) $conex->userole, array('4', '18'), true)
+            ) {
+                return (string) $conex->userole;
+            }
+            $vue = '';
+            if (isset($CI->input)) {
+                $vue = trim((string) $CI->input->get('escale_vue'));
+                if ($vue !== '4' && $vue !== '18') {
+                    $vue = trim((string) $CI->input->post('escale_vue'));
+                }
+            }
+            if ($vue === '4' || $vue === '18') {
+                return $vue;
+            }
+
+            return $profil_adjoint ? '18' : '4';
+        }
+
+        return $session_role;
+    }
+}
+
+if (!function_exists('recette_role_session_est_validateur_principal')) {
+    function recette_role_session_est_validateur_principal($conex = null, $profil_adjoint = false)
+    {
+        return recette_role_is_validateur_principal(
+            recette_role_session_agit_comme($conex, $profil_adjoint)
+        );
+    }
+}
+
+if (!function_exists('recette_role_session_est_validateur_adjoint')) {
+    function recette_role_session_est_validateur_adjoint($conex = null, $profil_adjoint = false)
+    {
+        return recette_role_is_validateur_adjoint(
+            recette_role_session_agit_comme($conex, $profil_adjoint)
+        );
+    }
+}
+
 if (!function_exists('recette_role_uses_idopera')) {
     function recette_role_uses_idopera($userole)
     {
@@ -971,8 +1029,8 @@ if (!function_exists('saisie_depense_champs_chef')) {
 
 if (!function_exists('saisie_peut_retirer')) {
     /**
-     * Admin : toute saisie encore ouverte, quel que soit l'auteur.
-     * Une ligne déjà arrêtée, fermée ou validée par le comptable reste.
+     * Compat : ancien soft-retrait (lignes encore ouvertes).
+     * Conservé pour les appels existants ; le bouton admin utilise saisie_peut_supprimer().
      */
     function saisie_peut_retirer($auteur, $ferme, $comptable, $active = 0, $arret = 0)
     {
@@ -991,35 +1049,67 @@ if (!function_exists('saisie_peut_retirer')) {
     }
 }
 
-if (!function_exists('saisie_bouton_retrait')) {
-    function saisie_bouton_retrait($type, $id, $auteur, $ferme, $comptable, $active = 0, $arret = 0)
+if (!function_exists('saisie_peut_supprimer')) {
+    /**
+     * Admin uniquement : suppression définitive (toute ligne visible).
+     */
+    function saisie_peut_supprimer()
     {
-        if (!saisie_peut_retirer($auteur, $ferme, $comptable, $active, $arret)) {
+        return saisie_tri_est_admin();
+    }
+}
+
+if (!function_exists('saisie_bouton_supprimer')) {
+    /**
+     * Bouton poubelle admin : DELETE SQL (recette / dépense / dépôt / versement).
+     *
+     * @param string $type recette|depense|depot|versement
+     * @param int $id
+     * @return string
+     */
+    function saisie_bouton_supprimer($type, $id)
+    {
+        if (!saisie_peut_supprimer()) {
             return '';
         }
         $CI =& get_instance();
         $ekey = isset($CI->session->company->ekey) ? $CI->session->company->ekey : '';
         $id = (int) $id;
+        if ($id <= 0 || $ekey === '') {
+            return '';
+        }
         if ($type === 'depense') {
-            $action = 'Depenses/retirerdepense/' . $ekey . '/' . $id;
-            $texte = 'Retirer cette dépense ? La personne qui l\'a créée pourra la ressaisir.';
+            $action = 'Depenses/supprimerdepense/' . $ekey . '/' . $id;
+            $texte = 'Supprimer définitivement cette dépense ? Cette action est irréversible.';
         } elseif ($type === 'depot') {
-            $action = 'Depots/retirerdepot/' . $ekey . '/' . $id;
-            $texte = 'Retirer ce dépôt ? La personne qui l\'a créé pourra le ressaisir.';
+            $action = 'Depots/supprimerdepot/' . $ekey . '/' . $id;
+            $texte = 'Supprimer définitivement ce dépôt ? Cette action est irréversible.';
         } elseif ($type === 'versement') {
-            $action = 'Caisses/retirerversement/' . $ekey . '/' . $id;
-            $texte = 'Retirer ce versement ? La personne qui l\'a créé pourra le ressaisir.';
+            $action = 'Caisses/supprimerversement/' . $ekey . '/' . $id;
+            $texte = 'Supprimer définitivement ce versement ? Cette action est irréversible.';
         } else {
-            $action = 'Caisses/retirerrecette/' . $ekey . '/' . $id;
-            $texte = 'Retirer cette recette ? La personne qui l\'a créée pourra la ressaisir.';
+            $action = 'Caisses/supprimerrecette/' . $ekey . '/' . $id;
+            $texte = 'Supprimer définitivement cette recette ? Cette action est irréversible.';
         }
         $retour = htmlspecialchars(current_url(), ENT_QUOTES, 'UTF-8');
         return form_open($action, array('style' => 'display:inline'))
             . '<input type="hidden" name="retour" value="' . $retour . '">'
-            . '<button type="submit" class="btn btn-link p-0 ml-2" title="Retirer" onclick="return confirm('
+            . '<button type="submit" class="btn btn-link p-0 ml-2" title="Supprimer" onclick="return confirm('
             . htmlspecialchars(json_encode($texte), ENT_QUOTES, 'UTF-8')
             . ');"><span class="fas fa-trash text-danger"></span></button>'
             . form_close();
+    }
+}
+
+if (!function_exists('saisie_bouton_retrait')) {
+    /**
+     * Alias UI : le bouton admin affiché est désormais la suppression définitive.
+     * Les paramètres ferme/comptable/active/arret sont ignorés (admin only).
+     */
+    function saisie_bouton_retrait($type, $id, $auteur = 0, $ferme = 0, $comptable = 0, $active = 0, $arret = 0)
+    {
+        unset($auteur, $ferme, $comptable, $active, $arret);
+        return saisie_bouton_supprimer($type, $id);
     }
 }
 

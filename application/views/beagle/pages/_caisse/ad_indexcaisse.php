@@ -2,6 +2,10 @@
 $escale_nom = trim((string) $this->input->get('escale'));
 $depuis_escale = ($escale_nom !== '');
 $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empty($bus_stop->idengare) ? $bus_stop->idengare : 0);
+// Escale : gareconnect = gare caisse (OUA1/BOB1), pas le sous-gare affilié (BOR26/DIS10/KOM24).
+$gare_form = $depuis_escale
+    ? $gexp_btn
+    : (!empty($bus_stop->idengare) ? $bus_stop->idengare : $gexp_btn);
 ?>
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
@@ -12,7 +16,7 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
         <?php else: ?>
         <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
                 $gexp_btn.
-            "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+            "/cais/" . $conex->roleattribut.'/'.(function_exists('retour_idsousgare_segment') ? retour_idsousgare_segment($bus_stop) : (int) (!empty($bus_stop->idsousgare) ? $bus_stop->idsousgare : 0)).'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
             <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
         </a>
         <?php endif; ?>
@@ -32,11 +36,12 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
                 <?= form_open("Caisses/validerec/{$this->session->company->ekey}/{$comptejours->roleattribut}/{$comptejours->date_conect}/{$comptejours->guser}"); ?>
                         <input type="hidden" name="idcaisse" value="<?= $caisseident->id_caiss; ?>">
                         <input type="hidden" name="idgarecode" value="<?= $caisseident->gexp_caiss; ?>">
-                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                            <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?= htmlspecialchars((string) $gare_form, ENT_QUOTES, 'UTF-8'); ?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compcted" value="<?=$comptejours->compagniegare;?>">
+                            <?= function_exists('caissier_escale_hidden_inputs') ? caissier_escale_hidden_inputs() : ''; ?>
 
                             <div class="form-group col-sm-4">
                                     <select style="display:none" class="form-control form-control-sm" name="genre">
@@ -345,7 +350,7 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
                                     "Arretcaisses/unstop/{$this->session->company->ekey}/{$comptejours->guser}/{$caisseident->id_caiss}/{$comptejours->roleattribut}",
                                     array('class' => 'modal-body form')); ?>
                                 <div class="row">
-                                    <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                                    <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?= htmlspecialchars((string) $gare_form, ENT_QUOTES, 'UTF-8'); ?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
@@ -456,12 +461,13 @@ $masquer_rapport_caisse = in_array($role_page_arret, array('5', '16', '18'), tru
                                 <?= form_open("Caisses/unstop/{$this->session->company->ekey}/{$comptejours->roleattribut}/{$comptejours->date_conect}",
                                     array('class' => 'modal-body form')); ?>
                                     <div class="row">
-                                        <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                                        <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?= htmlspecialchars((string) $gare_form, ENT_QUOTES, 'UTF-8'); ?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                                     <input type="hidden" name="idcaisse" value="<?= $caisseident->id_caiss; ?>">
                                                 <input type="hidden" name="idgarecode" value="<?= $caisseident->gexp_caiss; ?>">
+                                    <?= function_exists('caissier_escale_hidden_inputs') ? caissier_escale_hidden_inputs() : ''; ?>
                                         <div class="form-group col-sm-4">
                                         <label>DU</label>
                                         <input class="form-control form-control-sm" type="date" name="datedebut">

@@ -444,6 +444,122 @@ if (!function_exists('sous_caisse_predicat')) {
     }
 }
 
+if (!function_exists('sous_caisse_ids_famille')) {
+    /**
+     * Hors escale sur une caisse mère : la mère + ses sous-caisses d'escale.
+     * Sur une escale / sous-caisse : même périmètre que sous_caisse_ids_lecture.
+     *
+     * @param int|string $pageId
+     * @return int[]
+     */
+    function sous_caisse_ids_famille($pageId)
+    {
+        $pageId = (int) $pageId;
+        if ($pageId <= 0) {
+            return array();
+        }
+        if (!sous_caisse_colonnes_ok()) {
+            return array($pageId);
+        }
+        if (sous_caisse_cle_page() !== '') {
+            return sous_caisse_ids_lecture($pageId);
+        }
+        $CI =& get_instance();
+        $page = $CI->db->query(
+            'SELECT id_caiss, parent_caiss FROM caisse WHERE id_caiss = ? LIMIT 1',
+            array($pageId)
+        )->row();
+        if (!$page) {
+            return array();
+        }
+        if ((int) $page->parent_caiss > 0) {
+            return array($pageId);
+        }
+        $ids = array($pageId => $pageId);
+        $enfants = $CI->db->query(
+            "SELECT id_caiss FROM caisse
+             WHERE parent_caiss = ?
+               AND escale_cle IS NOT NULL
+               AND TRIM(escale_cle) <> ''
+               AND REPLACE(TRIM(escale_cle), '|', '~') LIKE 'escale~%'",
+            array($pageId)
+        )->result();
+        foreach ($enfants as $enfant) {
+            $id = (int) $enfant->id_caiss;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+
+        return array_values($ids);
+    }
+}
+
+if (!function_exists('sous_caisse_predicat_famille')) {
+    /**
+     * Périmètre caisse mère + escales enfants (totaux / listes gare).
+     *
+     * @param string $column
+     * @param int|string $pageId
+     * @return string
+     */
+    function sous_caisse_predicat_famille($column, $pageId)
+    {
+        if (!preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $column)) {
+            $column = 'cs.id_caiss';
+        }
+        $ids = array();
+        foreach (sous_caisse_ids_famille($pageId) as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (!$ids) {
+            return '1=0';
+        }
+        if (count($ids) === 1) {
+            return $column . ' = ' . reset($ids);
+        }
+
+        return $column . ' IN (' . implode(',', $ids) . ')';
+    }
+}
+
+if (!function_exists('sous_caisse_validateurs_sql')) {
+    /**
+     * Même personne, tous ses roleattribut (ex. BOB1=39 et DIS10=352).
+     *
+     * @param string $column
+     * @param int|string $ra
+     * @return string
+     */
+    function sous_caisse_validateurs_sql($column, $ra)
+    {
+        if (!preg_match('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', (string) $column)) {
+            return '1=0';
+        }
+        $ra = (int) $ra;
+        $ids = array();
+        if ($ra > 0) {
+            $ids[$ra] = $ra;
+        }
+        if ($ra > 0 && function_exists('recette_role_ids_meme_personne')) {
+            foreach (recette_role_ids_meme_personne($ra) as $autre) {
+                $autre = (int) $autre;
+                if ($autre > 0) {
+                    $ids[$autre] = $autre;
+                }
+            }
+        }
+        if (!$ids) {
+            return '1=0';
+        }
+
+        return $column . ' IN (' . implode(',', $ids) . ')';
+    }
+}
+
 if (!function_exists('sous_caisse_id_agent')) {
     /**
      * Sous-caisse de l'agent vente-escale, sous la caisse mère de sa gare de rattachement.

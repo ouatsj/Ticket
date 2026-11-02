@@ -349,6 +349,8 @@
             
             $route['gares/gare/(:num)'] = 'Gares/indview/$1';
             $route['gares/(:num)/gTv/(:any)/(:any)/(:any)/(:num)/(:num)/(:any)/(:any)'] = 'Gares/opts/$1/$2/$3/$4/$5/$6/$7/$8';
+            // Rattrapage : sous-gare omise (…/cais/66//02/11/2026 → segments collapsés sans idsg).
+            $route['gares/(:num)/gTv/(:any)/cais/(:num)/(:num)/(:num)/(:num)'] = 'Gares/opts/$1/$2/cais/$3/0/$4/$5/$6';
             $route['gares/position(:num)'] = 'Gares/positions/$1';
             $route['gares/sousgares/(:num)/(:any)/(:any)/(:any)'] = 'Gares/editsousgare/$1/$2/$3/$4';
             $route['gares/souslignegares/(:num)/(:any)/(:any)/(:any)'] = 'Gares/editsousligne/$1/$2/$3/$4';

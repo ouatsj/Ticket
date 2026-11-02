@@ -1230,13 +1230,46 @@
         protected function _escale_boutons_comme_sousgare($userole, $caisse, $viewer, $idsg, $date_seg, array $agents, $gare_id)
         {
             $userole = (string) $userole;
-            if (in_array($userole, array('4', '18'), true) && $this->session->userdata('agent') && !empty($this->session->agent->roleattribut)) {
-                $viewer = (int) $this->session->agent->roleattribut;
-            }
             $sections = array();
             $gexp = ($caisse && !empty($caisse->gexp_caiss)) ? $caisse->gexp_caiss : '';
             $id_caiss = ($caisse && !empty($caisse->id_caiss)) ? (int) $caisse->id_caiss : 0;
             $ekey = $this->company->ekey;
+
+            // Admin/superviseur : packs 4/5/16/18 → RA métier de la gare (pas le RA session admin).
+            $session_role = ($this->session->userdata('agent') && isset($this->session->agent->userole))
+                ? (string) $this->session->agent->userole
+                : '';
+            if (in_array($session_role, array('1', '2'), true)
+                && in_array($userole, array('4', '5', '16', '18'), true)
+                && function_exists('caisse_carte_profil_ra')
+            ) {
+                $profil_ra = 0;
+                foreach (array($gexp, $gare_id) as $gare_try) {
+                    if ($gare_try === '' || $gare_try === null) {
+                        continue;
+                    }
+                    $profil_ra = (int) caisse_carte_profil_ra($gare_try, (int) $userole);
+                    if ($profil_ra <= 0 && in_array($userole, array('5', '16'), true)) {
+                        $profil_ra = (int) caisse_carte_profil_ra(
+                            $gare_try,
+                            $userole === '5' ? 16 : 5
+                        );
+                    }
+                    if ($profil_ra > 0) {
+                        break;
+                    }
+                }
+                if ($profil_ra > 0) {
+                    $viewer = $profil_ra;
+                }
+            } elseif (in_array($userole, array('4', '18'), true)
+                && $this->session->userdata('agent')
+                && !empty($this->session->agent->roleattribut)
+                && (string) $this->session->agent->userole === $userole
+            ) {
+                // Caissier / adjoint connecté : son propre RA.
+                $viewer = (int) $this->session->agent->roleattribut;
+            }
             $escale_value = '';
             $escale_ops = array();
             foreach ($agents as $agent) {
@@ -2339,6 +2372,27 @@
                     case 'cais':
                         $bus_stop = $this->m_gare_depart->get($this->company->id_entreprise, $cdg);
                         $this->property['caisses'] = $this->m_caisse->get($this->company->id_entreprise, $cdg);
+                        $sg = (int) $sg;
+                        // Segment sous-gare manquant (URL …/cais/66//date) → 1ʳᵉ sous-gare de la gare.
+                        if ($sg <= 0) {
+                            $sg_row = $this->db->query(
+                                "SELECT s.idsousgare FROM sousgare s
+                                 JOIN gare_exp gd ON s.gareprinceid = gd.code_gaexp
+                                 JOIN gares g ON gd.garesid = g.idengare
+                                 WHERE g.idengare = ? OR gd.code_gaexp = ? OR gd.garesid = ?
+                                 ORDER BY s.idsousgare ASC LIMIT 1",
+                                array($cdg, $cdg, $cdg)
+                            )->row();
+                            if ($sg_row && !empty($sg_row->idsousgare)) {
+                                $sg = (int) $sg_row->idsousgare;
+                                redirect(
+                                    'gares/' . $this->company->ekey . '/gTv/' . $cdg
+                                    . '/cais/' . (int) $cpus . '/' . $sg . '/'
+                                    . (($d && $m && $y) ? "{$d}/{$m}/{$y}" : mdate('%d/%m/%Y', now('UTC')))
+                                );
+                                return;
+                            }
+                        }
                         $gare_stop = $this->m_sousgare->sget($this->company->ekey, $cdg, $sg);
                         $this->property['gare_stop'] = $gare_stop;
                         

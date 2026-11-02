@@ -21,7 +21,7 @@
             <?php else: ?>
             <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
                     $gexp_btn.
-                "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'.mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/cais/" . $conex->roleattribut.'/'.(function_exists('retour_idsousgare_segment') ? retour_idsousgare_segment($bus_stop) : (int) (!empty($bus_stop->idsousgare) ? $bus_stop->idsousgare : 0)).'/'.mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
             <?php endif; ?>
@@ -128,6 +128,17 @@
                                             <span class="fas fa-edit text-warning"></span>
                                         </a>
                                     <?endif;?>
+                                    <?= function_exists('saisie_bouton_retrait')
+                                        ? saisie_bouton_retrait(
+                                            'versement',
+                                            $item->id_versements,
+                                            $item->idop_versement,
+                                            isset($item->ferme_caisvers) ? $item->ferme_caisvers : 0,
+                                            isset($item->valid_cptablevers) ? $item->valid_cptablevers : 0,
+                                            isset($item->active_verse) ? $item->active_verse : 0,
+                                            isset($item->arret_caisvers) ? $item->arret_caisvers : 0
+                                        )
+                                        : ''; ?>
                                     <div class="modal-container colored-header colored-header-success custom-width modal-effect-7"
                                             id="depense-edit-<?= $item->id_versements; ?>">
 
@@ -148,6 +159,7 @@
                                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+                                            <?= function_exists('caissier_escale_hidden_inputs') ? caissier_escale_hidden_inputs() : ''; ?>
                                             <input type="hidden" name="idcaisse" value="<?= $caisseident->id_caiss; ?>">
                                                 <input type="hidden" name="idgarecode" value="<?= $caisseident->gexp_caiss; ?>">
                                                 <input type="hidden" id="montcaisse" name="solde" value="<? if($depotcaisse == NULL):?>0<? else:?><?= $depotcaisse->total;?><? endif; ?>">
@@ -155,7 +167,9 @@
                                                 <? if($sommerecettes == NULL):?><?$r=0;?><? else:?><? $r = $sommerecettes->montant_recet;?><?endif;?>
                                                     <? if($sommedepenses == NULL):?><?$d=0;?><? else:?><? $d = $sommedepenses->montant_depens;?><?endif;?>
                                                         <? if($sommedepot == NULL):?><?$dp=0;?><? else:?><? $dp = $sommedepot->montant_depot;?><?endif;?>
-                                                            <? $soldecaisse = ($dp+$r)-($v+$d);?>
+                                                            <? $soldecaisse = (isset($solde_escale_ouvert) && $solde_escale_ouvert !== null && $solde_escale_ouvert !== '')
+                                                                ? (float) $solde_escale_ouvert
+                                                                : (($dp+$r)-($v+$d)); ?>
                                                         <input type="hidden" id="autresoldecaisse" name="" value="<?= $soldecaisse;?>">
                                                 <div class="form-group text-center text-danger" style="display:none" id="autresmsmt" style="display:none">
                                                          <p id="smsmontantdep"></p>
@@ -272,7 +286,9 @@
         <? if($sommerecettes == NULL):?><?$r=0;?><? else:?><? $r = $sommerecettes->montant_recet;?><?endif;?>
             <? if($sommedepenses == NULL):?><?$d=0;?><? else:?><? $d = $sommedepenses->montant_depens;?><?endif;?>
                 <? if($sommedepot == NULL):?><?$dp=0;?><? else:?><? $dp = $sommedepot->montant_depot;?><?endif;?>
-                    <? $solde =($r+$dp)-($v+$d);?>
+                    <? $solde = (isset($solde_escale_ouvert) && $solde_escale_ouvert !== null && $solde_escale_ouvert !== '')
+                        ? (float) $solde_escale_ouvert
+                        : (($r+$dp)-($v+$d)); ?>
         <?= form_open("" , array('class' => 'modal-body form', 'id' => 'verseFormbank')); ?>
         <div class="row">
         <input type="hidden" name="idcaisse" value="<?= $caisseident->id_caiss; ?>">
@@ -282,6 +298,7 @@
             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+            <?= function_exists('caissier_escale_hidden_inputs') ? caissier_escale_hidden_inputs() : ''; ?>
             <div class="form-group text-center text-danger" style="display:none"
                     id="smsverser" style="display:none">
                 <p id="versementsms"></p>

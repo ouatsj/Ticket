@@ -15,7 +15,7 @@
             <?php else: ?>
             <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
                     $gexp_btn.
-                "/cais/" . $conex->roleattribut.'/'.$bus_stop->idsousgare .'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/cais/" . $conex->roleattribut.'/'.(function_exists('retour_idsousgare_segment') ? retour_idsousgare_segment($bus_stop) : (int) (!empty($bus_stop->idsousgare) ? $bus_stop->idsousgare : 0)).'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
             <?php endif; ?>

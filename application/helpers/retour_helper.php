@@ -138,12 +138,37 @@ function retour_caisse_url($ekey, $gexp_caiss, $roleattribut, $idsousgare)
     $gid = ($gexp_caiss !== null && $gexp_caiss !== '' && (string) $gexp_caiss !== '0')
         ? $gexp_caiss
         : 0;
+    // Segment vide → 404 (route (:num)). Toujours un entier.
+    $idsg = (int) $idsousgare;
+    $ra = (int) $roleattribut;
+    if ($ra <= 0) {
+        $ra = 0;
+    }
 
     return site_url(
         'gares/' . $ekey . '/gTv/' . $gid
-        . '/cais/' . $roleattribut . '/' . $idsousgare
+        . '/cais/' . $ra . '/' . $idsg
         . '/' . mdate('%d/%m/%Y', now('UTC'))
     );
+}
+
+/**
+ * idsousgare sûr pour les URLs caisse (jamais de segment vide).
+ *
+ * @param object|null $bus_stop
+ * @param int|string $fallback
+ * @return int
+ */
+function retour_idsousgare_segment($bus_stop = null, $fallback = 0)
+{
+    if (is_object($bus_stop) && !empty($bus_stop->idsousgare)) {
+        return (int) $bus_stop->idsousgare;
+    }
+    if (is_numeric($bus_stop) && (int) $bus_stop > 0) {
+        return (int) $bus_stop;
+    }
+
+    return max(0, (int) $fallback);
 }
 
 /**

@@ -405,36 +405,34 @@
 
         public function retirerdepense($ckey, $dep)
         {
+            return $this->supprimerdepense($ckey, $dep);
+        }
+
+        /**
+         * Admin : suppression définitive d'une dépense (DELETE).
+         */
+        public function supprimerdepense($ckey, $dep)
+        {
             $this->company = $this->m_entreprises->get_key($ckey);
             if (!$this->company || (string) $this->session->agent->userole !== '1') {
-                show_error('Seul le compte admin peut retirer une dépense.', 403);
+                show_error('Seul le compte admin peut supprimer une dépense.', 403);
                 return;
             }
+            if (strtoupper((string) $this->input->method(true)) !== 'POST') {
+                show_error('Méthode non autorisée.', 405);
+                return;
+            }
+            $id = (int) $dep;
             $ligne = $this->db->query(
-                'SELECT * FROM depense WHERE id_depense = ? LIMIT 1',
-                array((int) $dep)
+                'SELECT id_depense FROM depense WHERE id_depense = ? LIMIT 1',
+                array($id)
             )->row();
             $retour = saisie_url_retour();
-            if (!$ligne || !saisie_peut_retirer(
-                isset($ligne->idop_dep) ? $ligne->idop_dep : 0,
-                isset($ligne->ferme_caisdep) ? $ligne->ferme_caisdep : 0,
-                isset($ligne->validcptabledep) ? $ligne->validcptabledep : 0,
-                isset($ligne->active_dep) ? $ligne->active_dep : 0,
-                isset($ligne->arret_caisdep) ? $ligne->arret_caisdep : 0
-            )) {
-                $this->session->set_flashdata('error', 'Cette dépense ne peut pas être retirée.');
+            if (!$ligne || !saisie_peut_supprimer()) {
+                $this->session->set_flashdata('error', 'Cette dépense ne peut pas être supprimée.');
             } else {
-                // Retrait complet : plus visible ni comptabilisée (caissier, adjoint, soldes, totaux).
-                $this->m_depense->update($dep, array(
-                    'actif_deps' => 1,
-                    'is_actifdep' => 0,
-                    'is_actifdepad' => 0,
-                    'is_validedep' => 0,
-                    'active_dep' => 0,
-                    'arret_caisdep' => 0,
-                    'valid_depens' => 'rejet',
-                ));
-                $this->session->set_flashdata('success', 'La dépense a été retirée. Son auteur peut la ressaisir.');
+                $this->db->query('DELETE FROM depense WHERE id_depense = ? LIMIT 1', array($id));
+                $this->session->set_flashdata('success', 'La dépense a été supprimée définitivement.');
             }
             if ($retour !== '') {
                 redirect($retour . caissier_escale_query_suffix());

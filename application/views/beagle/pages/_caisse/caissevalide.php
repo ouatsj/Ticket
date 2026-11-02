@@ -97,12 +97,20 @@ $render_validation_cards = function ($items, $pending_map, $label_badge, $cadre_
                         : (!empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : $item->guser);
                     $id_lien = $id_caisse_page > 0 ? $id_caisse_page : 0;
                     ?>
+                    <?php
+                    $qs_arret = '';
+                    if (function_exists('caissier_escale_query_suffix')) {
+                        $qs_arret = caissier_escale_query_suffix();
+                    } elseif ($escale_nom !== '' || $escale_ops_q !== '') {
+                        $qs_arret = '?escale=' . rawurlencode($escale_nom) . '&escale_ops=' . rawurlencode($escale_ops_q);
+                    }
+                    ?>
                     <a href="<?= site_url('utilisateurs/'
                         . $this->session->company->ekey . '/caissier/'
                         . $gare_lien . '/'
                         . $id_lien . '/' . $item->roleattribut . '/'
                         . $conex->roleattribut . '/' . $idsg_arret . '/'
-                        . mdate("%d/%m/%Y", now('UTC'))) . (($escale_nom !== '' || $escale_ops_q !== '') ? ('?escale=' . rawurlencode($escale_nom) . '&escale_ops=' . rawurlencode($escale_ops_q)) : ''); ?>" class="btn btn-block btn-rounded text-dark <?= $pending->has_pending ? 'bg-warning' : 'bg-info'; ?>">
+                        . mdate("%d/%m/%Y", now('UTC'))) . $qs_arret; ?>" class="btn btn-block btn-rounded text-dark <?= $pending->has_pending ? 'bg-warning' : 'bg-info'; ?>">
                             <span class="icon mdi mdi-eye"></span>&nbsp;VOIR ARRÊT DE COMPTE
                     </a>
                 </div>

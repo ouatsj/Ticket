@@ -249,35 +249,34 @@
         //modification
         public function retirerdepot($ckey, $idpo)
         {
+            return $this->supprimerdepot($ckey, $idpo);
+        }
+
+        /**
+         * Admin : suppression définitive d'un dépôt (DELETE).
+         */
+        public function supprimerdepot($ckey, $idpo)
+        {
             $this->company = $this->m_entreprises->get_key($ckey);
             if (!$this->company || (string) $this->session->agent->userole !== '1') {
-                show_error('Seul le compte admin peut retirer un dépôt.', 403);
+                show_error('Seul le compte admin peut supprimer un dépôt.', 403);
                 return;
             }
+            if (strtoupper((string) $this->input->method(true)) !== 'POST') {
+                show_error('Méthode non autorisée.', 405);
+                return;
+            }
+            $id = (int) $idpo;
             $ligne = $this->db->query(
-                'SELECT * FROM depot WHERE id_depot = ? LIMIT 1',
-                array((int) $idpo)
+                'SELECT id_depot FROM depot WHERE id_depot = ? LIMIT 1',
+                array($id)
             )->row();
             $retour = saisie_url_retour();
-            if (!$ligne || !saisie_peut_retirer(
-                isset($ligne->idop_depot) ? $ligne->idop_depot : 0,
-                isset($ligne->ferme_caisdepo) ? $ligne->ferme_caisdepo : 0,
-                isset($ligne->valid_cptabledepo) ? $ligne->valid_cptabledepo : 0,
-                isset($ligne->active_depot) ? $ligne->active_depot : 0,
-                isset($ligne->arret_caisdepo) ? $ligne->arret_caisdepo : 0
-            )) {
-                $this->session->set_flashdata('error', 'Ce dépôt ne peut pas être retiré.');
+            if (!$ligne || !saisie_peut_supprimer()) {
+                $this->session->set_flashdata('error', 'Ce dépôt ne peut pas être supprimé.');
             } else {
-                // Retrait complet : plus visible ni comptabilisé (caissier, adjoint, soldes, totaux).
-                $this->m_depot->update($idpo, array(
-                    'actif_depo' => 1,
-                    'is_actifdepo' => 0,
-                    'is_actifdepoad' => 0,
-                    'is_validdepo' => 0,
-                    'active_depot' => 0,
-                    'arret_caisdepo' => 0,
-                ));
-                $this->session->set_flashdata('success', 'Le dépôt a été retiré. Son auteur peut le ressaisir.');
+                $this->db->query('DELETE FROM depot WHERE id_depot = ? LIMIT 1', array($id));
+                $this->session->set_flashdata('success', 'Le dépôt a été supprimé définitivement.');
             }
             if ($retour !== '') {
                 redirect($retour . (function_exists('caissier_escale_query_suffix') ? caissier_escale_query_suffix() : ''));

@@ -30,6 +30,21 @@ $is_profil_adjoint = !empty($is_profil_adjoint)
         && recette_role_is_validateur_adjoint($user_connect->userole));
 $lignes_par_date = $is_profil_adjoint || !empty($validation_par_date);
 $profil_label = $is_profil_adjoint ? 'Caissier adjoint' : 'Chef guichet';
+// Admin / superviseur : mêmes outils d'action que le caissier ou l'adjoint consulté.
+$session_est_principal = function_exists('recette_role_session_est_validateur_principal')
+    ? recette_role_session_est_validateur_principal(isset($conex) ? $conex : null, $is_profil_adjoint)
+    : recette_role_is_validateur_principal($this->session->agent->userole);
+$session_est_adjoint = function_exists('recette_role_session_est_validateur_adjoint')
+    ? recette_role_session_est_validateur_adjoint(isset($conex) ? $conex : null, $is_profil_adjoint)
+    : recette_role_is_validateur_adjoint($this->session->agent->userole);
+// Confirmation d'un arrêt adjoint = acte du caissier principal (admin inclus).
+if (!empty($is_profil_adjoint)
+    && function_exists('roleattribut_guard_is_supervisor')
+    && roleattribut_guard_is_supervisor()
+) {
+    $session_est_principal = true;
+    $session_est_adjoint = false;
+}
 
 if (!function_exists('indexcompte_fmt_date_fr')) {
     function indexcompte_fmt_date_fr($ymd)
@@ -222,7 +237,7 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                         <? endif; ?>
                                     </td>
                                     <td>
-                             <? if (recette_role_is_validateur_adjoint($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
+                             <? if (recette_role_is_validateur_adjoint($user_connect->userole) AND $session_est_principal): ?>
                                         <? if ($date_arret !== ''): ?>
                                         <a href="#" class="btn btn-secondary btn-space btn-info md-trigger" data-modal="<?= $modal_id; ?>">
                                             <i class="fas fa-eye"></i>&nbsp;VOIR&nbsp;
@@ -240,8 +255,8 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                             &nbsp;REJETER&nbsp;
                                         </a>
                                         <?endif;?>
-                                        <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
-                                        <? if (!empty($validation_par_date) && $date_arret !== ''): ?>
+                                        <? if (recette_role_is_saisie($user_connect->userole) AND $session_est_principal): ?>
+                                        <? if ($date_arret !== ''): ?>
                                         <a href="#" class="btn btn-secondary btn-space btn-info md-trigger" data-modal="<?= $modal_id; ?>">
                                             <i class="fas fa-eye"></i>&nbsp;VOIR&nbsp;
                                         </a>
@@ -258,8 +273,8 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                         </a>
                                         <?endif;?>
                                         
-                                        <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_adjoint($this->session->agent->userole)): ?>
-                                        <? if (!empty($validation_par_date) && $date_arret !== ''): ?>
+                                        <? if (recette_role_is_saisie($user_connect->userole) AND $session_est_adjoint): ?>
+                                        <? if ($date_arret !== ''): ?>
                                         <a href="#" class="btn btn-secondary btn-space btn-info md-trigger" data-modal="<?= $modal_id; ?>">
                                             <i class="fas fa-eye"></i>&nbsp;VOIR&nbsp;
                                         </a>
@@ -332,7 +347,7 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                         <? endif; ?>
                                     </td>
                                     <td>
-                                        <? if (recette_role_is_validateur_adjoint($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
+                                        <? if (recette_role_is_validateur_adjoint($user_connect->userole) AND $session_est_principal): ?>
                                         <? if ($date_arret !== ''): ?>
                                         <a href="#" class="btn btn-secondary btn-space btn-info md-trigger" data-modal="<?= $modal_id; ?>">
                                             <i class="fas fa-eye"></i>&nbsp;VOIR&nbsp;
@@ -349,8 +364,8 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                             &nbsp;REJETER&nbsp;
                                         </a>
                                         <?endif;?>
-                                        <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_principal($this->session->agent->userole)): ?>
-                                        <? if (!empty($validation_par_date) && $date_arret !== ''): ?>
+                                        <? if (recette_role_is_saisie($user_connect->userole) AND $session_est_principal): ?>
+                                        <? if ($date_arret !== ''): ?>
                                         <a href="#" class="btn btn-secondary btn-space btn-info md-trigger" data-modal="<?= $modal_id; ?>">
                                             <i class="fas fa-eye"></i>&nbsp;VOIR&nbsp;
                                         </a>
@@ -366,8 +381,8 @@ foreach ((isset($depense_stop_details) ? $depense_stop_details : array()) as $d)
                                             &nbsp;REJETER&nbsp;
                                         </a>
                                         <?endif;?>
-                                        <? if (recette_role_is_saisie($user_connect->userole) AND recette_role_is_validateur_adjoint($this->session->agent->userole)): ?>
-                                        <? if (!empty($validation_par_date) && $date_arret !== ''): ?>
+                                        <? if (recette_role_is_saisie($user_connect->userole) AND $session_est_adjoint): ?>
+                                        <? if ($date_arret !== ''): ?>
                                         <a href="#" class="btn btn-secondary btn-space btn-info md-trigger" data-modal="<?= $modal_id; ?>">
                                             <i class="fas fa-eye"></i>&nbsp;VOIR&nbsp;
                                         </a>

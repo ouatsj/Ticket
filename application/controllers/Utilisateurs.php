@@ -1285,7 +1285,10 @@
                 true
             );
 
-            if ($adjoint_row && recette_role_is_validateur_principal($this->session->agent->userole)) {
+            // Caissier principal OU admin/superviseur consultant la page adjoint.
+            $peut_voir_adjoint = recette_role_is_validateur_principal($this->session->agent->userole)
+                || (function_exists('roleattribut_guard_is_supervisor') && roleattribut_guard_is_supervisor());
+            if ($adjoint_row && $peut_voir_adjoint) {
                 $bind_ad = caissier_principale_adjoint_validation_bind(
                     $this->company->ekey,
                     $gid,
@@ -1335,9 +1338,13 @@
             $this->property['depot_stop'] = $this->m_depot->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
             $this->property['versement_stop'] = $this->m_versements->valideget_par_profil($this->company->ekey, $gid, $idcai, $idcpus, $profil_role);
             $this->property['is_profil_adjoint'] = recette_role_is_validateur_adjoint($profil_role) ? 1 : 0;
-            $this->property['validation_par_date'] = (
+            // Escale OU admin en consultation : lignes par date + bouton VOIR (œil).
+            $validation_par_date = (
                 function_exists('caissier_escale_page_active') && caissier_escale_page_active()
-            ) ? 1 : 0;
+            ) || (
+                function_exists('roleattribut_guard_is_supervisor') && roleattribut_guard_is_supervisor()
+            );
+            $this->property['validation_par_date'] = $validation_par_date ? 1 : 0;
             $this->property['recette_stop_details'] = array();
             $this->property['depense_stop_details'] = array();
             $this->property['depot_stop_details'] = array();

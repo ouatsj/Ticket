@@ -884,6 +884,10 @@
             $use = (int) $use;
             $idcais = (int) $idcais;
             $escale = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            // Admin/superviseur : même découpage par date (bouton VOIR) sans élargir le scope caisse.
+            $par_date = $escale || (
+                function_exists('roleattribut_guard_is_supervisor') && roleattribut_guard_is_supervisor()
+            );
             $qui = function_exists('caissier_validation_personne_where')
                 ? caissier_validation_personne_where('d.idop_dep', 'd.opevalidchef', $use)
                 : "(d.idop_dep = {$use} OR d.opevalidchef = {$use})";
@@ -893,9 +897,11 @@
             }
             $idcaisse_sel = $escale ? (string) $idcais : 'd.idcaisse_depens';
             $gexp_sel = $escale ? $this->db->escape($gid) : 'cs.gexp_caiss';
-            $date_sel = $escale ? 'd.date_depens AS date_arret, COUNT(*) AS nb_ops,' : '';
-            $group = $escale ? 'd.date_depens, cu.is_conect' : 'd.idcaisse_depens, cs.gexp_caiss, cu.is_conect';
-            $ordre = $escale ? ' ORDER BY d.date_depens ASC' : '';
+            $date_sel = $par_date ? 'd.date_depens AS date_arret, COUNT(*) AS nb_ops,' : '';
+            $group = $par_date
+                ? ($escale ? 'd.date_depens, cu.is_conect' : 'd.date_depens, d.idcaisse_depens, cs.gexp_caiss, cu.is_conect')
+                : 'd.idcaisse_depens, cs.gexp_caiss, cu.is_conect';
+            $ordre = $par_date ? ' ORDER BY d.date_depens ASC' : '';
 
             return $this->db->query(
                 "SELECT SUM(d.montant_depens) AS mont, {$date_sel} {$use} AS idop_dep, cu.is_conect, {$idcaisse_sel} AS idcaisse_depens, {$gexp_sel} AS gexp_caiss FROM depense d

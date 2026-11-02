@@ -1185,6 +1185,10 @@
             $use = (int) $use;
             $idcais = (int) $idcais;
             $escale = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            // Admin/superviseur : même découpage par date (bouton VOIR) sans élargir le scope caisse.
+            $par_date = $escale || (
+                function_exists('roleattribut_guard_is_supervisor') && roleattribut_guard_is_supervisor()
+            );
             $qui = function_exists('caissier_validation_personne_where')
                 ? caissier_validation_personne_where('r.idopera', 'r.operavalidchef', $use)
                 : "(r.idopera = {$use} OR r.operavalidchef = {$use})";
@@ -1194,9 +1198,11 @@
             }
             $idcaisse_sel = $escale ? (string) $idcais : 'r.idcaisse';
             $gexp_sel = $escale ? $this->db->escape($gid) : 'cs.gexp_caiss';
-            $date_sel = $escale ? 'r.date_recet AS date_arret, COUNT(*) AS nb_ops,' : '';
-            $group = $escale ? 'r.date_recet, cu.is_conect' : 'r.idcaisse, cs.gexp_caiss, cu.is_conect';
-            $ordre = $escale ? ' ORDER BY r.date_recet ASC' : '';
+            $date_sel = $par_date ? 'r.date_recet AS date_arret, COUNT(*) AS nb_ops,' : '';
+            $group = $par_date
+                ? ($escale ? 'r.date_recet, cu.is_conect' : 'r.date_recet, r.idcaisse, cs.gexp_caiss, cu.is_conect')
+                : 'r.idcaisse, cs.gexp_caiss, cu.is_conect';
+            $ordre = $par_date ? ' ORDER BY r.date_recet ASC' : '';
 
             return $this->db->query(
                 "SELECT SUM(r.montant_recet) AS total, {$date_sel} {$use} AS idopera, {$idcaisse_sel} AS idcaisse, {$gexp_sel} AS gexp_caiss, cu.is_conect FROM recette r

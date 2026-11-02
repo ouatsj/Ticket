@@ -19,7 +19,7 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
             <?php else: ?>
             <a href="<?= site_url("gares/{$this->session->company->ekey}". "/gTv/".
                     $gexp_btn.
-                "/cais/".$conex->roleattribut.'/'. $bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+                "/cais/".$conex->roleattribut.'/'. (function_exists('retour_idsousgare_segment') ? retour_idsousgare_segment($bus_stop) : (int) (!empty($bus_stop->idsousgare) ? $bus_stop->idsousgare : 0)).'/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
                 <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A LA CAISSE&nbsp;
             </a>
             <?php endif; ?>
@@ -313,13 +313,23 @@ $gexp_btn = !empty($caisseident->gexp_caiss) ? $caisseident->gexp_caiss : (!empt
                                     "Arretcaisses/unstop_caisse/{$this->session->company->ekey}/{$comptejours->guser}/{$caisseident->id_caiss}",
                                     array('class' => 'modal-body form')); ?>
                                 <div class="row">
-                                    <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
+                                    <?php
+                                    // Escale : gare de la caisse (BOB1), pas celle du sous-gare affilié (DIS10).
+                                    $gare_arret = $depuis_escale
+                                        ? $gexp_btn
+                                        : (!empty($bus_stop->idengare) ? $bus_stop->idengare : $gexp_btn);
+                                    $vue_escale = trim((string) $this->input->get('escale_vue'));
+                                    ?>
+                                    <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?= htmlspecialchars((string) $gare_arret, ENT_QUOTES, 'UTF-8'); ?>">
                                     <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                                     <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                                     <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
                                     <?php if ($depuis_escale): ?>
                                     <input type="hidden" name="escale" value="<?= htmlspecialchars($escale_nom, ENT_QUOTES, 'UTF-8'); ?>">
                                     <input type="hidden" name="escale_ops" value="<?= htmlspecialchars(trim((string) $this->input->get('escale_ops')), ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php if ($vue_escale === '4' || $vue_escale === '18'): ?>
+                                    <input type="hidden" name="escale_vue" value="<?= htmlspecialchars($vue_escale, ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php endif; ?>
                                     <?php endif; ?>
                                     <div class="form-group col-sm-4">
                                         <label>DU</label>

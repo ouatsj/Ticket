@@ -25,6 +25,14 @@ $onglets = array(
     'attente' => 'Arrêt en attente',
     'deconnecte' => 'Déconnectés',
 );
+// Onglet par défaut = premier non vide (évite « Aucun… » si Connectés est vide).
+$onglet_defaut = 'connecte';
+foreach (array('connecte', 'attente', 'deconnecte') as $cle_def) {
+    if (!empty($groupes[$cle_def])) {
+        $onglet_defaut = $cle_def;
+        break;
+    }
+}
 $id_caiss = (!empty($caisseident) && !empty($caisseident->id_caiss)) ? $caisseident->id_caiss : 0;
 $idsg = (!empty($bus_stop) && !empty($bus_stop->idsousgare)) ? $bus_stop->idsousgare : 0;
 $date_op = mdate('%d/%m/%Y', now('UTC'));
@@ -37,17 +45,17 @@ $date_op = mdate('%d/%m/%Y', now('UTC'));
 </div>
 <div class="col-12 mb-3">
     <div class="rg-tabs" role="tablist">
-        <?php $first = true; foreach ($onglets as $cle => $lib): ?>
-            <button type="button" class="rg-tab<?= $first ? ' is-active' : ''; ?>"
-                    data-rg-tab="<?= $cle; ?>" role="tab" aria-selected="<?= $first ? 'true' : 'false'; ?>">
+        <?php foreach ($onglets as $cle => $lib): ?>
+            <button type="button" class="rg-tab<?= $cle === $onglet_defaut ? ' is-active' : ''; ?>"
+                    data-rg-tab="<?= $cle; ?>" role="tab" aria-selected="<?= $cle === $onglet_defaut ? 'true' : 'false'; ?>">
                 <?= htmlspecialchars($lib, ENT_QUOTES, 'UTF-8'); ?>
                 <span class="rg-count" data-rg-count="<?= $cle; ?>"><?= count($groupes[$cle]); ?></span>
             </button>
-        <?php $first = false; endforeach; ?>
+        <?php endforeach; ?>
     </div>
 </div>
 <?php foreach ($onglets as $cle => $lib): ?>
-    <div class="rg-panel row col-12" data-rg-panel="<?= $cle; ?>"<?= $cle === 'connecte' ? '' : ' style="display:none"'; ?>>
+    <div class="rg-panel row col-12" data-rg-panel="<?= $cle; ?>"<?= $cle === $onglet_defaut ? '' : ' style="display:none"'; ?>>
         <?php if (empty($groupes[$cle])): ?>
             <div class="col-12 rg-vide" data-rg-vide="1">
                 <p class="text-center text-muted mb-0">Aucun <?= htmlspecialchars($rg_qui, ENT_QUOTES, 'UTF-8'); ?> dans cet onglet.</p>
