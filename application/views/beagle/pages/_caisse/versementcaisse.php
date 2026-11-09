@@ -305,20 +305,56 @@
                     data-dismiss="modal" aria-hidden="true"><span
                         class="mdi mdi-close text-white"></span></button>
         </div>
-        <? if($montantverves == NULL):?><?$v=0;?><? else:?><? $v = $montantverves->montant_verser;?><?endif;?>
-        <? if($sommerecettes == NULL):?><?$r=0;?><? else:?><? $r = $sommerecettes->montant_recet;?><?endif;?>
-            <? if($sommedepenses == NULL):?><?$d=0;?><? else:?><? $d = $sommedepenses->montant_depens;?><?endif;?>
-                <? if($sommedepot == NULL):?><?$dp=0;?><? else:?><? $dp = $sommedepot->montant_depot;?><?endif;?>
-                    <? $solde = ($dp+$r)-($v+$d);?>
+        <?php
+        if (isset($solde_versement_mutualise)) {
+            $solde = (float) $solde_versement_mutualise;
+        } else {
+            if ($montantverves == NULL) { $v = 0; } else { $v = $montantverves->montant_verser; }
+            if ($sommerecettes == NULL) { $r = 0; } else { $r = $sommerecettes->montant_recet; }
+            if ($sommedepenses == NULL) { $d = 0; } else { $d = $sommedepenses->montant_depens; }
+            if ($sommedepot == NULL) { $dp = 0; } else { $dp = $sommedepot->montant_depot; }
+            $solde = ($dp + $r) - ($v + $d);
+        }
+        ?>
         <?= form_open("" , array('class' => 'modal-body form', 'id' => 'verseForcaisse')); ?>
         <div class="row">
         <input type="hidden" name="idcaisse" value="<?= $caisseident->id_caiss; ?>">
             <input type="hidden" name="idgarecode" value="<?= $caisseident->gexp_caiss; ?>">
-            <input type="hidden" id="soldescaiss" value="<?=$solde;?>">
+            <input type="hidden" id="soldescaiss" value="<?= (int) round($solde); ?>">
                 <input class="form-control form-control-sm" type="hidden" name="gareconnect" value="<?=$bus_stop->idengare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="sousgareconnect" value="<?=$bus_stop->idsousgare;?>">
                             <input class="form-control form-control-sm" type="hidden" name="userconnected" value="<?=$conex->roleattribut;?>">
                             <input class="form-control form-control-sm" type="hidden" name="compconnected" value="<?=$conex->cpuser_id;?>">
+            <div class="form-group col-12 text-center text-muted mb-2">
+                Solde net à verser (toutes sous-gares hors escales) :
+                <strong><?= number_format((float) $solde, 0, ',', ' '); ?> F</strong>
+                <?php if (isset($soldes_versement_total_positifs) || isset($soldes_versement_total_deficits)): ?>
+                    <br><small>
+                        Positifs <?= number_format((float) (isset($soldes_versement_total_positifs) ? $soldes_versement_total_positifs : 0), 0, ',', ' '); ?> F
+                        <?php if (!empty($soldes_versement_total_deficits)): ?>
+                            − déficits <?= number_format(abs((float) $soldes_versement_total_deficits), 0, ',', ' '); ?> F
+                        <?php endif; ?>
+                    </small>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($soldes_versement_deficits)): ?>
+            <div class="form-group col-12 text-center mb-2" style="font-size: 0.9em;">
+                <span class="text-warning">
+                    Sous-gares en déficit (déduites du plafond, hors répartition) :
+                </span>
+                <ul class="list-unstyled mb-0 mt-1 text-muted">
+                    <?php foreach ($soldes_versement_deficits as $def): ?>
+                        <li>
+                            <?= htmlspecialchars($def['nom'], ENT_QUOTES, 'UTF-8'); ?>
+                            :
+                            <strong class="text-danger">
+                                <?= number_format((float) $def['solde'], 0, ',', ' '); ?> F
+                            </strong>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
             <div class="form-group text-center text-danger" style="display:none"
                     id="autrsmsverse" style="display:none">
                 <p id="autrversementsm"></p>

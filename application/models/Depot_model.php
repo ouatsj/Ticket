@@ -64,10 +64,12 @@
                 ORDER BY pt.id_depot DESC")->row();
         }
 
-        public function getdepot($cid, $idcais, $gid, $usc, $pk = FALSE)
+        public function getdepot($cid, $idcais, $gid, $usc, $pk = FALSE, $sousgare = null)
         {
             $today = mdate('%Y-%m-%d', now());
             $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('pt.nom_pre', 'pt.idop_depot') : '';
+            $sg = (int) $sousgare;
+            $sg_sql = ($sg > 0) ? ("AND pt.sousgdepot = '" . $sg . "'") : '';
             if ($pk === FALSE) {
                 return $this->db->query(
                 "SELECT * FROM depot pt
@@ -78,7 +80,10 @@
                 JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
+                AND pt.ferme_caisdepo = 0
                 AND pt.arret_caisdepo = 0
+                AND pt.is_actifdepo = 1
+                AND pt.is_validdepo = 1
                 AND pt.actif_depo = 0
                 AND cs.id_caiss = '$idcais'
                 AND pt.type_depot = 'externe'
@@ -86,6 +91,7 @@
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalid = '$usc'
+                {$sg_sql}
                 {$hors}
                 ORDER BY pt.id_depot DESC")->result();
             }
@@ -98,7 +104,10 @@
                 JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
+                AND pt.ferme_caisdepo = 0
                 AND pt.arret_caisdepo = 0
+                AND pt.is_actifdepo = 1
+                AND pt.is_validdepo = 1
                 AND pt.actif_depo = 0
                 AND cs.id_caiss = '$idcais'
                 AND pt.type_depot = 'externe'
@@ -107,6 +116,8 @@
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalid = '$usc'
+                {$sg_sql}
+                {$hors}
                 ORDER BY pt.id_depot DESC")->row();
         }
         /**
@@ -192,10 +203,12 @@
             )->result();
         }
 
-        public function adgetdepot($cid, $idcais, $gid, $usc, $pk = FALSE)
+        public function adgetdepot($cid, $idcais, $gid, $usc, $pk = FALSE, $sousgare = null)
         {
             $today = mdate('%Y-%m-%d', now());
             $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('pt.nom_pre', 'pt.idop_depot') : '';
+            $sg = (int) $sousgare;
+            $sg_sql = ($sg > 0) ? ("AND pt.sousgdepot = '" . $sg . "'") : '';
             if ($pk === FALSE) {
                 return $this->db->query(
                 "SELECT * FROM depot pt
@@ -206,7 +219,10 @@
                 JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
+                AND pt.ferme_caisdepo = 0
                 AND pt.arret_caisdepo = 0
+                AND pt.is_actifdepoad = 1
+                AND pt.is_validdepo = 1
                 AND pt.actif_depo = 0
                 AND cs.id_caiss = '$idcais'
                 AND pt.type_depot = 'externe'
@@ -214,6 +230,7 @@
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalidad = '$usc'
+                {$sg_sql}
                 {$hors}
                 ORDER BY pt.id_depot DESC")->result();
             }
@@ -226,7 +243,10 @@
                 JOIN compagnies c ON pt.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
+                AND pt.ferme_caisdepo = 0
                 AND pt.arret_caisdepo = 0
+                AND pt.is_actifdepoad = 1
+                AND pt.is_validdepo = 1
                 AND pt.actif_depo = 0
                 AND cs.id_caiss = '$idcais'
                 AND pt.type_depot = 'externe'
@@ -235,6 +255,8 @@
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND pt.type_depot <> 'Courrier'
                 AND pt.opvalidad = '$usc'
+                {$sg_sql}
+                {$hors}
                 ORDER BY pt.id_depot DESC")->row();
         }
 
@@ -422,10 +444,13 @@
         }        
 
         //total des depots
-        public function getmontantget($cid, $idcais, $gid, $usc, $pk = FALSE)
+        public function getmontantget($cid, $idcais, $gid, $usc, $pk = FALSE, $sousgare = null)
         {
             
             $today = mdate('%Y-%m-%d', now());
+            $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_pre', 'd.idop_depot') : '';
+            $sg = (int) $sousgare;
+            $sg_sql = ($sg > 0) ? ("AND d.sousgdepot = '" . $sg . "'") : '';
             return $this->db->query(
                 "SELECT SUM(montant_depot) AS total FROM depot d
                 JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
@@ -437,19 +462,27 @@
                 JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
+                AND d.ferme_caisdepo = 0
                 AND d.arret_caisdepo = 0
+                AND d.is_actifdepo = 1
+                AND d.is_validdepo = 1
                 AND cs.id_caiss = '$idcais'
                 AND d.actif_depo = 0
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opvalid = '$usc'
                 AND d.type_depot <> 'Courrier'
+                {$sg_sql}
+                {$hors}
                 GROUP BY cs.id_caiss")->row();
         }
 
-        public function adgetmontantget($cid, $idcais, $gid, $usc, $pk = FALSE)
+        public function adgetmontantget($cid, $idcais, $gid, $usc, $pk = FALSE, $sousgare = null)
         {
             
             $today = mdate('%Y-%m-%d', now());
+            $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_pre', 'd.idop_depot') : '';
+            $sg = (int) $sousgare;
+            $sg_sql = ($sg > 0) ? ("AND d.sousgdepot = '" . $sg . "'") : '';
             return $this->db->query(
                 "SELECT SUM(montant_depot) AS total FROM depot d
                 JOIN attributions_role ar ON d.idop_depot = ar.roleattribut
@@ -461,12 +494,17 @@
                 JOIN compagnies c ON d.compkey_depo = c.cle_compagnie
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
+                AND d.ferme_caisdepo = 0
                 AND d.arret_caisdepo = 0
+                AND d.is_actifdepoad = 1
+                AND d.is_validdepo = 1
                 AND cs.id_caiss = '$idcais'
                 AND d.actif_depo = 0
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opvalidad = '$usc'
                 AND d.type_depot <> 'Courrier'
+                {$sg_sql}
+                {$hors}
                 GROUP BY cs.id_caiss")->row();
         }
         public function getmontant($cid, $idcais, $conect, $gid, $pk = FALSE)
@@ -951,7 +989,7 @@
                     AND d.actif_depo = 0
                     AND d.compkey_depo = '$comp'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
-                    AND d.arret_caisdepo = 0
+                    AND d.arret_caisdepo = 1
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalid = '$usc'
@@ -971,7 +1009,7 @@
                     WHERE e.ekey = '$cid'
                     AND d.compkey_depo = '$comp'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
-                    AND d.arret_caisdepo = 0
+                    AND d.arret_caisdepo = 1
                     AND d.actif_depo = 0
                     AND tp.type_personnel = '$gr'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
@@ -991,7 +1029,7 @@
                     WHERE e.ekey = '$cid'
                     AND d.compkey_depo = '$comp'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
-                    AND d.arret_caisdepo = 0
+                    AND d.arret_caisdepo = 1
                     AND d.actif_depo = 0
                     AND tp.type_personnel = '$gr'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
@@ -1010,7 +1048,7 @@
                     WHERE e.ekey = '$cid'
                     AND d.compkey_depo = '$comp'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
-                    AND d.arret_caisdepo = 0
+                    AND d.arret_caisdepo = 1
                     AND d.actif_depo = 0
                     AND tp.type_personnel = '$gr'
                     AND d.nom_per = '$nm'
@@ -1122,7 +1160,7 @@
                     AND d.actif_depo = 0
                     AND d.compkey_depo = '$comp'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
-                    AND d.arret_caisdepo = 0
+                    AND d.arret_caisdepo = 1
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depot <> 'Courrier'
                     AND d.opvalidad = '$usc'
@@ -1142,7 +1180,7 @@
                     WHERE e.ekey = '$cid'
                     AND d.compkey_depo = '$comp'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
-                    AND d.arret_caisdepo = 0
+                    AND d.arret_caisdepo = 1
                     AND d.actif_depo = 0
                     AND tp.type_personnel = '$gr'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
@@ -1162,7 +1200,7 @@
                     WHERE e.ekey = '$cid'
                     AND d.compkey_depo = '$comp'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
-                    AND d.arret_caisdepo = 0
+                    AND d.arret_caisdepo = 1
                     AND d.actif_depo = 0
                     AND tp.type_personnel = '$gr'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
@@ -1181,7 +1219,7 @@
                     WHERE e.ekey = '$cid'
                     AND d.compkey_depo = '$comp'
                     AND d.datedepot BETWEEN '$dt1' AND '$dt2'
-                    AND d.arret_caisdepo = 0
+                    AND d.arret_caisdepo = 1
                     AND d.actif_depo = 0
                     AND tp.type_personnel = '$gr'
                     AND d.nom_per = '$nm'

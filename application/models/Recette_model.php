@@ -480,6 +480,7 @@
                         AND r.type_recet <> 'Courrier'
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
                         AND r.is_actifrecet = 1
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             
@@ -498,6 +499,7 @@
                         AND r.type_recet = '$typ'
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.is_actifrecet = 1
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             elseif($nm === '')
@@ -516,6 +518,7 @@
                         AND tp.type_personnel = '$gr'
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.is_actifrecet = 1
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
            
@@ -534,6 +537,7 @@
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.nom = '$nm'
                         AND r.is_actifrecet = 1
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
         }
 
@@ -552,6 +556,7 @@
                         AND r.type_recet = 'Courrier'
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
                         AND r.is_actifrecet = 1
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             
@@ -570,6 +575,7 @@
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND tp.type_personnel = '$gr'
                         AND r.is_actifrecet = 1
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             elseif($nm === '')
@@ -588,6 +594,7 @@
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.type_recet = 'Courrier'
                         AND r.is_actifrecet = 1
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             elseif($cmp === '')
@@ -606,6 +613,7 @@
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.type_recet = 'Courrier'
                         AND r.is_actifrecet = 1
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
                 return $this->db->query(
@@ -623,6 +631,7 @@
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.nom = '$nm'
                         AND r.is_actifrecet = 1
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
         }
 
@@ -643,7 +652,7 @@
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
                         AND r.type_recet <> 'Courrier'
                         AND r.operavalid = '$conect'
-                        AND r.ferme_caisrecet = 0
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             
@@ -662,7 +671,7 @@
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.operavalid = '$conect'
                         AND r.type_recet = '$typ'
-                        AND r.ferme_caisrecet = 0
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             elseif($nm === '')
@@ -682,7 +691,7 @@
                         AND r.operavalid = '$conect'
                         AND r.type_recet = '$typ'
                         AND tp.type_personnel = '$gr'
-                        AND r.ferme_caisrecet = 0           
+                        AND r.ferme_caisrecet = 1           
                         ORDER BY r.date_recet ASC")->result();
             }
                 return $this->db->query(
@@ -700,7 +709,7 @@
                         AND r.operavalid = '$conect'
                         AND r.type_recet = '$typ'
                         AND tp.type_personnel = '$gr'
-                        AND r.ferme_caisrecet = 0
+                        AND r.ferme_caisrecet = 1
                         AND r.nom = '$nm'                 
                         ORDER BY r.date_recet ASC")->result();
         }
@@ -721,7 +730,7 @@
                         AND r.actif_rect = 0
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
                         AND r.is_actifrecet = 1
-                        AND r.ferme_caisrecet = 0
+                        AND r.ferme_caisrecet = 1
                         AND r.type_recet = 'Courrier'
                         AND r.operavalid = '$conect'
                         ORDER BY r.date_recet ASC")->result();
@@ -739,7 +748,7 @@
                         AND r.actif_rect = 0
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
                         AND r.is_actifrecet = 1
-                        AND r.ferme_caisrecet = 0
+                        AND r.ferme_caisrecet = 1
                         AND tp.type_personnel = '$gr'
                         AND r.type_recet = 'Courrier'
                         AND r.operavalid = '$conect'
@@ -759,7 +768,7 @@
                         AND r.actif_rect = 0
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
                         AND r.is_actifrecet = 1
-                        AND r.ferme_caisrecet = 0
+                        AND r.ferme_caisrecet = 1
                         AND tp.type_personnel = '$gr'
                         AND r.nom = '$nm'
                         AND r.type_recet = 'Courrier'
@@ -785,7 +794,7 @@
                         AND r.type_recet = 'Courrier'
                         AND r.operavalid = '$conect'
                         AND r.is_actifrecet = 1
-                        AND r.ferme_caisrecet = 0
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             elseif($idre === FALSE)
@@ -807,7 +816,7 @@
                         AND r.operavalid = '$conect'
                         AND r.actif_rect = 0
                         AND r.is_actifrecet = 1
-                        AND r.ferme_caisrecet = 0
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
                 
@@ -826,7 +835,7 @@
                         AND r.actif_rect = 0
                         AND r.id_recette = '$idre'
                         AND r.is_actifrecet = 1
-                        AND r.ferme_caisrecet = 0
+                        AND r.ferme_caisrecet = 1
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.type_recet = 'Courrier'
                         AND r.operavalid = '$conect'
@@ -850,6 +859,7 @@
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
                         AND r.type_recet <> 'Courrier'
                         AND r.operavalidad = '$conect'
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             
@@ -867,6 +877,7 @@
                         AND r.date_recet BETWEEN '$dt1' AND '$dt2'
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.operavalidad = '$conect'
+                        AND r.ferme_caisrecet = 1
                         AND r.type_recet = '$typ'
                         ORDER BY r.date_recet ASC")->result();
             }
@@ -885,6 +896,7 @@
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.type_recet <> 'Courrier'
                         AND r.operavalidad = '$conect'
+                        AND r.ferme_caisrecet = 1
                         AND r.type_recet = '$typ'
                         AND tp.type_personnel = '$gr'            
                         ORDER BY r.date_recet ASC")->result();
@@ -902,6 +914,7 @@
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.type_recet <> 'Courrier'
                         AND r.operavalidad = '$conect'
+                        AND r.ferme_caisrecet = 1
                         AND r.type_recet = '$typ'
                         AND tp.type_personnel = '$gr'
                         AND r.nom = '$nm'                 
@@ -927,6 +940,7 @@
                         AND r.ferme_caisrecet = 0
                         AND r.type_recet = 'Courrier'
                         AND r.operavalidad = '$conect'
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             elseif ($cmp === '' AND $nm === '' AND $idre === FALSE) {
@@ -946,6 +960,7 @@
                         AND tp.type_personnel = '$gr'
                         AND r.type_recet = 'Courrier'
                         AND r.operavalidad = '$conect'
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
 
@@ -967,6 +982,7 @@
                         AND r.nom = '$nm'
                         AND r.type_recet = 'Courrier'
                         AND r.operavalidad = '$conect'
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->result();
             }
             
@@ -987,6 +1003,7 @@
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.type_recet = 'Courrier'
                         AND r.operavalidad = '$conect'
+                        AND r.ferme_caisrecet = 1
                         AND r.is_actifrecetad = 1
                         AND r.ferme_caisrecet = 0
                         ORDER BY r.date_recet ASC")->result();
@@ -1008,6 +1025,7 @@
                         AND r.nom = '$nm'
                         AND r.type_recet = 'Courrier'
                         AND r.operavalidad = '$conect'
+                        AND r.ferme_caisrecet = 1
                         AND r.actif_rect = 0
                         AND r.is_actifrecetad = 1
                         AND r.ferme_caisrecet = 0
@@ -1033,6 +1051,7 @@
                         " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                         AND r.type_recet = 'Courrier'
                         AND r.operavalidad = '$conect'
+                        AND r.ferme_caisrecet = 1
                         ORDER BY r.date_recet ASC")->row();
         }
 
@@ -1088,6 +1107,7 @@
         {
             
             $today = mdate('%Y-%m-%d', now());
+            $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('r.nom', 'r.idopera') : '';
             return $this->db->query(
                 "SELECT SUM(montant_recet) AS total FROM recette r
                 JOIN caisse cs ON r.idcaisse = cs.id_caiss
@@ -1096,6 +1116,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 AND r.is_actifrecet = 1
+                AND r.is_validerecet = 1
                 AND r.actif_rect = 0
                 AND r.ferme_caisrecet = 0
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
@@ -1103,6 +1124,7 @@
                 AND r.recetsgid = '$sgid'
                 AND r.type_recet <> 'Courrier'
                 AND r.operavalid = '$conect'
+                {$hors}
                 GROUP BY cs.id_caiss")->row();
         }
 
@@ -2373,7 +2395,16 @@
         //tri chef de guichet
         public function trisrecet($cid, $g, $cmp, $cais, $conect, $dt1, $dt2, $typ = FALSE)
         {
-            $qui = "AND (r.idopera = '$conect' OR r.operavalidchef = '$conect')";
+            $conect = trim((string) $conect);
+            $cmp = trim((string) $cmp);
+            $comp_sql = ($cmp === '')
+                ? ''
+                : ("AND r.compkey_recet = '" . $this->db->escape_str($cmp) . "'");
+            // Opérateur optionnel : sans choix → toute la période (compagnie + dates).
+            $qui = '';
+            if ($conect !== '' && (int) $conect > 0) {
+                $qui = "AND (r.idopera = '" . $this->db->escape_str($conect) . "' OR r.operavalidchef = '" . $this->db->escape_str($conect) . "')";
+            }
             $ops = function_exists('caissier_escale_ops_from_request') ? caissier_escale_ops_from_request() : null;
             if ($ops) {
                 $cible = (int) $conect;
@@ -2384,61 +2415,41 @@
                         $ids[$id] = $id;
                     }
                 }
-                $scope = isset($ids[$cible]) ? array($cible) : array_values($ids);
+                $scope = ($cible > 0 && isset($ids[$cible])) ? array($cible) : array_values($ids);
                 $qui = function_exists('recette_role_ops_ou_nom_sql')
                     ? recette_role_ops_ou_nom_sql(array('r.idopera'), 'r.nom', $scope)
                     : 'AND 1=0';
             }
 
-            if ($typ === '' ) {
-                return $this->db->query(
-                    "SELECT cu.username, r.montant_recet, r.type_recet, r.commentaire_recet, r.idopera, r.date_recet, r.nom, cu.username FROM recette r
-                        JOIN attributions_role ar ON r.idopera = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                        JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                        JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND r.compkey_recet = '$cmp'
-                        " . sous_caisse_filtre_gare_sql('cs', $g) . "
-                        AND r.idcaisse = '$cais'
-                        {$qui}
-                        AND r.type_recet <> 'Courrier'
-                        AND r.active_recet = 1
-                        AND r.actif_rect = 0
-                        AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                        ORDER BY r.date_recet ASC")->result();
-            }
-            
-            else
-            {
+            $typ = trim((string) (($typ === FALSE || $typ === null) ? '' : $typ));
+            // Type document optionnel : si choisi, filtre exact (TRIM pour « Facture » etc.).
+            $typ_sql = ($typ === '')
+                ? ''
+                : ("AND TRIM(r.type_recet) = '" . $this->db->escape_str($typ) . "'");
 
-                return $this->db->query(
-                    "SELECT cu.username, r.montant_recet, r.type_recet, r.commentaire_recet, r.idopera, r.date_recet, r.nom FROM recette r
-                        JOIN attributions_role ar ON r.idopera = ar.roleattribut
-                        JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                        JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                        JOIN gares g ON ul.guser = g.idengare
-                        JOIN caisse cs ON r.idcaisse = cs.id_caiss
-                        JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                        JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
-                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                        WHERE e.ekey = '$cid'
-                        AND r.compkey_recet = '$cmp'
-                        " . sous_caisse_filtre_gare_sql('cs', $g) . "
-                        AND r.idcaisse = '$cais'
-                        {$qui}
-                        AND r.type_recet <> 'Courrier'
-                        AND r.active_recet = 1
-                        AND r.actif_rect = 0
-                        AND r.date_recet BETWEEN '$dt1' AND '$dt2'
-                        AND r.type_recet = '$typ'
-                        ORDER BY r.date_recet ASC")->result();
-            }
-
+            return $this->db->query(
+                "SELECT cu.username, r.montant_recet, r.type_recet, r.commentaire_recet, r.idopera, r.date_recet, r.nom FROM recette r
+                    JOIN attributions_role ar ON r.idopera = ar.roleattribut
+                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                    JOIN gares g ON ul.guser = g.idengare
+                    JOIN caisse cs ON r.idcaisse = cs.id_caiss
+                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                    JOIN compagnies c ON r.compkey_recet = c.cle_compagnie
+                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                    WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
+                    {$comp_sql}
+                    " . sous_caisse_filtre_gare_sql('cs', $g) . "
+                    AND r.idcaisse = '" . $this->db->escape_str($cais) . "'
+                    {$qui}
+                    AND r.type_recet <> 'Courrier'
+                    AND r.ferme_caisrecet = 0
+                    AND r.is_actifrecet = 1
+                    AND r.is_validerecet = 1
+                    AND IFNULL(r.actif_rect, 0) = 0
+                    AND r.date_recet BETWEEN '" . $this->db->escape_str($dt1) . "' AND '" . $this->db->escape_str($dt2) . "'
+                    {$typ_sql}
+                    ORDER BY r.date_recet ASC")->result();
         }
 
         //admin

@@ -15,6 +15,15 @@
             if (function_exists('escale_ligne_ancrer')) {
                 $data = escale_ligne_ancrer($data, 'sousgidepens', 'idcaisse_depens');
             }
+            // Marqueur d'origine appli (table depense partagée avec Courrier).
+            if (!array_key_exists('app_depense', $data) || $data['app_depense'] === null || $data['app_depense'] === '') {
+                $data['app_depense'] = 'ticket';
+            }
+            if (!$this->db->field_exists('app_depense', $this->table)) {
+                $this->db->query(
+                    "ALTER TABLE `depense` ADD `app_depense` VARCHAR(20) NULL DEFAULT NULL COMMENT 'courrier|ticket'"
+                );
+            }
             $this->db->insert($this->table, $data);
             return $this->db->insert_id();
         }
@@ -628,6 +637,7 @@
                 AND d.compkey_dep = '".$this->db->escape_str($comp)."'
                 AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
                 AND d.is_actifdep = 1
+                AND d.ferme_caisdep = 1
                 AND d.type_depense <> 'Courrier'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND (d.opevalid = '".$this->db->escape_str($usc)."' OR d.idop_dep = '".$this->db->escape_str($usc)."')
@@ -665,6 +675,7 @@
                 AND d.compkey_dep = '".$this->db->escape_str($comp)."'
                 AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
                 AND (d.is_actifdep = 1 OR d.opevalidad = '".$this->db->escape_str($usc)."')
+                AND d.ferme_caisdep = 1
                 AND d.type_depense <> 'Courrier'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 $filtre_lieu
@@ -698,7 +709,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
                     AND d.actif_deps = 0
-                    AND d.ferme_caisdep = 0
+                    AND d.ferme_caisdep = 1
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depense <> 'Courrier'
                     AND d.opevalid = '$usc'
@@ -719,7 +730,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
                     AND d.actif_deps = 0
-                    AND d.ferme_caisdep = 0
+                    AND d.ferme_caisdep = 1
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND d.type_depense <> 'Courrier'
@@ -739,7 +750,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
                     AND d.actif_deps = 0
-                    AND d.ferme_caisdep = 0
+                    AND d.ferme_caisdep = 1
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
@@ -760,7 +771,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
                     AND d.actif_deps = 0
-                    AND d.ferme_caisdep = 0
+                    AND d.ferme_caisdep = 1
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
@@ -780,7 +791,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.is_actifdep = 1
                     AND d.actif_deps = 0
-                    AND d.ferme_caisdep = 0
+                    AND d.ferme_caisdep = 1
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
@@ -1915,51 +1926,43 @@
 
         public function trisdepens($cid, $g, $cais, $conect, $dt1, $dt2, $comp, $typ = FALSE)
         {
-            if ($typ === '') {
-                return $this->db->query(
-                    "SELECT cu.username, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
-                    JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    " . sous_caisse_filtre_gare_sql('cs', $g) . "
-                    AND d.idcaisse_depens = '$cais'
-                    AND d.idop_dep = '$conect'
-                    AND d.type_depense <> 'Courrier'
-                    AND d.active_dep = 1
-                    AND d.actif_deps = 0
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-            else
-            {
-                return $this->db->query(
-                    "SELECT cu.username, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
-                    JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
-                    JOIN user_login ul ON ar.idgestcompte = ul.uid_login
-                    JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
-                    JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
-                    JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND d.compkey_dep = '$comp'
-                    " . sous_caisse_filtre_gare_sql('cs', $g) . "
-                    AND d.idcaisse_depens = '$cais'
-                    AND d.idop_dep = '$conect'
-                    AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
-                    AND d.type_depense <> 'Courrier'
-                    AND d.active_dep = 1
-                    AND d.actif_deps = 0
-                    AND d.date_depens BETWEEN '$dt1' AND '$dt2'
-                    ORDER BY d.date_depens ASC")->result();
-            }
-                
+            $conect = trim((string) $conect);
+            $comp = trim((string) $comp);
+            $comp_sql = ($comp === '')
+                ? ''
+                : ("AND d.compkey_dep = '" . $this->db->escape_str($comp) . "'");
+            // Opérateur optionnel : sans choix → toute la période (compagnie + dates).
+            $op_sql = ((int) $conect > 0)
+                ? ("AND d.idop_dep = '" . $this->db->escape_str($conect) . "'")
+                : '';
+            $typ = trim((string) (($typ === FALSE || $typ === null) ? '' : $typ));
+            // Type document optionnel : si choisi, filtre exact.
+            $typ_sql = ($typ === '')
+                ? ''
+                : ("AND TRIM(d.type_depense) = '" . $this->db->escape_str($typ) . "'");
+
+            return $this->db->query(
+                "SELECT cu.username, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
+                JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
+                JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
+                JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
+                JOIN compagnies c ON d.compkey_dep = c.cle_compagnie
+                JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
+                {$comp_sql}
+                " . sous_caisse_filtre_gare_sql('cs', $g) . "
+                AND d.idcaisse_depens = '" . $this->db->escape_str($cais) . "'
+                {$op_sql}
+                AND d.type_depense <> 'Courrier'
+                AND d.ferme_caisdep = 0
+                AND d.is_actifdep = 1
+                AND d.is_validedep = 1
+                AND IFNULL(d.actif_deps, 0) = 0
+                AND d.date_depens BETWEEN '" . $this->db->escape_str($dt1) . "' AND '" . $this->db->escape_str($dt2) . "'
+                {$typ_sql}
+                ORDER BY d.date_depens ASC")->result();
         } 
         //admin
         public function valdtridepensead($cid, $comp, $gid, $uop, $dt1, $dt2, $typ = FALSE, $gr = FALSE, $nm = FALSE, $iddep = FALSE)

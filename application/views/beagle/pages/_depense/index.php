@@ -652,8 +652,8 @@
             <?= caissier_escale_hidden_inputs(); ?>
             <div class="form-group col-sm-4">
                 <label>COMPAGNIE</label>
-                <select class="form-control form-control-sm" name="_compag">
-                <option value=""></option>
+                <select class="form-control form-control-sm" name="_compag" required>
+                <option value="">Choisissez la compagnie</option>
                     <? foreach ($compagnies as $compagnie): ?>
                         <option value="<?= $compagnie->cle_compagnie; ?>">
                             <?= "{$compagnie->nom_compagnie}"; ?>
@@ -663,16 +663,16 @@
             </div>
             <div class="form-group col-sm-4">
                 <label>DU</label>
-                <input class="form-control form-control-sm" type="date" name="debutdate">
+                <input class="form-control form-control-sm" type="date" name="debutdate" required>
             </div>
             <div class="form-group col-sm-4">
                 <label>AU</label>
-                <input class="form-control form-control-sm" type="date" name="findate">
+                <input class="form-control form-control-sm" type="date" name="findate" required>
             </div>
             <div class="form-group col-sm-4">
-                <label>OPERATEUR</label>
+                <label>OPERATEUR (optionnel)</label>
                 <select class="form-control form-control-sm" name="opera">
-                    <option value="">choississez operation</option>
+                    <option value="">Tous les opérateurs</option>
                     <? foreach ($operateurs as $opr): ?>
                         <option value="<?= $opr->roleattribut; ?>">
                             <?=$opr->username; ?></option>
@@ -680,12 +680,12 @@
                 </select>
             </div>
             <div class="form-group col-sm-4">
-                <label>TYPE DOCUMENT</label>
+                <label>TYPE DOCUMENT (optionnel)</label>
                 <select class="form-control form-control-sm" name="typedepense">
-                    <option value="">choississez type</option>
+                    <option value="">Tous les types</option>
                         <? foreach ($typedocuments as $doc): ?>
-                            <option value="<?= $doc->typedocument; ?>">
-                                <?= $doc->typedocument; ?></option>
+                            <option value="<?= htmlspecialchars(trim((string) $doc->typedocument), ENT_QUOTES, 'UTF-8'); ?>">
+                                <?= htmlspecialchars(trim((string) $doc->typedocument), ENT_QUOTES, 'UTF-8'); ?></option>
                         <? endforeach; ?>
                 </select>
             </div>

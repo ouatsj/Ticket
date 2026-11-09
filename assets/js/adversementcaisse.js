@@ -48,31 +48,87 @@ document.addEventListener('DOMContentLoaded', () => {
     
                 };
 
-        verseverif = function () {
-                    
-                    var m = parseInt(document.querySelector('#autrversmontan').value);
-                    var n = document.querySelector('#autrversmontan').value;
-                    var solde = parseInt(document.querySelector('#soldescaiss').value);
-                        
-                            if (solde < m) 
-                            {
-        
-                                document.querySelector('#autrsmsverse').style.display = 'block';
-                                document.querySelector('#autrversementsm').innerHTML = `le montant que vous aviez saisi dépasse le solde de votre caisse`;
-                                
-                                document.querySelector('#autrversmontan').value = 'VERIFIER SOLDE';
-                            } 
-                            else{
+        function parseMontantSaisi(raw) {
+            if (raw == null) {
+                return NaN;
+            }
+            var cleaned = String(raw).replace(/\s/g, '').replace(',', '.');
+            if (cleaned === '' || cleaned.toUpperCase() === 'VERIFIER SOLDE') {
+                return NaN;
+            }
+            return parseFloat(cleaned);
+        }
 
-                                document.querySelector('#autrsmsverse').style.display = 'none';
+        function formatFcfa(n) {
+            return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        }
 
-                                document.querySelector('#autrversmontan').value = n ;
-                            }
+        function soldeCumulSousGares() {
+            var el = document.querySelector('#soldescaiss');
+            return el ? parseFloat(el.value) || 0 : 0;
+        }
+
+        function afficherRejetSolde(montant, solde) {
+            var box = document.querySelector('#autrsmsverse');
+            var msg = document.querySelector('#autrversementsm');
+            if (!box || !msg) {
+                return;
+            }
+            box.style.display = 'block';
+            msg.innerHTML =
+                'Versement rejeté : le montant saisi (' + formatFcfa(montant) +
+                ' F) dépasse le solde net de la gare (' +
+                formatFcfa(solde) + ' F, déficits déjà déduits).';
+        }
+
+        window.verseverif = function () {
+            var input = document.querySelector('#autrversmontan');
+            if (!input) {
+                return true;
+            }
+            var m = parseMontantSaisi(input.value);
+            var solde = soldeCumulSousGares();
+            var box = document.querySelector('#autrsmsverse');
+
+            if (!isNaN(m) && m > solde) {
+                afficherRejetSolde(m, solde);
+                return false;
+            }
+            if (box) {
+                box.style.display = 'none';
+            }
+            return true;
         };
-            
+
         e.onclick = function () {
-        let autr = document.querySelector('#verseForcaisse');
-        autr.setAttribute('action', `${APP_ROOT}/Caisses/adverscaisse/${e.dataset.cle_compagnie}`);
+            let autr = document.querySelector('#verseForcaisse');
+            autr.setAttribute('action', `${APP_ROOT}/Caisses/adverscaisse/${e.dataset.cle_compagnie}`);
+        };
+
+        var formVerse = document.querySelector('#verseForcaisse');
+        if (formVerse && !formVerse.dataset.soldeGuard) {
+            formVerse.dataset.soldeGuard = '1';
+            formVerse.addEventListener('submit', function (ev) {
+                var input = document.querySelector('#autrversmontan');
+                var m = parseMontantSaisi(input ? input.value : '');
+                var solde = soldeCumulSousGares();
+                if (isNaN(m) || m <= 0) {
+                    ev.preventDefault();
+                    var box = document.querySelector('#autrsmsverse');
+                    var msg = document.querySelector('#autrversementsm');
+                    if (box && msg) {
+                        box.style.display = 'block';
+                        msg.innerHTML = 'Versement rejeté : le montant doit être supérieur à 0 F.';
+                    }
+                    return false;
+                }
+                if (m > solde) {
+                    ev.preventDefault();
+                    afficherRejetSolde(m, solde);
+                    return false;
+                }
+                return true;
+            });
         }
 
     })

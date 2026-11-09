@@ -322,8 +322,9 @@
             $voir_caissier = $consult_profil
                 ? ($role_vue === '4')
                 : in_array($role_vue, array('4', '1', '2'), true);
-            $periode_ouverte_superviseur = $consult_profil
-                || (function_exists('roleattribut_guard_is_supervisor') && roleattribut_guard_is_supervisor());
+            // Listes = même périmètre que les cartes : période caisse encore ouverte
+            // (ferme_*=0 / is_actif*=1), pas seulement « aujourd’hui ».
+            $periode_ouverte_superviseur = true;
             $ref = $this->_caisse_ref_data();
 
             $sgares = $this->db->query("SELECT count(idsousgare) AS sog FROM sousgare s
@@ -619,9 +620,9 @@
                     if ($voir_caissier)
                     {
 
-                        $this->property['versements'] = $this->m_versements->get($this->company->ekey, $cid, $cdg, $cpr);
+                        $this->property['versements'] = $this->m_versements->get($this->company->ekey, $cid, $cdg, $cpr, FALSE, $idsg);
                         $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $cid, $cdg, $cpr);
-                        $this->property['montantvervesbank'] = $this->m_versements->totalversementbank($this->company->ekey, $cid, $cdg, $cpr);
+                        $this->property['montantvervesbank'] = $this->m_versements->totalversementbank($this->company->ekey, $cid, $cdg, $cpr, $idsg);
                         $this->property['sommedepenses'] = $this->m_versements->totaldepense($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['sommerecettes'] = $this->m_versements->totalrecette($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['sommedepot'] = $this->m_versements->totaldepot($this->company->ekey, $cid, $cdg, $cpr);
@@ -664,6 +665,42 @@
                     
                     $this->property['typesclients'] = $ref['typesclients'];
                         $this->property['compagnies'] = $ref['compagnies'];
+
+                    // Solde mutualisé gare (hors escales) pour autoriser le versement banque.
+                    if (empty($escale_ops)) {
+                        $this->load->helper(array('versement_mutualise', 'recette_role'));
+                        $caisse_mere_bank = (int) $cid;
+                        if (function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($caisse_mere_bank)) {
+                            $mereRow = $this->db->query(
+                                'SELECT parent_caiss FROM caisse WHERE id_caiss = ? LIMIT 1',
+                                array($caisse_mere_bank)
+                            )->row();
+                            if ($mereRow && (int) $mereRow->parent_caiss > 0) {
+                                $caisse_mere_bank = (int) $mereRow->parent_caiss;
+                            }
+                        }
+                        $niveau_mut_bank = ((string) $this->session->agent->userole === '18') ? 'adjoint' : 'principal';
+                        $gare_mut_bank = $cdg;
+                        if (!empty($this->property['bus_stop']->gareprinceid)) {
+                            $gare_mut_bank = $this->property['bus_stop']->gareprinceid;
+                        } elseif (!empty($this->property['bus_stop']->idengare)) {
+                            $gare_mut_bank = $this->property['bus_stop']->idengare;
+                        }
+                        $soldes_mut_bank = versement_mutualise_soldes(
+                            $this->company->ekey,
+                            $caisse_mere_bank,
+                            $gare_mut_bank,
+                            $cdg,
+                            (int) $cpr,
+                            $niveau_mut_bank
+                        );
+                        $this->property['solde_versement_mutualise'] = $soldes_mut_bank['total'];
+                        $this->property['soldes_versement_par_sousgare'] = $soldes_mut_bank['par_sg'];
+                        $this->property['soldes_versement_deficits'] = $soldes_mut_bank['deficits'];
+                        $this->property['soldes_versement_total_positifs'] = $soldes_mut_bank['total_positifs'];
+                        $this->property['soldes_versement_total_deficits'] = $soldes_mut_bank['total_deficits'];
+                    }
+
                     $this->property['pagetitle'] .= "• VERSEMENTS BANQUE<strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
                     return $this->layout->view('_caisse/versement', $this->property);
                 break;
@@ -795,6 +832,39 @@
                     $this->property['typesclients'] = $ref['typesclients'];
                         $this->property['compagnies'] = $ref['compagnies'];
 
+                    // Solde mutualisé sous-gares hors escales (contrôle versement caisse).
+                    $this->load->helper(array('versement_mutualise', 'recette_role'));
+                    $caisse_mere = (int) $cid;
+                    if (function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($caisse_mere)) {
+                        $mereRow = $this->db->query(
+                            'SELECT parent_caiss FROM caisse WHERE id_caiss = ? LIMIT 1',
+                            array($caisse_mere)
+                        )->row();
+                        if ($mereRow && (int) $mereRow->parent_caiss > 0) {
+                            $caisse_mere = (int) $mereRow->parent_caiss;
+                        }
+                    }
+                    $niveau_mut = ((string) $this->session->agent->userole === '18') ? 'adjoint' : 'principal';
+                    $gare_mut = $cdg;
+                    if (!empty($this->property['bus_stop']->gareprinceid)) {
+                        $gare_mut = $this->property['bus_stop']->gareprinceid;
+                    } elseif (!empty($this->property['bus_stop']->idengare)) {
+                        $gare_mut = $this->property['bus_stop']->idengare;
+                    }
+                    $soldes_mut = versement_mutualise_soldes(
+                        $this->company->ekey,
+                        $caisse_mere,
+                        $gare_mut,
+                        $cdg,
+                        (int) $cpr,
+                        $niveau_mut
+                    );
+                    $this->property['solde_versement_mutualise'] = $soldes_mut['total'];
+                    $this->property['soldes_versement_par_sousgare'] = $soldes_mut['par_sg'];
+                    $this->property['soldes_versement_deficits'] = $soldes_mut['deficits'];
+                    $this->property['soldes_versement_total_positifs'] = $soldes_mut['total_positifs'];
+                    $this->property['soldes_versement_total_deficits'] = $soldes_mut['total_deficits'];
+
                     $this->property['pagetitle'] .= "• DEPOTS DES CAISSES <strong>•&nbsp;{$this->company->nom_entreprise}•&nbsp;{$conex->type_rols}</strong>";
 
                     return $this->layout->view('_caisse/versementcaisse', $this->property);
@@ -812,18 +882,18 @@
                     }
                     if ($voir_adjoint){
 
-                        $this->property['depots'] = $this->m_depot->adgetdepot($this->company->ekey, $cid, $cdg, $cpr);
+                        $this->property['depots'] = $this->m_depot->adgetdepot($this->company->ekey, $cid, $cdg, $cpr, FALSE, $idsg);
                         $this->property['montantverves'] = $this->m_versements->adtotalversement($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['sommedepenses'] = $this->m_versements->adtotaldepense($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['sommerecettes'] = $this->m_versements->adtotalrecette($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['sommedepot'] = $this->m_versements->adtotaldepot($this->company->ekey, $cid, $cdg, $cpr);
                         $this->property['sommedepots'] = $this->m_depot->adgetmontant($this->company->ekey, $cid, $cpr, $cdg);
-                        $this->property['sommesdepots'] = $this->m_depot->adgetmontantget($this->company->ekey, $cid, $cdg, $cpr);
+                        $this->property['sommesdepots'] = $this->m_depot->adgetmontantget($this->company->ekey, $cid, $cdg, $cpr, FALSE, $idsg);
                     }
 
                     if ($voir_caissier){
 
-                        $this->property['depots'] = $this->m_depot->getdepot($this->company->ekey, $cid, $cdg, $cpr);
+                        $this->property['depots'] = $this->m_depot->getdepot($this->company->ekey, $cid, $cdg, $cpr, FALSE, $idsg);
                         $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $cid, $cdg, $cpr);
                         
                         $this->property['sommedepenses'] = $this->m_versements->totaldepense($this->company->ekey, $cid, $cdg, $cpr);
@@ -831,7 +901,7 @@
                         $this->property['sommedepot'] = $this->m_versements->totaldepot($this->company->ekey, $cid, $cdg, $cpr);
 
                         $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $cid, $cpr, $cdg);
-                        $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr);
+                        $this->property['sommesdepots'] = $this->m_depot->getmontantget($this->company->ekey, $cid, $cdg, $cpr, FALSE, $idsg);
                     }
                     $escale_ops = $this->_escale_ops_ids();
                     if ($escale_ops && !recette_role_is_saisie($this->session->agent->userole)) {
@@ -1135,6 +1205,15 @@
             
             if($this->input->post('daterecep')!= '')
             {
+                $montantSaisie = (float) str_replace(
+                    array(' ', ','),
+                    array('', '.'),
+                    (string) $this->input->post('montantverse')
+                );
+                if ($montantSaisie <= 0) {
+                    show_error('Impossible d’enregistrer une recette à 0 F.', 422, 'Montant invalide');
+                    return;
+                }
                 $arrayrecette = array(
                     'idcaisse' => sous_caisse_id_ecriture($this->input->post('idcaisse')),
                     'idopera' => $iduser,
@@ -1143,7 +1222,7 @@
                     'compkey_recet' => $this->input->post('_compag'),
                     'type_recet' => $this->input->post('interne'),
                     'nom' => $this->input->post('nom'),
-                    'montant_recet' => $this->input->post('montantverse'),
+                    'montant_recet' => $montantSaisie,
                     'commentaire_recet' => $this->input->post('comment'),
                     'date_recet' => $this->input->post('daterecep'),
                     'createdrecet_at' => now('UTC'),
@@ -6025,7 +6104,7 @@
             $add = function ($comp, $montant, $commentaire) use (&$by_comp) {
                 $comp = (int) $comp;
                 $montant = (float) str_replace(array(' ', ','), array('', '.'), (string) $montant);
-                if ($comp <= 0 || $montant < 0) {
+                if ($comp <= 0 || $montant <= 0) {
                     return;
                 }
                 if (!isset($by_comp[$comp])) {
@@ -7262,23 +7341,29 @@
                     $date_arret = mdate('%Y-%m-%d', now('UTC'));
 
                     foreach ($lignes_ecriture as $ligne) {
+                        $compLigne = isset($ligne['comp']) ? (int) $ligne['comp'] : 0;
+                        $mtLigne = isset($ligne['montant']) ? round((float) $ligne['montant'], 2) : 0.0;
+                        // Pas de bordereau / recette fantôme à 0 F (sinon blocage chef après 36 h).
+                        if ($compLigne <= 0 || $mtLigne <= 0) {
+                            continue;
+                        }
                         $this->m_comptes_guichet->create(array(
                             'idusercompt' => $idcpt,
-                            'comp' => $ligne['comp'],
+                            'comp' => $compLigne,
                             'idsousga' => $sgid,
-                            'montcomtpte' => $ligne['montant'],
+                            'montcomtpte' => $mtLigne,
                             'datearretcompt' => $date_arret,
                         ));
 
                         $recette_id = $this->m_recette->create(array(
                             'idcaisse' => $idcaisse,
                             'id_genre_recet' => $genre,
-                            'compkey_recet' => $ligne['comp'],
+                            'compkey_recet' => $compLigne,
                             'type_recet' => 'Ticket',
                             'idopera' => $idcpt,
                             'recetsgid' => $sgid,
                             'nom' => $nomcais,
-                            'montant_recet' => $ligne['montant'],
+                            'montant_recet' => $mtLigne,
                             'commentaire_recet' => isset($ligne['commentaire']) ? $ligne['commentaire'] : '',
                             'date_recet' => $date_arret,
                             'createdrecet_at' => now('UTC'),
@@ -11773,8 +11858,25 @@
         public function addbank($ckey)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $this->load->helper(array('versement_mutualise', 'recette_role'));
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
+            $caisse_page = (int) $this->input->post('idcaisse');
+            $identifiant_caisse = sous_caisse_id_ecriture($caisse_page);
+            // Hors escale : écrire / contrôler sur la caisse mère.
+            $escale_active = function_exists('caissier_escale_page_active') && caissier_escale_page_active();
+            if (!$escale_active && function_exists('sous_caisse_est_enfant')) {
+                $candidat = $identifiant_caisse;
+                if (sous_caisse_est_enfant($candidat) || sous_caisse_est_enfant($caisse_page)) {
+                    $probe = sous_caisse_est_enfant($candidat) ? $candidat : $caisse_page;
+                    $mere = $this->db->query(
+                        'SELECT parent_caiss FROM caisse WHERE id_caiss = ? LIMIT 1',
+                        array($probe)
+                    )->row();
+                    if ($mere && (int) $mere->parent_caiss > 0) {
+                        $identifiant_caisse = (int) $mere->parent_caiss;
+                    }
+                }
+            }
 
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
@@ -11782,24 +11884,98 @@
             $idcmpt = $this->input->post('compconnected');
             if($this->input->post('versedate')!= '')
             {
-                $arrayvers = array(
-                    'idcaisse_versement' => $identifiant_caisse,
-                    'id_genre_versement' => $this->input->post('genrevers'),
-                    'idop_versement' => $iduser,
-                    'sgareidvers' => $sgid,
-                    'compkey_vers' => $this->input->post('_compag'),
-                    'type_versement' => $this->input->post('typeverse'),
-                    'nom_beneficiaire' => $this->input->post('nom'),
-                    'montant_verser' => $this->input->post('montverse'),
-                    'commentaire' => $this->input->post('comment'),
-                    'bordereau_verser' => $this->input->post('bordereau'),
-                    'date_versement' => $this->input->post('versedate'),
-                    'active_verse' => 1,
-                    'is_actifverser' => 1,
-                    'valider_vers' => 1,
-                    'validop' => $iduser,
+                $montant = (float) str_replace(
+                    array(' ', ','),
+                    array('', '.'),
+                    (string) $this->input->post('montverse')
                 );
-                $ver = $this->m_versements->create($arrayvers);
+                if ($montant <= 0) {
+                    show_error('Le montant du versement bancaire doit être supérieur à 0 F.', 422, 'Versement rejeté');
+                    return;
+                }
+
+                $parts = null;
+                if (!$escale_active) {
+                    $role = (string) $this->session->agent->userole;
+                    $niveau = ($role === '18') ? 'adjoint' : 'principal';
+                    $soldes = versement_mutualise_soldes(
+                        $this->company->ekey,
+                        $identifiant_caisse,
+                        $gid,
+                        $identifiant_gare,
+                        (int) $iduser,
+                        $niveau
+                    );
+                    if ($montant > $soldes['total'] + 0.009) {
+                        show_error(
+                            'Versement bancaire rejeté : le montant saisi ('
+                            . number_format($montant, 0, ',', ' ')
+                            . ' F) dépasse le solde net de la gare ('
+                            . number_format($soldes['total'], 0, ',', ' ')
+                            . ' F = positifs '
+                            . number_format($soldes['total_positifs'], 0, ',', ' ')
+                            . ' F + déficits '
+                            . number_format($soldes['total_deficits'], 0, ',', ' ')
+                            . ' F).',
+                            422,
+                            'Versement rejeté'
+                        );
+                        return;
+                    }
+                    $parts = versement_mutualise_repartir_prorata($montant, $soldes['par_sg']);
+                    if (!$parts) {
+                        show_error(
+                            'Impossible de répartir le versement bancaire au prorata des soldes des sous-gares.',
+                            422,
+                            'Versement rejeté'
+                        );
+                        return;
+                    }
+                } else {
+                    $parts = array((int) $sgid => (int) round($montant));
+                }
+
+                $baseComment = trim((string) $this->input->post('comment'));
+                $noteMutualise = !$escale_active
+                    ? ('Répartition auto prorata sous-gares (hors escales), total '
+                        . number_format($montant, 0, ',', ' ') . ' F')
+                    : '';
+                $commentFinal = ($noteMutualise === '')
+                    ? $baseComment
+                    : (($baseComment === '') ? $noteMutualise : ($baseComment . ' | ' . $noteMutualise));
+
+                $this->db->trans_start();
+                foreach ($parts as $sgPart => $mtPart) {
+                    $arrayvers = array(
+                        'idcaisse_versement' => $identifiant_caisse,
+                        'id_genre_versement' => $this->input->post('genrevers'),
+                        'idop_versement' => $iduser,
+                        'sgareidvers' => (int) $sgPart,
+                        'compkey_vers' => $this->input->post('_compag'),
+                        'type_versement' => $this->input->post('typeverse'),
+                        'nom_beneficiaire' => $this->input->post('nom'),
+                        'montant_verser' => (int) $mtPart,
+                        'commentaire' => $commentFinal . (!$escale_active ? (' [sg=' . (int) $sgPart . ']') : ''),
+                        'bordereau_verser' => $this->input->post('bordereau'),
+                        'date_versement' => $this->input->post('versedate'),
+                        'active_verse' => 1,
+                        'is_actifverser' => 1,
+                        'valider_vers' => 1,
+                        'validop' => $iduser,
+                    );
+                    $ver = $this->m_versements->create($arrayvers);
+                    if (!$ver) {
+                        $this->db->trans_rollback();
+                        show_error('Échec d’enregistrement d’une part du versement bancaire.', 500);
+                        return;
+                    }
+                }
+                $this->db->trans_complete();
+                if ($this->db->trans_status() === false) {
+                    show_error('Le versement bancaire n’a pas pu être enregistré.', 500);
+                    return;
+                }
+
                 $this->property['UPDATE_SUSSESS'] = TRUE;
                 redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versement/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
 
@@ -12097,8 +12273,32 @@
         public function adverscaisse($ckey)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+            $this->load->helper(array('versement_mutualise', 'recette_role'));
             $identifiant_gare = $this->input->post('idgarecode');
-            $identifiant_caisse = sous_caisse_id_ecriture($this->input->post('idcaisse'));
+            $caisse_page = (int) $this->input->post('idcaisse');
+            // Mutualisation hors escale : écrire sur la caisse mère (pas la sous-caisse escale).
+            $identifiant_caisse = $caisse_page;
+            if (function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($caisse_page)) {
+                $mere = $this->db->query(
+                    'SELECT parent_caiss FROM caisse WHERE id_caiss = ? LIMIT 1',
+                    array($caisse_page)
+                )->row();
+                if ($mere && (int) $mere->parent_caiss > 0) {
+                    $identifiant_caisse = (int) $mere->parent_caiss;
+                }
+            } else {
+                $identifiant_caisse = sous_caisse_id_ecriture($caisse_page);
+                // Hors page escale, sous_caisse_id_ecriture renvoie la page ; forcer mère si enfant.
+                if (function_exists('sous_caisse_est_enfant') && sous_caisse_est_enfant($identifiant_caisse)) {
+                    $mere = $this->db->query(
+                        'SELECT parent_caiss FROM caisse WHERE id_caiss = ? LIMIT 1',
+                        array($identifiant_caisse)
+                    )->row();
+                    if ($mere && (int) $mere->parent_caiss > 0) {
+                        $identifiant_caisse = (int) $mere->parent_caiss;
+                    }
+                }
+            }
             $gid = $this->input->post('gareconnect');
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
@@ -12106,49 +12306,107 @@
 
             if($this->input->post('caisseversedate')!= '')
             {
-                $arrayver = array(
-                    'idcaisse_versement' => $identifiant_caisse,
-                    'id_genre_versement' => $this->input->post('caissegenrevers'),
-                    'idop_versement' => $iduser,
-                    'sgareidvers' => $sgid,
-                    'compkey_vers' => $this->input->post('_compag'),
-                    'type_versement' => $this->input->post('caissetypeverse'),
-                    'typpersonnel' => $this->input->post('personnels'),
-                    'nom_beneficiaire' => $this->input->post('nom'),
-                    'montant_verser' => $this->input->post('caismontantmontverse'),
-                    'commentaire' => $this->input->post('caisseautrecomment'),
-                    'date_versement' => $this->input->post('caisseversedate'),
+                $montant = (float) str_replace(
+                    array(' ', ','),
+                    array('', '.'),
+                    (string) $this->input->post('caismontantmontverse')
                 );
-                $ver = $this->m_versements->create($arrayver);
-                
-                if($this->session->agent->userole === '4')
-                {
-                    $upvers = array(
-                        'active_verse' => 1,
-                        'valider_vers' => 1, 
-                        'is_actifverser' => 1,
-                        'validop' => $iduser,
-                    );
-                    $this->m_versements->update($ver, $upvers);
-                    $this->property['UPDATE_SUSSESS'] = TRUE;
-                    redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versementcaisse/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                if ($montant <= 0) {
+                    show_error('Le montant du versement doit être supérieur à 0 F.', 422, 'Versement refusé');
+                    return;
                 }
 
-                if($this->session->agent->userole === '18')
-                {
-                    $upvers = array(
-                        'active_verse' => 1,
-                        'valider_vers' => 1, 
-                        'is_actifverser' => 1,
-                        'validopad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
+                $role = (string) $this->session->agent->userole;
+                $niveau = ($role === '18') ? 'adjoint' : 'principal';
+                $soldes = versement_mutualise_soldes(
+                    $this->company->ekey,
+                    $identifiant_caisse,
+                    $gid,
+                    $identifiant_gare,
+                    (int) $iduser,
+                    $niveau
+                );
+                if ($montant > $soldes['total'] + 0.009) {
+                    show_error(
+                        'Versement rejeté : le montant saisi ('
+                        . number_format($montant, 0, ',', ' ')
+                        . ' F) dépasse le solde net de la gare ('
+                        . number_format($soldes['total'], 0, ',', ' ')
+                        . ' F = positifs '
+                        . number_format($soldes['total_positifs'], 0, ',', ' ')
+                        . ' F + déficits '
+                        . number_format($soldes['total_deficits'], 0, ',', ' ')
+                        . ' F).',
+                        422,
+                        'Versement rejeté'
                     );
-                    $this->m_versements->update($ver, $upvers);
+                    return;
+                }
+                $parts = versement_mutualise_repartir_prorata($montant, $soldes['par_sg']);
+                if (!$parts) {
+                    show_error(
+                        'Impossible de répartir le versement au prorata des soldes des sous-gares.',
+                        422,
+                        'Versement refusé'
+                    );
+                    return;
+                }
 
-                    $this->property['UPDATE_SUSSESS'] = TRUE;
+                $baseComment = trim((string) $this->input->post('caisseautrecomment'));
+                $noteMutualise = 'Répartition auto prorata sous-gares (hors escales), total '
+                    . number_format($montant, 0, ',', ' ') . ' F';
+                $commentFinal = ($baseComment === '') ? $noteMutualise : ($baseComment . ' | ' . $noteMutualise);
 
+                $this->db->trans_start();
+                $ids_crees = array();
+                foreach ($parts as $sgPart => $mtPart) {
+                    $arrayver = array(
+                        'idcaisse_versement' => $identifiant_caisse,
+                        'id_genre_versement' => $this->input->post('caissegenrevers'),
+                        'idop_versement' => $iduser,
+                        'sgareidvers' => (int) $sgPart,
+                        'compkey_vers' => $this->input->post('_compag'),
+                        'type_versement' => $this->input->post('caissetypeverse'),
+                        'typpersonnel' => $this->input->post('personnels'),
+                        'nom_beneficiaire' => $this->input->post('nom'),
+                        'montant_verser' => (int) $mtPart,
+                        'commentaire' => $commentFinal . ' [sg=' . (int) $sgPart . ']',
+                        'date_versement' => $this->input->post('caisseversedate'),
+                    );
+                    $ver = $this->m_versements->create($arrayver);
+                    if (!$ver) {
+                        $this->db->trans_rollback();
+                        show_error('Échec d’enregistrement d’une part du versement mutualisé.', 500);
+                        return;
+                    }
+                    $ids_crees[] = (int) $ver;
+
+                    if ($role === '4') {
+                        $this->m_versements->update($ver, array(
+                            'active_verse' => 1,
+                            'valider_vers' => 1,
+                            'is_actifverser' => 1,
+                            'validop' => $iduser,
+                        ));
+                    } elseif ($role === '18') {
+                        $this->m_versements->update($ver, array(
+                            'active_verse' => 1,
+                            'valider_vers' => 1,
+                            'is_actifverser' => 1,
+                            'validopad' => caisse_validation_ra_affiliation($iduser, $identifiant_caisse),
+                        ));
+                    }
+                }
+                $this->db->trans_complete();
+                if ($this->db->trans_status() === false) {
+                    show_error('Le versement mutualisé n’a pas pu être enregistré.', 500);
+                    return;
+                }
+
+                $this->property['UPDATE_SUSSESS'] = TRUE;
+                if ($role === '4' || $role === '18') {
                     redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/versementcaisse/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
                 }
-                else
                 redirect('caisses/'.$this->session->company->ekey. '/cais/'. $identifiant_gare. '/'. $identifiant_caisse. '/'. $iduser. '/versementcaisse_adjoint/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
             }
             else

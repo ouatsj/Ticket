@@ -1381,6 +1381,7 @@ if (!function_exists('compte_arret_chef_pending_status')) {
                 AND r.actif_rect = 0
                 AND r.type_recet <> 'Courrier'
                 AND r.active_recet = 0
+                AND IFNULL(r.montant_recet, 0) <> 0
                 AND (r.is_validerecet = 0 OR r.is_validerecet IS NULL)
 
                 UNION ALL
@@ -1398,6 +1399,7 @@ if (!function_exists('compte_arret_chef_pending_status')) {
                 AND d.actif_deps = 0
                 AND d.type_depense <> 'Courrier'
                 AND d.active_dep = 0
+                AND IFNULL(d.montant_depens, 0) <> 0
                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
 
                 UNION ALL
@@ -1416,6 +1418,7 @@ if (!function_exists('compte_arret_chef_pending_status')) {
                 AND d.is_validdepo = 0
                 AND d.actif_depo = 0
                 AND d.type_depot <> 'Courrier'
+                AND IFNULL(d.montant_depot, 0) <> 0
                 AND COALESCE(d.valid_depo, '') <> 'valid'
             ) pending",
             array(
@@ -3004,7 +3007,9 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 "SELECT SUM(v.montant_verser) AS total FROM versements v "
                 . sprintf($base, 'v.idcaisse_versement') . "
                 AND v.ferme_caisvers = 0 AND v.is_actifverserad = 1
-                AND v.type_versement <> 'Courrier' {$qui_v} " . $filtre('v.idop_versement', 'v.nom_beneficiaire')
+                AND v.type_versement <> 'Courrier'
+                AND v.type_versement <> 'Bordereau_bancairecourrier'
+                {$qui_v} " . $filtre('v.idop_versement', 'v.nom_beneficiaire')
             );
         } else {
             $qui_r = $tous_validateurs ? '' : "AND r.operavalid IN ({$in_valid})";
@@ -3038,7 +3043,9 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 "SELECT SUM(v.montant_verser) AS total FROM versements v "
                 . sprintf($base, 'v.idcaisse_versement') . "
                 AND v.ferme_caisvers = 0 AND v.is_actifverser = 1
-                AND v.type_versement <> 'Courrier' {$qui_v} " . $filtre('v.idop_versement', 'v.nom_beneficiaire')
+                AND v.type_versement <> 'Courrier'
+                AND v.type_versement <> 'Bordereau_bancairecourrier'
+                {$qui_v} " . $filtre('v.idop_versement', 'v.nom_beneficiaire')
             );
         }
 

@@ -204,7 +204,10 @@
             } catch (e) { /* ignore */ }
             jsonGet(url, (rows) => {
                 fillGares(gareEl, rows, garePlaceholder);
-                if (rows && rows.length === 1 && gareEl.options.length > 1) {
+                // RECAP GLOBAL (placeholder « Toutes ») : conserver l'option vide —
+                // gare non choisie = toutes les gares de départ de la compagnie.
+                var allowToutes = String(garePlaceholder || '').toLowerCase().indexOf('toutes') !== -1;
+                if (!allowToutes && rows && rows.length === 1 && gareEl.options.length > 1) {
                     for (var i = gareEl.options.length - 1; i >= 0; i--) {
                         if (!gareEl.options[i].value) {
                             gareEl.remove(i);

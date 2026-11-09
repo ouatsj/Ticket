@@ -431,6 +431,14 @@
                 (float) str_replace(array(' ', ','), array('', '.'), (string) $this->input->post('montantverse')),
                 2
             );
+            if ($montantBordereau <= 0 || $montantSaisi <= 0) {
+                show_error(
+                    'Impossible de valider un bordereau ou un montant reçu à 0 F.',
+                    422,
+                    'Validation refusée'
+                );
+                return null;
+            }
             $manquantRaw = $this->input->post('ecart_manquant');
             $surplusRaw = $this->input->post('ecart_surplus');
             $isManquant = ($manquantRaw === '1' || $manquantRaw === 1 || $manquantRaw === 'on' || $manquantRaw === true);

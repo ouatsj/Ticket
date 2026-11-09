@@ -37,7 +37,7 @@
         }
 
          //versements banque
-        public function get($cid, $idc, $gid, $conect, $pk = FALSE)
+        public function get($cid, $idc, $gid, $conect, $pk = FALSE, $sousgare = null)
         {
             $today = mdate('%Y-%m-%d', now());
             $caisse_sql = 'AND ' . (function_exists('sous_caisse_predicat_famille')
@@ -46,6 +46,13 @@
             $valid_sql = 'AND ' . (function_exists('sous_caisse_validateurs_sql')
                 ? sous_caisse_validateurs_sql('v.validop', $conect)
                 : ("v.validop = '" . (int) $conect . "'"));
+            $hors = function_exists('recette_role_hors_escale_sql')
+                ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement')
+                : '';
+            $sg = (int) $sousgare;
+            $sg_sql = ($sg > 0)
+                ? ("AND (v.sgareidvers = '" . $sg . "' OR (cs.parent_caiss IS NOT NULL AND cs.parent_caiss > 0 AND cs.parent_caiss = '" . (int) $idc . "'))")
+                : '';
             if ($pk === FALSE) {
                 return $this->db->query(
                 "SELECT * FROM versements v
@@ -62,9 +69,12 @@
                 {$caisse_sql}
                 AND gr.genre_depot = 'Banque'
                 AND v.ferme_caisvers = 0
+                AND v.is_actifverser = 1
                 AND v.actifvers = 0
                 AND v.type_versement <> 'Bordereau_bancairecourrier'
                 {$valid_sql}
+                {$sg_sql}
+                {$hors}
                 ORDER BY v.id_versements DESC")->result();
             }
             return $this->db->query(
@@ -347,9 +357,8 @@
         
         public function totalversement($cd, $idc, $gid, $conect)
         {
-            $caisse_sql = 'AND ' . (function_exists('sous_caisse_predicat_famille')
-                ? sous_caisse_predicat_famille('cs.id_caiss', $idc)
-                : ("cs.id_caiss = '" . (int) $idc . "'"));
+            // Même périmètre que totalrecette/totaldepense/totaldepot (caisse de la page),
+            // sinon les versements d'escales enfants gonflent V et le solde devient artificiellement négatif.
             $valid_sql = 'AND ' . (function_exists('sous_caisse_validateurs_sql')
                 ? sous_caisse_validateurs_sql('v.validop', $conect)
                 : ("v.validop = '" . (int) $conect . "'"));
@@ -360,18 +369,17 @@
             JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '$cd'
-            {$caisse_sql}
+            AND cs.id_caiss = '" . (int) $idc . "'
+            " . (function_exists('sous_caisse_filtre_gare_sql') ? sous_caisse_filtre_gare_sql('cs', $gid) : '') . "
             AND v.ferme_caisvers = 0
             AND v.is_actifverser = 1
+            AND v.type_versement <> 'Courrier'
             AND v.type_versement <> 'Bordereau_bancairecourrier'
             {$valid_sql}")->row();
         }
 
         public function adtotalversement($cd, $idc, $gid, $conect)
         {
-            $caisse_sql = 'AND ' . (function_exists('sous_caisse_predicat_famille')
-                ? sous_caisse_predicat_famille('cs.id_caiss', $idc)
-                : ("cs.id_caiss = '" . (int) $idc . "'"));
             $valid_sql = 'AND ' . (function_exists('sous_caisse_validateurs_sql')
                 ? sous_caisse_validateurs_sql('v.validopad', $conect)
                 : ("v.validopad = '" . (int) $conect . "'"));
@@ -382,14 +390,16 @@
             JOIN compagnies c ON ex.id_compagd = c.cle_compagnie
             JOIN entreprise e ON c.id_entrep = e.id_entreprise
             WHERE e.ekey = '$cd'
-            {$caisse_sql}
+            AND cs.id_caiss = '" . (int) $idc . "'
+            " . (function_exists('sous_caisse_filtre_gare_sql') ? sous_caisse_filtre_gare_sql('cs', $gid) : '') . "
             AND v.ferme_caisvers = 0
             AND v.is_actifverserad = 1
+            AND v.type_versement <> 'Courrier'
             AND v.type_versement <> 'Bordereau_bancairecourrier'
             {$valid_sql}")->row();
         }
 
-        public function totalversementbank($cd, $idc, $gid, $conect)
+        public function totalversementbank($cd, $idc, $gid, $conect, $sousgare = null)
         {
             $caisse_sql = 'AND ' . (function_exists('sous_caisse_predicat_famille')
                 ? sous_caisse_predicat_famille('cs.id_caiss', $idc)
@@ -397,6 +407,13 @@
             $valid_sql = 'AND ' . (function_exists('sous_caisse_validateurs_sql')
                 ? sous_caisse_validateurs_sql('v.validop', $conect)
                 : ("v.validop = '" . (int) $conect . "'"));
+            $hors = function_exists('recette_role_hors_escale_sql')
+                ? recette_role_hors_escale_sql('v.nom_beneficiaire', 'v.idop_versement')
+                : '';
+            $sg = (int) $sousgare;
+            $sg_sql = ($sg > 0)
+                ? ("AND (v.sgareidvers = '" . $sg . "' OR (cs.parent_caiss IS NOT NULL AND cs.parent_caiss > 0 AND cs.parent_caiss = '" . (int) $idc . "'))")
+                : '';
 
             return $this->db->query("SELECT SUM(montant_verser) AS montant_bank FROM versements v
             JOIN caisse cs ON v.idcaisse_versement = cs.id_caiss
@@ -410,7 +427,9 @@
             {$caisse_sql}
             AND gr.genre_depot = 'Banque'
             AND v.type_versement <> 'Bordereau_bancairecourrier'
-            {$valid_sql}")->row();
+            {$valid_sql}
+            {$sg_sql}
+            {$hors}")->row();
         }
 
         public function adtotalversementbank($cd, $idc, $gid, $conect)
@@ -639,7 +658,7 @@
         
         public function totalesdepense($cd, $idc, $gid, $sg, $usc)
         {
-            
+            $hors = function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '';
             return $this->db->query("SELECT SUM(montant_depens) AS montant_depens FROM depense d
                 JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
                 JOIN gare_exp ex ON cs.gexp_caiss = ex.code_gaexp
@@ -647,6 +666,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cd'
                 AND d.is_actifdep = 1
+                AND d.is_validedep = 1
                 AND d.actif_deps = 0
                 AND d.ferme_caisdep = 0
                 AND cs.id_caiss = '$idc'
@@ -654,6 +674,7 @@
                 AND d.sousgidepens = '$sg'
                 AND d.type_depense <> 'Courrier'
                 AND d.opevalid = '$usc'
+                {$hors}
                 GROUP BY cs.id_caiss")->row();
         }
 
@@ -1218,6 +1239,7 @@
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.validop = '$usc'
+                    AND v.ferme_caisvers = 1
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
                     ORDER BY v.date_versement ASC")->result();
 
@@ -1235,6 +1257,7 @@
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.validop = '$usc'
+                    AND v.ferme_caisvers = 1
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
                     ORDER BY v.date_versement ASC")->result();
             }
@@ -1253,6 +1276,7 @@
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.validop = '$usc'
+                    AND v.ferme_caisvers = 1
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
                     ORDER BY v.date_versement ASC")->result();
             }
@@ -1270,6 +1294,7 @@
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     AND v.type_versement <> 'Bordereau_bancairecourrier'
                     AND v.validop = '$usc'
+                    AND v.ferme_caisvers = 1
                     AND v.date_versement BETWEEN '$dt1' AND '$dt2'
                     ORDER BY v.date_versement ASC")->result();
         }

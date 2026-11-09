@@ -688,7 +688,8 @@ if (!function_exists('sales_arret_totals_lines')) {
         foreach ($all[$key] as $comp => $montant) {
             $comp = (int) $comp;
             $montant = round((float) $montant, 2);
-            if ($comp <= 0 || $montant < 0) {
+            // Aligné sur le snapshot : ignorer les compagnies à 0 F (évite tickets fantômes).
+            if ($comp <= 0 || $montant <= 0) {
                 continue;
             }
             $out[] = array(

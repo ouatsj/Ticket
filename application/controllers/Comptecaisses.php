@@ -154,7 +154,7 @@
                     if ($mono_sg) {
                         $sg_ligne = $isg;
                     }
-                    if ($comp <= 0 || $montant < 0) {
+                    if ($comp <= 0 || $montant <= 0) {
                         continue;
                     }
                     $this->m_comptes_bagage->create(array(
@@ -358,7 +358,7 @@
                     if ($mono_sg) {
                         $sg_ligne = $isg;
                     }
-                    if ($comp <= 0 || $montant < 0) {
+                    if ($comp <= 0 || $montant <= 0) {
                         continue;
                     }
                     $this->m_comptes_bagage->create(array(

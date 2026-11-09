@@ -64,6 +64,7 @@
         /**
          * RECAP GLOBAL Admin/Superviseur : compagnie + période obligatoires ;
          * gare / ligne / sous-gare / type restent optionnels.
+         * Sans gare : toutes les gares de départ de la compagnie (jamais la gare URL).
          */
         protected function _assert_recap_global_filters($ekey, $date1, $date2, $company)
         {
@@ -94,6 +95,19 @@
                 show_error('La compagnie sélectionnée est invalide.', 403, 'Filtre invalide');
                 exit;
             }
+        }
+
+        /**
+         * Gare optionnelle RECAP GLOBAL (ticket / courrier / bagage).
+         * Vide ou "0" = aucune restriction de gare (toutes les gares de la compagnie).
+         * Ne jamais retomber sur le segment URL ($g / gare connectée).
+         *
+         * @param mixed $posted valeur post/get (departgar*)
+         * @return string code_gaexp ou ''
+         */
+        protected function _recap_global_optional_gare($posted)
+        {
+            return $this->_normalize_recap_gare_code_filter($posted);
         }
 
         /**
@@ -1077,10 +1091,11 @@
             list($days, $days1) = $this->_recap_title_dates($date1, $date2);
             $role = (string) $this->session->agent->userole;
 
+            // Signature tridepot : (cid, gid, usc, dt1, dt2, comp, gr, nm)
             if (recette_role_is_validateur_principal($role)) {
-                $rows = $this->m_depot->tridepot($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm);
+                $rows = $this->m_depot->tridepot($this->entreprise->ekey, $gid, $atr, $date1, $date2, $comp, $gen, $nm);
             } elseif (recette_role_is_validateur_adjoint($role)) {
-                $rows = $this->m_depot->adtridepot($this->entreprise->ekey, $gid, $atr, $comp, $date1, $date2, $gen, $nm);
+                $rows = $this->m_depot->adtridepot($this->entreprise->ekey, $gid, $atr, $date1, $date2, $comp, $gen, $nm);
             } elseif ($role === '1' || $role === '2') {
                 $rows = $this->m_depot->tridepotadmin($this->entreprise->ekey, $gid, $comp, $date1, $date2, $typ, $gen, $nm);
             } elseif (recette_role_is_saisie($role)) {
@@ -2911,10 +2926,7 @@
             $dt2 = trim((string) $this->input->get_post('datefin'));
             $lign = trim((string) $this->input->get_post('axeligne'));
             $comp = trim((string) $this->input->get_post('_compag'));
-            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgar'));
-            if ($gid === '') {
-                $gid = $this->_normalize_recap_gare_code_filter($g);
-            }
+            $gid = $this->_recap_global_optional_gare($this->input->get_post('departgar'));
             $sg = $this->_normalize_recap_sousgare_filter($this->input->get_post('sousgaretgl'));
             $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
@@ -3031,10 +3043,7 @@
             $dt2 = trim((string) $this->input->get_post('datefinesc'));
             $lign = trim((string) $this->input->get_post('axeligneesc'));
             $comp = trim((string) $this->input->get_post('_compagesc'));
-            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgaresc'));
-            if ($gid === '') {
-                $gid = $this->_normalize_recap_gare_code_filter($g);
-            }
+            $gid = $this->_recap_global_optional_gare($this->input->get_post('departgaresc'));
             $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
             $reportick = $this->m_escalclients->reporticketcptad($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
@@ -3107,10 +3116,7 @@
             $dt2 = trim((string) $this->input->get_post('datefinbg'));
             $lign = trim((string) $this->input->get_post('axelignebg'));
             $comp = trim((string) $this->input->get_post('_compagbg'));
-            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgarbg'));
-            if ($gid === '') {
-                $gid = $this->_normalize_recap_gare_code_filter($g);
-            }
+            $gid = $this->_recap_global_optional_gare($this->input->get_post('departgarbg'));
             $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
             $reportick = $this->m_bagage->reportbag($this->entreprise->ekey, $gid, $dt1, $dt2, $comp, $lign);
@@ -3183,10 +3189,7 @@
             $dt2 = trim((string) $this->input->get_post('datefinbgesc'));
             $lign = trim((string) $this->input->get_post('axelignebgesc'));
             $comp = trim((string) $this->input->get_post('_compagbgesc'));
-            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgarbgesc'));
-            if ($gid === '') {
-                $gid = $this->_normalize_recap_gare_code_filter($g);
-            }
+            $gid = $this->_recap_global_optional_gare($this->input->get_post('departgarbgesc'));
             $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
             $reportick = $this->m_bagageesc->reportbag($this->entreprise->ekey, $comp, $gid, $dt1, $dt2, $lign);
@@ -6428,10 +6431,7 @@
             $dt2 = trim((string) $this->input->get_post('datefincrgl'));
             $lign = trim((string) $this->input->get_post('axelignecrgl'));
             $comp = trim((string) $this->input->get_post('_compagcrgl'));
-            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgarcrgl'));
-            if ($gid === '') {
-                $gid = $this->_normalize_recap_gare_code_filter($g);
-            }
+            $gid = $this->_recap_global_optional_gare($this->input->get_post('departgarcrgl'));
             $typ = trim((string) $this->input->get_post('typcoursgl'));
             $sg = $this->_normalize_recap_sousgare_filter($this->input->get_post('sousgarecrgl'));
             list($days, $days1) = $this->_recap_title_dates($dt1, $dt2);
@@ -6523,10 +6523,7 @@
             $dt2 = trim((string) $this->input->get_post('datefincrglesc'));
             $lign = trim((string) $this->input->get_post('axelignecrglesc'));
             $comp = trim((string) $this->input->get_post('_compagcrglesc'));
-            $gid = $this->_normalize_recap_gare_code_filter($this->input->get_post('departgarcrglesc'));
-            if ($gid === '') {
-                $gid = $this->_normalize_recap_gare_code_filter($g);
-            }
+            $gid = $this->_recap_global_optional_gare($this->input->get_post('departgarcrglesc'));
             $typ = trim((string) $this->input->get_post('typcoursglesc'));
             $this->_assert_recap_global_filters($this->entreprise->ekey, $dt1, $dt2, $comp);
             $compLabel = $this->_recap_compagnie_label($comp);
@@ -9391,8 +9388,12 @@
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
             )));
+            $titre_recet_tries = 'ETATS DES RECETTES DE ' . $cieNom . ' DU ' . $days . ' AU ' . $days1;
+            if ($typ !== '') {
+                $titre_recet_tries .= ' — TYPE ' . $typ;
+            }
             return array(
-                'titre' => 'ETATS DES RECETTES DE ' . $cieNom . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => $titre_recet_tries,
                 'lignes' => $lignes, 'total' => $total, 'filters_qs' => $qs, 'retour_url' => $this->_etat_retour_url(
                     $ckey,
                     trim((string) $this->input->get_post('gareconnect')),
@@ -9461,8 +9462,12 @@
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
             )));
+            $titre_dep_tries = 'ETATS DES DEPENSES DE ' . $cieNom . ' DU ' . $days . ' AU ' . $days1;
+            if ($typ !== '') {
+                $titre_dep_tries .= ' — TYPE ' . $typ;
+            }
             return array(
-                'titre' => 'ETATS DES DEPENSES DE ' . $cieNom . ' DU ' . $days . ' AU ' . $days1,
+                'titre' => $titre_dep_tries,
                 'lignes' => $lignes, 'total' => $total, 'filters_qs' => $qs, 'retour_url' => $this->_etat_retour_url(
                     $ckey,
                     trim((string) $this->input->get_post('gareconnect')),

@@ -1850,8 +1850,8 @@
                 {$filtre}
                 AND v.ferme_caisvers = 0
                 AND {$actif_versement}
-                AND v.type_versement <> 'Courrier'
-                AND v.type_versement <> 'Bordereau_bancairecourrier'
+                AND TRIM(v.type_versement) <> 'Courrier'
+                AND TRIM(v.type_versement) <> 'Bordereau_bancairecourrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
 
@@ -1866,7 +1866,7 @@
                 AND {$actif_recette}
                 {$valid_flag_recette}
                 AND IFNULL(r.actif_rect, 0) = 0
-                AND r.type_recet <> 'Courrier'
+                AND TRIM(r.type_recet) <> 'Courrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
 
@@ -1881,7 +1881,7 @@
                 AND {$actif_depense}
                 {$valid_flag_depense}
                 AND IFNULL(d.actif_deps, 0) = 0
-                AND d.type_depense <> 'Courrier'
+                AND TRIM(d.type_depense) <> 'Courrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
 
@@ -1894,7 +1894,7 @@
                 {$filtre}
                 AND dp.ferme_caisdepo = 0
                 AND {$actif_depot}
-                AND dp.type_depot <> 'Courrier'
+                AND TRIM(dp.type_depot) <> 'Courrier'
                 GROUP BY cs.gexp_caiss"
             )->result();
 

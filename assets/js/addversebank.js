@@ -4,26 +4,55 @@ document.addEventListener('DOMContentLoaded', () => {
     {
         document.querySelector('h3#bankTitle').innerHTML = `ENREGISTREMENT DES VERSEMENTS BANCAIRE`;
 
-        verseverif = function () {
+        function parseMontantSaisi(raw) {
+            if (raw == null) {
+                return NaN;
+            }
+            var cleaned = String(raw).replace(/\s/g, '').replace(',', '.');
+            if (cleaned === '') {
+                return NaN;
+            }
+            return parseFloat(cleaned);
+        }
+
+        function formatFcfa(n) {
+            return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        }
+
+        function soldeCumulGare() {
+            var el = document.querySelector('#soldecaisse');
+            return el ? parseFloat(el.value) || 0 : 0;
+        }
+
+        function afficherRejet(montant, solde) {
+            var box = document.querySelector('#smsverser');
+            var msg = document.querySelector('#versementsms');
+            if (!box || !msg) {
+                return;
+            }
+            box.style.display = 'block';
+            msg.innerHTML =
+                'Versement bancaire rejeté : le montant saisi (' + formatFcfa(montant) +
+                ' F) dépasse le solde net de la gare (' +
+                formatFcfa(solde) + ' F, déficits déjà déduits).';
+        }
+
+        window.verseverif = function () {
             var champ = document.querySelector('#versmontant');
-            var n = (champ.value || '').toString().replace(/\s/g, '');
-            var m = parseInt(n, 10);
-            var solde = parseInt(document.querySelector('#soldecaisse').value, 10);
-            if (isNaN(solde)) {
-                solde = 0;
+            if (!champ) {
+                return true;
             }
-            if (isNaN(m)) {
-                document.querySelector('#smsverser').style.display = 'none';
+            var m = parseMontantSaisi(champ.value);
+            var solde = soldeCumulGare();
+            var box = document.querySelector('#smsverser');
+
+            if (!isNaN(m) && m > solde) {
+                afficherRejet(m, solde);
                 return false;
             }
-            if (solde < m) {
-                document.querySelector('#smsverser').style.display = 'block';
-                document.querySelector('#versementsms').innerHTML = `le montant que vous aviez saisi dépasse le solde de votre caisse`;
-                champ.value = '';
-                return false;
+            if (box) {
+                box.style.display = 'none';
             }
-            document.querySelector('#smsverser').style.display = 'none';
-            champ.value = n;
             return true;
         };
 
@@ -35,20 +64,38 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     var formBank = document.querySelector('#verseFormbank');
-    if (formBank) {
+    if (formBank && !formBank.dataset.soldeGuard) {
+        formBank.dataset.soldeGuard = '1';
         formBank.addEventListener('submit', function (ev) {
-            if (typeof verseverif === 'function' && verseverif() === false) {
+            var m = parseFloat(String(document.querySelector('#versmontant').value || '')
+                .replace(/\s/g, '').replace(',', '.'));
+            var solde = parseFloat(document.querySelector('#soldecaisse').value) || 0;
+            if (isNaN(m) || m <= 0) {
                 ev.preventDefault();
+                var box = document.querySelector('#smsverser');
+                var msg = document.querySelector('#versementsms');
+                if (box && msg) {
+                    box.style.display = 'block';
+                    msg.innerHTML = 'Versement bancaire rejeté : le montant doit être supérieur à 0 F.';
+                }
                 return false;
             }
-            var m = parseInt((document.querySelector('#versmontant').value || '').toString().replace(/\s/g, ''), 10);
-            var solde = parseInt(document.querySelector('#soldecaisse').value, 10);
-            if (isNaN(m) || m <= 0 || isNaN(solde) || solde < m) {
+            if (m > solde) {
                 ev.preventDefault();
-                document.querySelector('#smsverser').style.display = 'block';
-                document.querySelector('#versementsms').innerHTML = `le montant que vous aviez saisi dépasse le solde de votre caisse`;
+                var box2 = document.querySelector('#smsverser');
+                var msg2 = document.querySelector('#versementsms');
+                if (box2 && msg2) {
+                    box2.style.display = 'block';
+                    msg2.innerHTML =
+                        'Versement bancaire rejeté : le montant saisi (' +
+                        Math.round(m).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') +
+                        ' F) dépasse le solde net de la gare (' +
+                        Math.round(solde).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') +
+                        ' F, déficits déjà déduits).';
+                }
                 return false;
             }
+            return true;
         });
     }
 });
