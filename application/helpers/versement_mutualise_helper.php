@@ -122,7 +122,7 @@ if (!function_exists('versement_mutualise_solde_sousgare')) {
              AND d.ferme_caisdep = 0
              AND d.is_validedep = 1
              AND IFNULL(d.actif_deps, 0) = 0
-             AND d.type_depense <> 'Courrier'
+             AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
              {$caisse_sql}
              AND d.sousgidepens = ?
              AND {$flag_d}

@@ -2393,7 +2393,7 @@
         }
         
         //tri chef de guichet
-        public function trisrecet($cid, $g, $cmp, $cais, $conect, $dt1, $dt2, $typ = FALSE)
+        public function trisrecet($cid, $g, $cmp, $cais, $conect, $dt1, $dt2, $typ = FALSE, $gr = FALSE)
         {
             $conect = trim((string) $conect);
             $cmp = trim((string) $cmp);
@@ -2426,9 +2426,14 @@
             $typ_sql = ($typ === '')
                 ? ''
                 : ("AND TRIM(r.type_recet) = '" . $this->db->escape_str($typ) . "'");
+            $gr = trim((string) (($gr === FALSE || $gr === null) ? '' : $gr));
+            $gr_sql = ($gr === '')
+                ? ''
+                : ("AND TRIM(tp.type_personnel) = '" . $this->db->escape_str($gr) . "'");
 
             return $this->db->query(
-                "SELECT cu.username, r.montant_recet, r.type_recet, r.commentaire_recet, r.idopera, r.date_recet, r.nom FROM recette r
+                "SELECT cu.username, r.montant_recet, r.type_recet, tp.type_personnel, r.commentaire_recet, r.idopera, r.date_recet, r.nom FROM recette r
+                    JOIN type_personnel tp ON r.id_genre_recet = tp.idtyperso
                     JOIN attributions_role ar ON r.idopera = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -2449,6 +2454,7 @@
                     AND IFNULL(r.actif_rect, 0) = 0
                     AND r.date_recet BETWEEN '" . $this->db->escape_str($dt1) . "' AND '" . $this->db->escape_str($dt2) . "'
                     {$typ_sql}
+                    {$gr_sql}
                     ORDER BY r.date_recet ASC")->result();
         }
 

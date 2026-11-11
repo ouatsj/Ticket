@@ -449,7 +449,8 @@ if (!function_exists('caisse_validation_chef_arrete_depense_sql')) {
             AND ({$alias}.is_actifdepad = 0 OR {$alias}.is_actifdepad IS NULL)
             AND {$alias}.ferme_caisdep = 0
             AND COALESCE({$alias}.valid_depens, '') = 'valid'
-            AND IFNULL({$alias}.type_depense, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')";
+            AND IFNULL({$alias}.type_depense, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')
+            AND NOT (IFNULL({$alias}.app_depense, '') = 'courrier' AND IFNULL({$alias}.is_validedep, 0) = 0)";
     }
 }
 
@@ -525,7 +526,8 @@ if (!function_exists('caisse_validation_pending_adjoint_depense_sql')) {
             AND {$alias}.is_actifdep = 0
             AND {$alias}.is_validedep = 1
             AND IFNULL({$alias}.arret_caisdep, 0) = 1
-            AND IFNULL({$alias}.type_depense, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')";
+            AND IFNULL({$alias}.type_depense, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')
+            AND NOT (IFNULL({$alias}.app_depense, '') = 'courrier' AND IFNULL({$alias}.is_validedep, 0) = 0)";
     }
 }
 

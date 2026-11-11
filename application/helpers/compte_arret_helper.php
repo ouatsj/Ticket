@@ -791,7 +791,7 @@ if (!function_exists('compte_arret_caissier_pending_status')) {
                 AND cs.gexp_caiss = ?
                 AND d.is_validedep = 1 AND d.is_actifdep = 1
                 AND d.ferme_caisdep = 0
-                AND IFNULL(d.type_depense,'') <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense),'') <> 'Courrier' AND NOT (IFNULL(d.app_depense,'') = 'courrier' AND IFNULL(d.is_validedep,0) = 0)
                 GROUP BY DATE_FORMAT(d.date_depens, '%Y-%m')
                 UNION ALL
                 SELECT DATE_FORMAT(dp.datedepot, '%Y-%m'), COUNT(*)
@@ -896,7 +896,7 @@ if (!function_exists('compte_arret_sup_agence_pending_status')) {
                 WHERE cs.gexp_caiss = ?
                 AND d.ferme_caisdep = 1 AND IFNULL(d.validcptabledep, 0) = 0
                 AND d.is_validedep = 1 AND d.is_actifdep = 1
-                AND IFNULL(d.type_depense,'') <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense),'') <> 'Courrier' AND NOT (IFNULL(d.app_depense,'') = 'courrier' AND IFNULL(d.is_validedep,0) = 0)
                 GROUP BY DATE_FORMAT(d.date_depens, '%Y-%m')
                 UNION ALL
                 SELECT DATE_FORMAT(dp.datedepot, '%Y-%m'), COUNT(*)
@@ -1397,7 +1397,7 @@ if (!function_exists('compte_arret_chef_pending_status')) {
                 AND cs.gexp_caiss = ?
                 AND d.is_actifdep = 0
                 AND d.actif_deps = 0
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.active_dep = 0
                 AND IFNULL(d.montant_depens, 0) <> 0
                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
@@ -2992,7 +2992,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 AND d.ferme_caisdep = 0 AND d.is_actifdepad = 1
                 AND IFNULL(d.is_actifdep, 0) = 0
                 AND IFNULL(d.actif_deps, 0) = 0
-                AND IFNULL(d.type_depense, '') <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 {$qui_d} " . $filtre('d.idop_dep', 'd.nom_perso')
             );
             $depots = $montant(
@@ -3029,7 +3029,7 @@ if (!function_exists('caissier_escale_solde_ouvert')) {
                 . sprintf($base, 'd.idcaisse_depens') . "
                 AND d.ferme_caisdep = 0 AND d.is_actifdep = 1
                 AND IFNULL(d.actif_deps, 0) = 0
-                AND IFNULL(d.type_depense, '') <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 {$qui_d} " . $filtre('d.idop_dep', 'd.nom_perso')
             );
             $depots = $montant(
@@ -3603,7 +3603,7 @@ if (!function_exists('caissier_arret_pending_map')) {
             AND d.is_actifdep = 0
             AND (d.is_actifdepad = 0 OR d.is_actifdepad IS NULL)
             AND d.actif_deps = 0
-            AND d.type_depense <> 'Courrier'
+            AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
             AND d.active_dep = 1
             AND d.is_validedep = 0
             AND d.ferme_caisdep = 0
@@ -3891,7 +3891,7 @@ if (!function_exists('caissier_arret_pending_map_adjoint')) {
             AND d.is_validedep = 1
             AND IFNULL(d.arret_caisdep, 0) = 1
             AND d.actif_deps = 0
-            AND d.type_depense <> 'Courrier'
+            AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
             AND d.date_depens <= ?
             {$caisse_sql}
             {$scope_dep_sql}
@@ -4065,7 +4065,7 @@ if (!function_exists('adjoint_pending_principal_totals')) {
             AND d.is_validedep = 1
             AND IFNULL(d.arret_caisdep, 0) = 1
             AND d.actif_deps = 0
-            AND d.type_depense <> 'Courrier'
+            AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
             AND d.date_depens <= " . $CI->db->escape($today)
         )->row();
 

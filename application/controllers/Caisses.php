@@ -98,6 +98,9 @@
                 'typedocuments' => app_cache_remember('typedocument_all', 600, function () {
                     return $this->m_typedocument->get();
                 }),
+                'typedocuments_ticket' => app_cache_remember('typedocument_ticket_hors_courrier', 600, function () {
+                    return $this->m_typedocument->get_hors_courrier();
+                }),
                 'genrespersonnels' => app_cache_remember('type_personnel_all', 600, function () {
                     return $this->m_type_personnel->get();
                 }),
@@ -555,7 +558,9 @@
                     }
                     
                     $this->property['genrespersonnels'] = $ref['genrespersonnels'];
-                    $this->property['typedocuments'] = $ref['typedocuments'];
+                    $this->property['typedocuments'] = !empty($ref['typedocuments_ticket'])
+                        ? $ref['typedocuments_ticket']
+                        : $this->m_typedocument->get_hors_courrier();
 
                     $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
                     $this->property['operateurs'] = $this->m_compte_user->getusercompte($this->company->ekey, $cdg);
@@ -12814,7 +12819,7 @@
                     $this->property['sommesdepenses'] = (object) array('montant_depens' => $total_dep, 'total' => $total_dep);
                 }
                 $this->property['depotcaisse'] = $this->m_depot->ad_depotinterne($this->company->ekey, $cdg, $cid, $icx);
-                $this->property['typedocuments'] = $this->m_typedocument->get();
+                $this->property['typedocuments'] = $this->m_typedocument->get_hors_courrier();
                 $this->property['montantverves'] = $this->m_versements->ad_totalversement($this->company->ekey, $cdg, $cid, $icx);
                 $this->property['sommedepenses'] = $this->m_versements->ad_totaldepense($this->company->ekey, $cdg, $cid, $icx, $userole, true);
                 if (!$escale_ops) {

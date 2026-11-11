@@ -9356,12 +9356,13 @@
             $date1 = trim((string) $this->input->get_post('debutdate'));
             $date2 = trim((string) $this->input->get_post('findate'));
             $typ = trim((string) $this->input->get_post('typerecette'));
+            $gen = trim((string) $this->input->get_post('genre'));
             $us = trim((string) $this->input->get_post('opera'));
             $comp = trim((string) $this->input->get_post('_compag'));
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
             list($days, $days1) = $this->_recap_title_dates($date1, $date2);
-            $rows = $this->m_recette->trisrecet($this->entreprise->ekey, $g, $comp, $cai, $us, $date1, $date2, $typ);
+            $rows = $this->m_recette->trisrecet($this->entreprise->ekey, $g, $comp, $cai, $us, $date1, $date2, $typ, $gen);
             if (!is_array($rows)) {
                 $rows = array();
             }
@@ -9373,6 +9374,7 @@
                 $lignes[] = array(
                     'date' => isset($recte->date_recet) ? (string) $recte->date_recet : '',
                     'type' => isset($recte->type_recet) ? (string) $recte->type_recet : '',
+                    'genre' => isset($recte->type_personnel) ? (string) $recte->type_personnel : '',
                     'operateur' => isset($recte->username) ? (string) $recte->username : '',
                     'nom' => isset($recte->nom) ? (string) $recte->nom : '',
                     'commentaire' => isset($recte->commentaire_recet) ? caissier_escale_commentaire_visible($recte->commentaire_recet) : '',
@@ -9381,7 +9383,7 @@
                 $total += $mt;
             }
             $qs = http_build_query(array_filter(array(
-                'debutdate' => $date1, 'findate' => $date2, 'typerecette' => $typ, 'opera' => $us, '_compag' => $comp,
+                'debutdate' => $date1, 'findate' => $date2, 'typerecette' => $typ, 'genre' => $gen, 'opera' => $us, '_compag' => $comp,
                 'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
                 'escale' => trim((string) $this->input->get_post('escale')),
                 'escale_ops' => trim((string) $this->input->get_post('escale_ops')),
@@ -9391,6 +9393,9 @@
             $titre_recet_tries = 'ETATS DES RECETTES DE ' . $cieNom . ' DU ' . $days . ' AU ' . $days1;
             if ($typ !== '') {
                 $titre_recet_tries .= ' — TYPE ' . $typ;
+            }
+            if ($gen !== '') {
+                $titre_recet_tries .= ' — GENRE ' . $gen;
             }
             return array(
                 'titre' => $titre_recet_tries,
@@ -9403,6 +9408,7 @@
                 'columns' => array(
                     array('key' => 'date', 'label' => 'Date', 'align' => 'left'),
                     array('key' => 'type', 'label' => 'Type', 'align' => 'left'),
+                    array('key' => 'genre', 'label' => 'Genre', 'align' => 'left'),
                     array('key' => 'operateur', 'label' => 'Opérateur', 'align' => 'left'),
                     array('key' => 'nom', 'label' => 'Nom', 'align' => 'left'),
                     array('key' => 'montant', 'label' => 'Total', 'align' => 'right', 'money' => true),
@@ -9431,12 +9437,13 @@
             $date1 = trim((string) $this->input->get_post('debutdate'));
             $date2 = trim((string) $this->input->get_post('findate'));
             $typ = trim((string) $this->input->get_post('typedepense'));
+            $gen = $this->_depense_critere_saisi($this->input->get_post('genre'));
             $us = trim((string) $this->input->get_post('opera'));
             $comp = trim((string) $this->input->get_post('_compag'));
             $ncomp = $this->m_compagnies->getn($comp);
             $cieNom = ($ncomp && isset($ncomp->nom_compagnie)) ? $ncomp->nom_compagnie : '';
             list($days, $days1) = $this->_recap_title_dates($date1, $date2);
-            $rows = $this->m_depense->trisdepens($this->entreprise->ekey, $g, $cai, $us, $date1, $date2, $comp, $typ);
+            $rows = $this->m_depense->trisdepens($this->entreprise->ekey, $g, $cai, $us, $date1, $date2, $comp, $typ, $gen);
             if (!is_array($rows)) {
                 $rows = array();
             }
@@ -9448,6 +9455,7 @@
                 $lignes[] = array(
                     'date' => isset($dep->date_depens) ? (string) $dep->date_depens : '',
                     'type' => isset($dep->type_depense) ? (string) $dep->type_depense : '',
+                    'genre' => isset($dep->genre_depens) ? (string) $dep->genre_depens : '',
                     'operateur' => isset($dep->username) ? (string) $dep->username : '',
                     'nom' => isset($dep->nom_perso) ? (string) $dep->nom_perso : '',
                     'commentaire' => isset($dep->commentaire) ? (string) $dep->commentaire : '',
@@ -9457,7 +9465,7 @@
                 $total += $mt;
             }
             $qs = http_build_query(array_filter(array(
-                'debutdate' => $date1, 'findate' => $date2, 'typedepense' => $typ, 'opera' => $us, '_compag' => $comp,
+                'debutdate' => $date1, 'findate' => $date2, 'typedepense' => $typ, 'genre' => $gen, 'opera' => $us, '_compag' => $comp,
                 'gareconnect' => trim((string) $this->input->get_post('gareconnect')),
                 'userconnected' => trim((string) $this->input->get_post('userconnected')),
                 'sousgareconnect' => trim((string) $this->input->get_post('sousgareconnect')),
@@ -9465,6 +9473,9 @@
             $titre_dep_tries = 'ETATS DES DEPENSES DE ' . $cieNom . ' DU ' . $days . ' AU ' . $days1;
             if ($typ !== '') {
                 $titre_dep_tries .= ' — TYPE ' . $typ;
+            }
+            if ($gen !== '') {
+                $titre_dep_tries .= ' — GENRE ' . $gen;
             }
             return array(
                 'titre' => $titre_dep_tries,
@@ -9477,6 +9488,7 @@
                 'columns' => array(
                     array('key' => 'date', 'label' => 'Date', 'align' => 'left'),
                     array('key' => 'type', 'label' => 'Type', 'align' => 'left'),
+                    array('key' => 'genre', 'label' => 'Genre', 'align' => 'left'),
                     array('key' => 'operateur', 'label' => 'Opérateur', 'align' => 'left'),
                     array('key' => 'nom', 'label' => 'Nom', 'align' => 'left'),
                     array('key' => 'montant', 'label' => 'Total', 'align' => 'right', 'money' => true),

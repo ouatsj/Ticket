@@ -145,7 +145,7 @@ WITH months_ops AS (
   FROM depense
   WHERE is_validedep = 1 AND is_actifdep = 1
     AND date_depens >= '2020-01-01' AND date_depens <= " . audit_quotidien_esc($db, $date_ref) . "
-    AND IFNULL(type_depense,'') <> 'Courrier'
+    AND IFNULL(TRIM(type_depense),'') <> 'Courrier' AND NOT (IFNULL(app_depense,'') = 'courrier' AND IFNULL(is_validedep,0) = 0)
     AND opevalid IS NOT NULL AND opevalid <> 0
   GROUP BY opevalid, DATE_FORMAT(date_depens,'%Y-%m')
 
@@ -691,7 +691,7 @@ FROM (
   JOIN caisse cs ON d.idcaisse_depens = cs.id_caiss
   WHERE d.ferme_caisdep = 1 AND IFNULL(d.validcptabledep, 0) = 0
     AND d.is_validedep = 1 AND d.is_actifdep = 1
-    AND IFNULL(d.type_depense,'') <> 'Courrier'
+    AND IFNULL(TRIM(d.type_depense),'') <> 'Courrier' AND NOT (IFNULL(d.app_depense,'') = 'courrier' AND IFNULL(d.is_validedep,0) = 0)
     AND d.date_depens >= {$depuis_logiciel}
     AND d.date_depens <= {$d_esc}
 
@@ -972,7 +972,7 @@ FROM (
   UNION ALL
   SELECT d.montant_depens, d.opevalid FROM depense d
   WHERE d.ferme_caisdep = 1 AND IFNULL(d.validcptabledep, 0) = 0
-    AND d.is_validedep = 1 AND d.is_actifdep = 1 AND IFNULL(d.type_depense,'') <> 'Courrier'
+    AND d.is_validedep = 1 AND d.is_actifdep = 1 AND IFNULL(TRIM(d.type_depense),'') <> 'Courrier' AND NOT (IFNULL(d.app_depense,'') = 'courrier' AND IFNULL(d.is_validedep,0) = 0)
     AND d.date_ferme_caisdep IS NULL AND d.date_depens >= {$depuis_logiciel} AND d.date_depens <= {$d_esc}
   UNION ALL
   SELECT dp.montant_depot, dp.opvalid FROM depot dp
@@ -1436,7 +1436,7 @@ if (!function_exists('audit_quotidien_bon_usage_sections')) {
              AND d.is_validedep = 1
              AND d.opevalid IS NOT NULL AND d.opevalid <> 0
              AND d.idop_dep = d.opevalid
-             AND IFNULL(d.type_depense,'') <> 'Courrier'
+             AND IFNULL(TRIM(d.type_depense),'') <> 'Courrier' AND NOT (IFNULL(d.app_depense,'') = 'courrier' AND IFNULL(d.is_validedep,0) = 0)
              GROUP BY cu.username, ul.guser, g.garenom
              ORDER BY mt DESC
              LIMIT 30");
@@ -1914,7 +1914,7 @@ if (!function_exists('audit_quotidien_build_report')) {
              FROM depense d
              JOIN attributions_role ar ON ar.roleattribut = d.idop_dep AND ar.userole IN (5,16)
              WHERE d.is_actifdep = 0 AND d.is_actifdepad = 0 AND d.is_validedep = 0
-             AND IFNULL(d.type_depense,'') <> 'Courrier'
+             AND IFNULL(TRIM(d.type_depense),'') <> 'Courrier' AND NOT (IFNULL(d.app_depense,'') = 'courrier' AND IFNULL(d.is_validedep,0) = 0)
              AND d.date_depens <= {$d}
              AND (
                 (d.active_dep = 0 AND d.date_depens <= {$d})

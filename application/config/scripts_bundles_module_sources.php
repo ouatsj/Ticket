@@ -11,6 +11,7 @@ return array(
         'addtrirecette.js',
         'addtrirecettecr.js',
         'addtridepense.js',
+        'tri-operateur-genre.js',
         'addtriautredepense.js',
         'addtridepot.js',
         'addtriautredepot.js',

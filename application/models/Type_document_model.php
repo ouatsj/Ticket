@@ -40,6 +40,20 @@
                     "SELECT * FROM type_document td
                     WHERE td.typedoc = '$td'")->row();
         }
+
+        /**
+         * Types autorisés pour saisie / listes Ticket (hors Courrier).
+         *
+         * @return object[]
+         */
+        public function get_hors_courrier()
+        {
+            return $this->db->query(
+                "SELECT * FROM type_document td
+                WHERE TRIM(td.typedocument) <> 'Courrier'
+                ORDER BY td.typedocument ASC"
+            )->result();
+        }
         
 
     }

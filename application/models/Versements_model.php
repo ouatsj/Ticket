@@ -631,7 +631,7 @@
                 AND d.ferme_caisdep = 0
                 AND cs.id_caiss = '$idc'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.opevalid = '$usc'
                 GROUP BY cs.id_caiss")->row();
         }
@@ -651,7 +651,7 @@
                 AND d.ferme_caisdep = 0
                 AND cs.id_caiss = '$idc'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.opevalidad = '$usc'
                 GROUP BY cs.id_caiss")->row();
         }
@@ -672,7 +672,7 @@
                 AND cs.id_caiss = '$idc'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.sousgidepens = '$sg'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.opevalid = '$usc'
                 {$hors}
                 GROUP BY cs.id_caiss")->row();
@@ -694,7 +694,7 @@
                 AND cs.id_caiss = '$idc'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.sousgidepens = '$sg'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.opevalidad = '$usc'
                 GROUP BY cs.id_caiss")->row();
         }
@@ -866,7 +866,7 @@
                 " . sous_caisse_filtre_gare_sql('cs', $idg) . "
                 {$caisse_sql}
                 {$op_sql}
-                AND d.type_depense <> 'Courrier'")->row();
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)")->row();
         }
         
         public function ad_totalesdepense($cd, $idg, $sg, $idcais, $cx, $userole = null, $gare_scope = false)
@@ -904,7 +904,7 @@
                 AND cs.id_caiss = '$idcais'
                 {$op_sql}
                 AND d.sousgidepens = '$sg'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 GROUP BY cs.id_caiss")->row();
         }
         public function ad_totaldepot($cd, $idg, $idcais, $cx)

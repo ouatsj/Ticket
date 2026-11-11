@@ -1009,9 +1009,16 @@ if (!function_exists('saisie_depense_champs_chef')) {
         if ($nom === '' && $ligne && isset($ligne->nom_perso)) {
             $nom = (string) $ligne->nom_perso;
         }
+        $type_dep = $CI->input->post('internedep');
+        $refus_courrier = function_exists('ticket_depense_refuse_type_courrier')
+            ? ticket_depense_refuse_type_courrier($type_dep)
+            : '';
+        if ($refus_courrier !== '') {
+            return array('ok' => false, 'error' => $refus_courrier);
+        }
         $data = array(
             'id_genre_depense' => $CI->input->post('genredep'),
-            'type_depense' => $CI->input->post('internedep'),
+            'type_depense' => $type_dep,
             'compkey_dep' => $CI->input->post('_compag'),
             'typpersonel' => $CI->input->post('typerson'),
             'nom_perso' => $nom,

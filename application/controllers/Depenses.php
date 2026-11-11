@@ -26,7 +26,7 @@
             $this->property['depenses'] = $this->m_depense->getdepense($this->company->ekey);
             $this->property['genres'] = $this->m_genre_depense->get();
             $this->property['genrespersonnels'] = $this->m_type_personnel->get();
-            $this->property['typedocuments'] = $this->m_typedocument->get();
+            $this->property['typedocuments'] = $this->m_typedocument->get_hors_courrier();
             $this->property['fournisseurs'] = $this->m_client->get();
             $this->property['personnels'] = $this->m_personnels->get($this->company->ekey);
             return $this->layout->view('_depense/index', $this->property);
@@ -70,7 +70,7 @@
                     $this->property['sommedepenses'] = $this->m_versements->totaldepense($this->company->ekey, $idcais, $idgd, $iduser);
                     $this->property['sommerecettes'] = $this->m_versements->totalrecette($this->company->ekey, $idcais, $idgd, $iduser);
                     $this->property['fournisseurs'] = $this->m_client->get();
-                    $this->property['typedocuments'] = $this->m_typedocument->get();
+                    $this->property['typedocuments'] = $this->m_typedocument->get_hors_courrier();
                     $this->property['sommedepot'] = $this->m_versements->totaldepot($this->company->ekey, $idcais, $idgd, $iduser);
                     $this->property['genres'] = $this->m_genre_depense->get();
             $this->property['depotcaisse'] = $this->m_depot->depotinterne($this->company->ekey, $idcais, $idgd, $iduser);
@@ -115,7 +115,7 @@
 			  $this->property['montantverves'] = $this->m_versements->totalversement($this->company->ekey, $idcais, $idgd, $iduser);
                     $this->property['sommedepenses'] = $this->m_versements->totaldepense($this->company->ekey, $idcais, $idgd, $iduser);
                     $this->property['sommerecettes'] = $this->m_versements->totalrecette($this->company->ekey, $idcais, $idgd, $iduser);
-                    $this->property['typedocuments'] = $this->m_typedocument->get();
+                    $this->property['typedocuments'] = $this->m_typedocument->get_hors_courrier();
                     $this->property['genres'] = $this->m_genre_depense->get();
                     $this->property['sommedepot'] = $this->m_versements->totaldepot($this->company->ekey, $idcais, $idgd, $iduser);
                     $this->property['sommedepots'] = $this->m_depot->getmontant($this->company->ekey, $idcais, $iduser, $idgd);
@@ -143,6 +143,14 @@
             {
                 if( $this->input->post('genredep') != '' AND $this->input->post('_compag') != '' AND $this->input->post('typerson') != '' AND $this->input->post('internedep')!= '')
                 {
+                    $refus_courrier = function_exists('ticket_depense_refuse_type_courrier')
+                        ? ticket_depense_refuse_type_courrier($this->input->post('internedep'))
+                        : '';
+                    if ($refus_courrier !== '') {
+                        $this->session->set_flashdata('error', $refus_courrier);
+                        redirect('caisses/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/'. $identifiant_caisse. '/depense/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
+                        return;
+                    }
                     if($this->input->post('client_infos')!= ''){
                         $arraydeps = array(
                             'idcaisse_depens' => $identifiant_caisse,

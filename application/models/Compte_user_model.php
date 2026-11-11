@@ -1881,7 +1881,7 @@
                 AND {$actif_depense}
                 {$valid_flag_depense}
                 AND IFNULL(d.actif_deps, 0) = 0
-                AND TRIM(d.type_depense) <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 GROUP BY cs.gexp_caiss"
             )->result();
 

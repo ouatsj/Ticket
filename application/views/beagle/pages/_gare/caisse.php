@@ -217,7 +217,7 @@
                                     AND d.is_actifdep = 1
                                     AND d.is_validedep = 1
                                     AND IFNULL(d.actif_deps, 0) = 0
-                                    AND d.type_depense <> 'Courrier'
+                                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                                     AND cs.id_caiss = '$item->id_caiss'
 				                    AND d.sousgidepens = '$gare_stop->idsousgare'
                                     AND d.opevalid = '$ut'
@@ -449,7 +449,7 @@
                                     AND d.is_actifdepad = 1
                                     AND d.is_validedep = 1
                                     AND IFNULL(d.actif_deps, 0) = 0
-                                    AND d.type_depense <> 'Courrier'
+                                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                                     AND cs.id_caiss = '$item->id_caiss'
                                     AND d.sousgidepens = '$gare_stop->idsousgare'
                                     AND d.opevalidad = '$ut'
@@ -682,7 +682,7 @@
                                 AND d.is_actifdep = 0
                                 AND IFNULL(d.actif_deps, 0) = 0
                                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
-                                AND d.type_depense <> 'Courrier'
+                                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                                 AND cs.id_caiss = '$item->id_caiss'
                                 AND (d.idop_dep = '{$ra_chef_lien}' OR d.opevalidchef = '{$ra_chef_lien}')
                                 AND ex.code_gaexp = '$item->gexp_caiss'

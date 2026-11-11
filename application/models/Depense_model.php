@@ -19,6 +19,13 @@
             if (!array_key_exists('app_depense', $data) || $data['app_depense'] === null || $data['app_depense'] === '') {
                 $data['app_depense'] = 'ticket';
             }
+            // Prévention : pas de type Courrier depuis Ticket.
+            $app = strtolower(trim((string) $data['app_depense']));
+            $type = isset($data['type_depense']) ? $data['type_depense'] : '';
+            if ($app === 'ticket' && function_exists('ticket_type_depense_est_courrier')
+                && ticket_type_depense_est_courrier($type)) {
+                return false;
+            }
             if (!$this->db->field_exists('app_depense', $this->table)) {
                 $this->db->query(
                     "ALTER TABLE `depense` ADD `app_depense` VARCHAR(20) NULL DEFAULT NULL COMMENT 'courrier|ticket'"
@@ -67,7 +74,7 @@
                 AND d.active_dep = 0
                 AND d.actif_deps = 0
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 ORDER BY d.id_depense DESC")->result();
             }
             return $this->db->query(
@@ -83,7 +90,7 @@
                 AND d.active_dep = 0
                 AND d.actif_deps = 0
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 ORDER BY d.id_depense DESC")->row();
         }
 
@@ -110,7 +117,7 @@
                 AND cs.id_caiss = '$idcais'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.sousgidepens = '$sg'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.opevalid = '$usc'
                 {$hors}
                 ORDER BY d.id_depense DESC")->result();
@@ -130,7 +137,7 @@
                 AND d.id_depense = '$pk'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.sousgidepens = '$sg'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.opevalid = '$usc'
                 {$hors}
                 ORDER BY d.id_depense DESC")->row();
@@ -160,7 +167,7 @@
                 AND cs.id_caiss = '$idcais'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.sousgidepens = '$sg'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.opevalidad = '$usc'
                 {$hors}
                 ORDER BY d.id_depense DESC")->result();
@@ -180,7 +187,7 @@
                 AND d.id_depense = '$pk'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.sousgidepens = '$sg'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.opevalidad = '$usc'
                 {$hors}
                 ORDER BY d.id_depense DESC")->row();
@@ -206,7 +213,7 @@
                 AND d.date_depens = '$today'
                 AND d.actif_deps = 0
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 ORDER BY d.id_depense DESC")->result();
             }
             return $this->db->query(
@@ -226,7 +233,7 @@
                 AND d.date_depens = '$today'
                 AND d.actif_deps = 0
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 ORDER BY d.id_depense DESC")->row();
         }
 
@@ -256,7 +263,7 @@
                 WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
                 AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.actif_deps = 0
                 AND d.date_depens BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
                 {$copSql}
@@ -283,7 +290,7 @@
                 AND cs.id_caiss = '$idcais'
                 AND d.opevalidad = '$usc'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.ferme_caisdep = 0
                 AND d.date_depens BETWEEN '$ddbut' AND '$dfin'
                 ORDER BY d.id_depense DESC")->result();
@@ -309,7 +316,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '" . $this->db->escape_str($cid) . "'
                 AND cs.id_caiss = '" . $this->db->escape_str($idcais) . "'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.actif_deps = 0
                 AND d.date_depens BETWEEN '" . $this->db->escape_str($ddbut) . "' AND '" . $this->db->escape_str($dfin) . "'
                 {$gidSql}
@@ -334,7 +341,7 @@
                 AND d.is_actifdep = 0
                 AND (d.idop_dep = " . (int) $us . " OR d.opevalidchef = " . (int) $us . ")
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.actif_deps = 0
                 AND d.ferme_caisdep = 0
                 AND d.is_validedep = 0
@@ -356,7 +363,7 @@
                 AND (d.idop_dep = " . (int) $us . " OR d.opevalidchef = " . (int) $us . ")
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.id_depense = '$pk'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.actif_deps = 0
                 AND d.is_validedep = 0
                 AND COALESCE(d.valid_depens, '') = 'valid'
@@ -472,7 +479,7 @@
                     AND d.is_actifdep = 1
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     {$filtre_lieu}
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     ORDER BY d.date_depens ASC")->result();
             }
             
@@ -492,7 +499,7 @@
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     {$filtre_lieu}
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     ORDER BY d.date_depens ASC")->result();
             }
             elseif($nm === '' AND $iddep === FALSE)
@@ -510,7 +517,7 @@
                     AND d.is_actifdep = 1
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     {$filtre_lieu}
                     ORDER BY d.date_depens ASC")->result();
@@ -533,7 +540,7 @@
                     AND d.nom_perso = '$nm'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     {$filtre_lieu}
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     ORDER BY d.date_depens ASC")->result();
             }
                 return $this->db->query(
@@ -550,7 +557,7 @@
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     AND d.id_depense = '$iddep'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     {$filtre_lieu}
@@ -638,7 +645,7 @@
                 AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
                 AND d.is_actifdep = 1
                 AND d.ferme_caisdep = 1
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND (d.opevalid = '".$this->db->escape_str($usc)."' OR d.idop_dep = '".$this->db->escape_str($usc)."')
                 $filtre_lieu
@@ -676,7 +683,7 @@
                 AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
                 AND (d.is_actifdep = 1 OR d.opevalidad = '".$this->db->escape_str($usc)."')
                 AND d.ferme_caisdep = 1
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 $filtre_lieu
                 $filtre_type
@@ -711,7 +718,7 @@
                     AND d.actif_deps = 0
                     AND d.ferme_caisdep = 1
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     AND d.opevalid = '$usc'
                     ORDER BY d.date_depens ASC")->result();
             }
@@ -733,7 +740,7 @@
                     AND d.ferme_caisdep = 1
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     AND d.opevalid = '$usc'
                     ORDER BY d.date_depens ASC")->result();
             }
@@ -754,7 +761,7 @@
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     AND d.opevalid = '$usc'
                     ORDER BY d.date_depens ASC")->result();
             }
@@ -776,7 +783,7 @@
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     AND d.opevalid = '$usc'
                     ORDER BY d.date_depens ASC")->result();
             }
@@ -796,7 +803,7 @@
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.nom_perso = '$nm'
                     AND d.id_depense = '$iddep'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     AND d.opevalid = '$usc'
                     " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                     ORDER BY d.date_depens ASC")->row();
@@ -818,7 +825,7 @@
                 AND d.actif_deps = 0
                 AND cs.id_caiss = '$idcais'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 GROUP BY cs.id_caiss")->row();
         }
 
@@ -838,7 +845,7 @@
                 AND cs.id_caiss = '$idcais'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.sousgidepens = '$sg'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 GROUP BY cs.id_caiss")->row();
         }
 
@@ -858,7 +865,7 @@
                 AND d.active_dep = 0
                 AND d.idop_dep = '$conect'
                 AND d.date_depens <= '$today'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND cu.is_conect = 1
                 AND d.actif_deps = 0
                 GROUP BY cs.id_caiss")->row();
@@ -885,7 +892,7 @@
                 AND d.actif_deps = 0
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND cs.id_caiss = '$idcais'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 GROUP BY cs.id_caiss")->row();
         }
 
@@ -933,7 +940,7 @@
                 AND COALESCE(d.valid_depens, '') = 'valid'
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
                 GROUP BY {$group}{$ordre}")->result();
         }
@@ -977,7 +984,7 @@
                 AND COALESCE(d.valid_depens, '') = 'valid'
                 AND d.actif_deps = 0
                 AND d.date_depens <= ?
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
                 ORDER BY d.date_depens ASC, d.id_depense ASC",
                 array($cid, $today)
@@ -1010,7 +1017,7 @@
                 AND {$pending}
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
                 GROUP BY d.date_depens, cs.id_caiss, d.opevalidad, cu.is_conect, d.idcaisse_depens, cs.gexp_caiss
                 ORDER BY d.date_depens ASC"
@@ -1064,7 +1071,7 @@
                 AND {$pending}
                 AND d.actif_deps = 0
                 AND d.date_depens <= ?
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 {$dateSql}
                 " . caissier_escale_nom_filtre_sql('d.nom_perso') . "
                 ORDER BY d.date_depens ASC, d.date_insert ASC, d.id_depense ASC",
@@ -1095,7 +1102,7 @@
                 AND d.is_actifdep = 0
                 AND d.actif_deps = 0
                 AND d.date_depens <= '$today'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 GROUP BY cs.id_caiss, ar.roleattribut")->result();
         }
 
@@ -1196,7 +1203,7 @@
                 AND d.ferme_caisdep = 1
                 AND cs.id_caiss = '$idcais'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '') . "
                 GROUP BY cs.id_caiss")->row();
         }
@@ -1218,7 +1225,7 @@
                 AND cs.id_caiss = '$idcais'
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 AND d.opevalid = '$conect'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 " . (function_exists('recette_role_hors_escale_sql') ? recette_role_hors_escale_sql('d.nom_perso', 'd.idop_dep') : '') . "
                 GROUP BY cs.id_caiss")->row();
         }
@@ -1245,7 +1252,7 @@
                 AND d.idop_dep = '$conect'
                 AND cs.id_caiss = '$idcais'
                 " . sous_caisse_filtre_gare_sql('cs', $g) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.actif_deps = 0
                 GROUP BY cs.id_caiss, d.idop_dep")->result();
         }
@@ -1274,7 +1281,7 @@
                 AND (d.idop_dep = '".$this->db->escape_str($conect)."' OR d.opevalidchef = '".$this->db->escape_str($conect)."')
                 " . sous_caisse_filtre_gare_sql('cs', $gid) . "
                 $filtre_lieu
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 $filtre_comp
                 $filtre_type
                 $filtre_genre
@@ -1307,7 +1314,7 @@
                     AND d.active_dep = 0
                     AND d.idop_dep = '$conect'
                     AND cs.gexp_caiss='$gid'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     ORDER BY d.date_depens ASC")->result();
             }
             if ($typ === '' AND $gr === '' AND $nm === '' AND $iddep === FALSE) {
@@ -1328,7 +1335,7 @@
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.idop_dep = '$adjoint'
                     AND cs.gexp_caiss='$gid'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     ORDER BY d.date_depens ASC")->result();
             }
             
@@ -1352,7 +1359,7 @@
                     AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
                     AND d.idop_dep = '$adjoint'
                     AND cs.gexp_caiss='$gid'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     ORDER BY d.date_depens ASC")->result();
             }
             elseif($nm === '' AND $iddep === FALSE)
@@ -1376,7 +1383,7 @@
                     AND TRIM(gr.genre_depens) = '" . $this->db->escape_str(trim((string) $gr)) . "'
                     AND d.idop_dep = '$adjoint'
                     AND cs.gexp_caiss='$gid'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     ORDER BY d.date_depens ASC")->result();
             }
             elseif($iddep === FALSE)
@@ -1401,7 +1408,7 @@
                     AND d.nom_perso = '$nm'
                     AND d.idop_dep = '$adjoint'
                     AND cs.gexp_caiss='$gid'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     ORDER BY d.date_depens ASC")->result();
             }
                 return $this->db->query(
@@ -1425,7 +1432,7 @@
                     AND d.id_depense = '$iddep'
                     AND d.idop_dep = '$adjoint'
                     AND cs.gexp_caiss='$gid'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     ORDER BY d.date_depens ASC")->row();
         }
 
@@ -1463,7 +1470,7 @@
                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
                 WHERE e.ekey = '$cid'
                 {$gare_sql}
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 {$open_sql}
                 AND IFNULL(d.is_actifdepad, 0) = 0
                 {$qui}
@@ -1497,7 +1504,7 @@
             // Aligné recettes escale : ticket hors Courrier, famille courrier = Courrier seul.
             $type_sql = ($famille === 'courrier')
                 ? "AND d.type_depense = 'Courrier'"
-                : "AND IFNULL(d.type_depense, '') <> 'Courrier'";
+                : "AND " . ticket_sql_depense_ticket_only('d');
 
             return $this->db->query(
                 "SELECT * FROM depense d
@@ -1558,7 +1565,7 @@
                 {$op_sql}
                 {$sg_sql}
                 {$lieu_sql}
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 ORDER BY d.date_depens DESC, d.id_depense DESC")->result();
             }
             return $this->db->query(
@@ -1582,7 +1589,7 @@
                 {$sg_sql}
                 {$lieu_sql}
                 AND d.id_depense = '$pk'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 ORDER BY d.date_depens DESC, d.id_depense DESC")->row();
         }
 
@@ -1634,7 +1641,7 @@
                 {$op_sql}
                 AND d.actif_deps = 0
                 {$caisse_sql}
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 {$peri}
                 {$group_sql}")->row();
         }
@@ -1671,7 +1678,7 @@
                 {$op_sql}
                 AND d.date_depens <= '$today'
                 " . sous_caisse_filtre_gare_sql('cs', $g) . "
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND cs.id_caiss = '$idcais'
                 {$sg_sql}
                 GROUP BY cs.id_caiss")->row();
@@ -1702,7 +1709,7 @@
                 AND ex.code_gaexp = '".$this->db->escape_str($gid)."'
                 AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
                 AND (d.is_actifdep = 1 OR d.validcptabledep = 1)
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND (d.opevalid = '".$this->db->escape_str($uop)."' OR d.idop_dep = '".$this->db->escape_str($uop)."')
                 $filtre_comp
                 $filtre_type
@@ -1831,7 +1838,7 @@
                     " . sous_caisse_filtre_gare_sql('cs', $g) . "
                     AND d.idcaisse_depens = '$cais'
                     AND d.idop_dep = '$conect'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     AND d.active_dep = 0
                     AND d.actif_deps = 0
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
@@ -1853,7 +1860,7 @@
                 AND d.idcaisse_depens = '$cais'
                 AND d.idop_dep = '$conect'
                 AND TRIM(d.type_depense) = '" . $this->db->escape_str(trim((string) $typ)) . "'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.active_dep = 0
                 AND d.actif_deps = 0
                 AND d.date_depens BETWEEN '$dt1' AND '$dt2'
@@ -1891,7 +1898,7 @@
                 " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND d.idcaisse_depens = '$cais'
                 AND d.opevalid = '$conect'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.active_dep = 1
                 AND d.actif_deps = 0
                 AND d.date_depens BETWEEN '$dt1' AND '$dt2'
@@ -1916,7 +1923,7 @@
                 " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND d.idcaisse_depens = '$cais'
                 AND d.opevalidad = '$conect'
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.active_dep = 1
                 AND d.actif_deps = 0
                 AND d.date_depens BETWEEN '$dt1' AND '$dt2'
@@ -1924,7 +1931,7 @@
                 ORDER BY d.date_depens ASC")->result();
         }
 
-        public function trisdepens($cid, $g, $cais, $conect, $dt1, $dt2, $comp, $typ = FALSE)
+        public function trisdepens($cid, $g, $cais, $conect, $dt1, $dt2, $comp, $typ = FALSE, $gr = FALSE)
         {
             $conect = trim((string) $conect);
             $comp = trim((string) $comp);
@@ -1940,9 +1947,14 @@
             $typ_sql = ($typ === '')
                 ? ''
                 : ("AND TRIM(d.type_depense) = '" . $this->db->escape_str($typ) . "'");
+            $gr = trim((string) (($gr === FALSE || $gr === null) ? '' : $gr));
+            $gr_sql = ($gr === '')
+                ? ''
+                : ("AND TRIM(gr.genre_depens) = '" . $this->db->escape_str($gr) . "'");
 
             return $this->db->query(
-                "SELECT cu.username, d.type_depense, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
+                "SELECT cu.username, d.type_depense, gr.genre_depens, d.nom_perso, d.commentaire, d.montant_depens, d.motif, d.idop_dep, d.date_depens FROM depense d
+                JOIN genre_depense gr ON d.id_genre_depense = gr.depenseid
                 JOIN attributions_role ar ON d.idop_dep = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1955,13 +1967,14 @@
                 " . sous_caisse_filtre_gare_sql('cs', $g) . "
                 AND d.idcaisse_depens = '" . $this->db->escape_str($cais) . "'
                 {$op_sql}
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 AND d.ferme_caisdep = 0
                 AND d.is_actifdep = 1
                 AND d.is_validedep = 1
                 AND IFNULL(d.actif_deps, 0) = 0
                 AND d.date_depens BETWEEN '" . $this->db->escape_str($dt1) . "' AND '" . $this->db->escape_str($dt2) . "'
                 {$typ_sql}
+                {$gr_sql}
                 ORDER BY d.date_depens ASC")->result();
         } 
         //admin
@@ -1987,7 +2000,7 @@
                 AND ex.code_gaexp = '".$this->db->escape_str($gid)."'
                 AND d.date_depens BETWEEN '".$this->db->escape_str($dt1)."' AND '".$this->db->escape_str($dt2)."'
                 AND (d.is_actifdep = 1 OR d.ferme_caisdep = 1)
-                AND d.type_depense <> 'Courrier'
+                AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                 $filtre_comp
                 $filtre_type
                 $filtre_genre
@@ -2015,7 +2028,7 @@
                     WHERE e.ekey = '$cid'
                     AND ex.code_gaexp = '$gid'
                     AND d.opevalid = '$uop'
-                    AND d.type_depense <> 'Courrier'
+                    AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                     AND d.date_depens BETWEEN '$dt1' AND '$dt2'
                     AND d.ferme_caisdep = 1
                     ORDER BY d.date_depens ASC")->result();

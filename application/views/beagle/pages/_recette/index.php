@@ -754,12 +754,18 @@
             </div>
             <div class="form-group col-sm-4">
                 <label>TYPE DOCUMENT (optionnel)</label>
-                <select class="form-control form-control-sm" name="typerecette">
+                <select class="form-control form-control-sm" name="typerecette" id="typerecette-op">
                     <option value="">Tous les types</option>
                         <? foreach ($typedocuments as $doc): ?>
                             <option value="<?= htmlspecialchars(trim((string) $doc->typedocument), ENT_QUOTES, 'UTF-8'); ?>">
                                 <?= htmlspecialchars(trim((string) $doc->typedocument), ENT_QUOTES, 'UTF-8'); ?></option>
                         <? endforeach; ?>
+                </select>
+            </div>
+            <div class="form-group col-sm-4">
+                <label>GENRE (optionnel)</label>
+                <select class="form-control form-control-sm" name="genre" id="genrerecette-op">
+                    <option value="">Tous les genres</option>
                 </select>
             </div>
             

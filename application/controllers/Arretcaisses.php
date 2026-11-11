@@ -179,7 +179,8 @@
                         AND d.is_actifdep = 0
                         AND IFNULL(d.arret_caisdep, 0) = 0
                         AND IFNULL(d.ferme_caisdep, 0) = 0
-                        AND IFNULL(d.type_depense, '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')
+                        AND IFNULL(TRIM(d.type_depense), '') NOT IN ('Courrier', 'Bordereau_bancairecourrier')
+                        AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0)
                         AND " . sous_caisse_predicat('d.idcaisse_depens', $idc) . "
                         {$fd}"
                     )->result();
@@ -1998,7 +1999,7 @@
                            AND is_validedep = 1
                            AND ferme_caisdep = 0
                            AND date_depens BETWEEN ? AND ?
-                           AND IFNULL(type_depense, '') <> 'Courrier'",
+                           AND IFNULL(TRIM(type_depense), '') <> 'Courrier'",
                         array($date_envoi_arret, $eid, $iduser, $db, $df)
                     );
                     $this->db->query(
@@ -2049,7 +2050,7 @@
                    AND d.opevalid = ?
                    AND d.ferme_caisdep = 0
                    AND d.date_depens BETWEEN ? AND ?
-                   AND IFNULL(d.type_depense, '') <> 'Courrier'
+                   AND IFNULL(TRIM(d.type_depense), '') <> 'Courrier'
                    {$fd}",
                 array($date_envoi_arret, $iduser, $db, $df)
             );
@@ -2103,6 +2104,7 @@
         {
             $idc = (int) $idc;
             $horsCourrier = " AND IFNULL(%s, '') <> 'Courrier' ";
+            $horsCourrierDep = " AND IFNULL(TRIM(%s), '') <> 'Courrier' AND NOT (IFNULL(d.app_depense, '') = 'courrier' AND IFNULL(d.is_validedep, 0) = 0) ";
             $parts = array();
 
             $push = function ($nature, $lieu, $ra, $nb) use (&$parts) {
@@ -2198,7 +2200,7 @@
                 AND IFNULL(d.is_actifdepad, 0) = 0
                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
                 {$actifDep}
-                " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
+                " . sprintf($horsCourrierDep, 'd.type_depense') . " {$fd}
                 GROUP BY {$det_dep}",
                 $b, 'depense', 'chef'
             );
@@ -2211,7 +2213,7 @@
                 AND IFNULL(d.is_actifdep, 0) = 0
                 AND (d.is_validedep = 0 OR d.is_validedep IS NULL)
                 {$actifDep}
-                " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
+                " . sprintf($horsCourrierDep, 'd.type_depense') . " {$fd}
                 GROUP BY {$det_dep}",
                 $b, 'depense', 'attente'
             );
@@ -2223,7 +2225,7 @@
                 AND IFNULL(d.is_actifdep, 0) = 0
                 AND IFNULL(d.arret_caisdep, 0) = 0
                 {$actifDep}
-                " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
+                " . sprintf($horsCourrierDep, 'd.type_depense') . " {$fd}
                 GROUP BY IFNULL(d.opevalidad, 0)",
                 $b, 'depense', 'adjoint'
             );
@@ -2235,7 +2237,7 @@
                 AND IFNULL(d.is_actifdep, 0) = 0
                 AND IFNULL(d.arret_caisdep, 0) = 1
                 {$actifDep}
-                " . sprintf($horsCourrier, 'd.type_depense') . " {$fd}
+                " . sprintf($horsCourrierDep, 'd.type_depense') . " {$fd}
                 GROUP BY IFNULL(d.opevalid, 0)",
                 $b, 'depense', 'principale'
             );
