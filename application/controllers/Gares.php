@@ -2476,6 +2476,56 @@
             redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant. '/cais/'.$iduser.'/'.$idsg.'/'. mdate("%d/%m/%Y", now('UTC')));
         }
 
+        /**
+         * Admin : accorder / retirer au caissier (4) le droit de modifier ou supprimer
+         * les opérations de la caisse (héritage sur les sous-caisses d'escale).
+         */
+        public function set_caisse_perm_ops($ckey, $caisid)
+        {
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->company || (string) $this->session->agent->userole !== '1') {
+                show_error('Action réservée à l’administrateur.', 403);
+                return;
+            }
+            if (strtoupper((string) $this->input->method(true)) !== 'POST') {
+                show_error('Méthode non autorisée.', 405);
+                return;
+            }
+            $caisid = (int) $caisid;
+            $identifiant = trim((string) $this->input->post('dgare_identifiant'));
+            $idsg = (int) $this->input->post('sousgareconnect');
+            $iduser = roleattribut_guard_post_hint($this->company->ekey);
+            if ($caisid <= 0 || !$this->db->field_exists('perm_edit_ops', 'caisse')) {
+                $this->session->set_flashdata('error', 'Caisse ou colonnes de permission introuvables.');
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant. '/cais/'.$iduser.'/'.$idsg.'/'. mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
+            // Toujours poser le flag sur la caisse mère (héritage).
+            $target = function_exists('caisse_perm_id_mere') ? caisse_perm_id_mere($caisid) : $caisid;
+            if ($target <= 0) {
+                $target = $caisid;
+            }
+            $edit = $this->input->post('perm_edit_ops') ? 1 : 0;
+            $del = $this->input->post('perm_del_ops') ? 1 : 0;
+            $by = function_exists('roleattribut_guard_session_ra')
+                ? (int) roleattribut_guard_session_ra()
+                : (int) $iduser;
+            $this->m_caisse->update($target, array(
+                'perm_edit_ops' => $edit,
+                'perm_del_ops' => $del,
+                'perm_ops_by' => $by > 0 ? $by : null,
+                'perm_ops_at' => date('Y-m-d H:i:s'),
+            ));
+            $this->session->set_flashdata(
+                'success',
+                'Permissions caisse mises à jour'
+                . ($edit ? ' — modification collective ON' : ' — modification collective OFF')
+                . ($del ? ' — suppression collective ON' : ' — suppression collective OFF')
+                . '.'
+            );
+            redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant. '/cais/'.$iduser.'/'.$idsg.'/'. mdate("%d/%m/%Y", now('UTC')));
+        }
+
         
         public function activer($ckey, $idprog, $gd, $statut, $idcp, $idsg)
         {

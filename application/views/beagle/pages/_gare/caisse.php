@@ -299,6 +299,33 @@
                             </a>
                             
                             <?endif;?>
+                            <?php if ($this->session->agent->userole === '1' && $this->db->field_exists('perm_edit_ops', 'caisse')):
+                                $perm_src = function_exists('caisse_perm_id_mere') ? (int) caisse_perm_id_mere($item->id_caiss) : (int) $item->id_caiss;
+                                $perm_eff = function_exists('caisse_perm_ops_effective')
+                                    ? caisse_perm_ops_effective($item->id_caiss)
+                                    : array('edit' => !empty($item->perm_edit_ops), 'del' => !empty($item->perm_del_ops));
+                                ?>
+                            <hr class="my-2">
+                            <p class="mb-1 small text-muted">Droits caissier (4) — hérités sur escales</p>
+                            <?= form_open('Gares/set_caisse_perm_ops/' . $this->session->company->ekey . '/' . (int) $item->id_caiss, array('class' => 'mb-0')); ?>
+                                <input type="hidden" name="dgare_identifiant" value="<?= htmlspecialchars((string) $bus_stop->code_gaexp, ENT_QUOTES, 'UTF-8'); ?>">
+                                <input type="hidden" name="gareconnect" value="<?= (int) $gare_stop->idengare; ?>">
+                                <input type="hidden" name="sousgareconnect" value="<?= (int) $gare_stop->idsousgare; ?>">
+                                <input type="hidden" name="userconnected" value="<?= (int) $conex->roleattribut; ?>">
+                                <div class="custom-control custom-checkbox mb-1">
+                                    <input type="checkbox" class="custom-control-input" id="perm-edit-<?= (int) $item->id_caiss; ?>" name="perm_edit_ops" value="1" <?= !empty($perm_eff['edit']) ? 'checked' : ''; ?>>
+                                    <label class="custom-control-label small" for="perm-edit-<?= (int) $item->id_caiss; ?>">Modifier toutes les opérations</label>
+                                </div>
+                                <div class="custom-control custom-checkbox mb-2">
+                                    <input type="checkbox" class="custom-control-input" id="perm-del-<?= (int) $item->id_caiss; ?>" name="perm_del_ops" value="1" <?= !empty($perm_eff['del']) ? 'checked' : ''; ?>>
+                                    <label class="custom-control-label small" for="perm-del-<?= (int) $item->id_caiss; ?>">Supprimer (hard delete)</label>
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-primary btn-block">Enregistrer droits</button>
+                                <?php if ($perm_src > 0 && $perm_src !== (int) $item->id_caiss): ?>
+                                <p class="mt-1 mb-0 small text-muted">Appliqué sur caisse mère #<?= (int) $perm_src; ?></p>
+                                <?php endif; ?>
+                            <?= form_close(); ?>
+                            <?php endif; ?>
                         </div>
 
                     </div>

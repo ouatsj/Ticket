@@ -422,8 +422,8 @@
         public function supprimerdepense($ckey, $dep)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            if (!$this->company || (string) $this->session->agent->userole !== '1') {
-                show_error('Seul le compte admin peut supprimer une dépense.', 403);
+            if (!$this->company) {
+                show_error('Entreprise introuvable.', 404);
                 return;
             }
             if (strtoupper((string) $this->input->method(true)) !== 'POST') {
@@ -432,11 +432,12 @@
             }
             $id = (int) $dep;
             $ligne = $this->db->query(
-                'SELECT id_depense FROM depense WHERE id_depense = ? LIMIT 1',
+                'SELECT id_depense, idcaisse_depens FROM depense WHERE id_depense = ? LIMIT 1',
                 array($id)
             )->row();
+            $idcaisse = ($ligne && isset($ligne->idcaisse_depens)) ? (int) $ligne->idcaisse_depens : 0;
             $retour = saisie_url_retour();
-            if (!$ligne || !saisie_peut_supprimer()) {
+            if (!$ligne || !saisie_peut_supprimer($idcaisse)) {
                 $this->session->set_flashdata('error', 'Cette dépense ne peut pas être supprimée.');
             } else {
                 $this->db->query('DELETE FROM depense WHERE id_depense = ? LIMIT 1', array($id));

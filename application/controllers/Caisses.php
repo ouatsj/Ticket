@@ -1353,8 +1353,8 @@
         public function supprimerrecette($ckey, $recet)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            if (!$this->company || (string) $this->session->agent->userole !== '1') {
-                show_error('Seul le compte admin peut supprimer une recette.', 403);
+            if (!$this->company) {
+                show_error('Entreprise introuvable.', 404);
                 return;
             }
             if (strtoupper((string) $this->input->method(true)) !== 'POST') {
@@ -1363,11 +1363,12 @@
             }
             $id = (int) $recet;
             $ligne = $this->db->query(
-                'SELECT id_recette FROM recette WHERE id_recette = ? LIMIT 1',
+                'SELECT id_recette, idcaisse FROM recette WHERE id_recette = ? LIMIT 1',
                 array($id)
             )->row();
+            $idcaisse = ($ligne && isset($ligne->idcaisse)) ? (int) $ligne->idcaisse : 0;
             $retour = saisie_url_retour();
-            if (!$ligne || !saisie_peut_supprimer()) {
+            if (!$ligne || !saisie_peut_supprimer($idcaisse)) {
                 $this->session->set_flashdata('error', 'Cette recette ne peut pas être supprimée.');
             } else {
                 $this->db->query('DELETE FROM recette WHERE id_recette = ? LIMIT 1', array($id));
@@ -12169,8 +12170,8 @@
         public function supprimerversement($ckey, $idvers)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            if (!$this->company || (string) $this->session->agent->userole !== '1') {
-                show_error('Seul le compte admin peut supprimer un versement.', 403);
+            if (!$this->company) {
+                show_error('Entreprise introuvable.', 404);
                 return;
             }
             if (strtoupper((string) $this->input->method(true)) !== 'POST') {
@@ -12179,11 +12180,12 @@
             }
             $id = (int) $idvers;
             $ligne = $this->db->query(
-                'SELECT id_versements FROM versements WHERE id_versements = ? LIMIT 1',
+                'SELECT id_versements, idcaisse_versement FROM versements WHERE id_versements = ? LIMIT 1',
                 array($id)
             )->row();
+            $idcaisse = ($ligne && isset($ligne->idcaisse_versement)) ? (int) $ligne->idcaisse_versement : 0;
             $retour = saisie_url_retour();
-            if (!$ligne || !saisie_peut_supprimer()) {
+            if (!$ligne || !saisie_peut_supprimer($idcaisse)) {
                 $this->session->set_flashdata('error', 'Ce versement ne peut pas être supprimé.');
             } else {
                 $this->db->query('DELETE FROM versements WHERE id_versements = ? LIMIT 1', array($id));
@@ -12206,6 +12208,15 @@
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
+            $ligne_vers = $this->db->query(
+                'SELECT * FROM versements WHERE id_versements = ? LIMIT 1',
+                array((int) $idvers)
+            )->row();
+            if (!$ligne_vers || !saisie_versement_modifiable($ligne_vers)) {
+                $this->session->set_flashdata('error', 'Ce versement ne peut pas être modifié.');
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
 
             if($this->input->post('autredateversements')!= '')
             {
@@ -12246,6 +12257,15 @@
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = $this->input->post('sousgareconnect');
             $idcmpt = $this->input->post('compconnected');
+            $ligne_vers = $this->db->query(
+                'SELECT * FROM versements WHERE id_versements = ? LIMIT 1',
+                array((int) $idvers)
+            )->row();
+            if (!$ligne_vers || !saisie_versement_modifiable($ligne_vers)) {
+                $this->session->set_flashdata('error', 'Ce versement ne peut pas être modifié.');
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')));
+                return;
+            }
 
             if($this->input->post('autredateversements')!= '')
             {

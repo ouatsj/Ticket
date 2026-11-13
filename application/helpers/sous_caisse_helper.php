@@ -604,3 +604,163 @@ if (!function_exists('sous_caisse_id_agent')) {
         return sous_caisse_assurer((int) $mere->id_caiss, $agent->cle);
     }
 }
+
+if (!function_exists('caisse_perm_id_mere')) {
+    /**
+     * Caisse mère pour héritage des permissions (escale → parent).
+     *
+     * @param int $idcaisse
+     * @return int
+     */
+    function caisse_perm_id_mere($idcaisse)
+    {
+        $idcaisse = (int) $idcaisse;
+        if ($idcaisse <= 0) {
+            return 0;
+        }
+        if (!function_exists('sous_caisse_colonnes_ok') || !sous_caisse_colonnes_ok()) {
+            return $idcaisse;
+        }
+        $CI =& get_instance();
+        $row = $CI->db->query(
+            'SELECT id_caiss, parent_caiss FROM caisse WHERE id_caiss = ? LIMIT 1',
+            array($idcaisse)
+        )->row();
+        if (!$row) {
+            return 0;
+        }
+        $parent = (int) $row->parent_caiss;
+        if ($parent > 0) {
+            return $parent;
+        }
+
+        return (int) $row->id_caiss;
+    }
+}
+
+if (!function_exists('caisse_perm_ops_effective')) {
+    /**
+     * Flags effectifs (hérités de la caisse mère si sous-caisse).
+     *
+     * @param int $idcaisse
+     * @return array{edit:bool,del:bool,source:int}
+     */
+    function caisse_perm_ops_effective($idcaisse)
+    {
+        static $cache = array();
+        $idcaisse = (int) $idcaisse;
+        if ($idcaisse <= 0) {
+            return array('edit' => false, 'del' => false, 'source' => 0);
+        }
+        if (isset($cache[$idcaisse])) {
+            return $cache[$idcaisse];
+        }
+        $source = caisse_perm_id_mere($idcaisse);
+        if ($source <= 0) {
+            return $cache[$idcaisse] = array('edit' => false, 'del' => false, 'source' => 0);
+        }
+        $CI =& get_instance();
+        if (!$CI->db->field_exists('perm_edit_ops', 'caisse')) {
+            return $cache[$idcaisse] = array('edit' => false, 'del' => false, 'source' => $source);
+        }
+        $row = $CI->db->query(
+            'SELECT perm_edit_ops, perm_del_ops FROM caisse WHERE id_caiss = ? LIMIT 1',
+            array($source)
+        )->row();
+        $cache[$idcaisse] = array(
+            'edit' => (bool) ($row && (int) $row->perm_edit_ops === 1),
+            'del' => (bool) ($row && (int) $row->perm_del_ops === 1),
+            'source' => $source,
+        );
+
+        return $cache[$idcaisse];
+    }
+}
+
+if (!function_exists('caisse_perm_caissier_peut')) {
+    /**
+     * Caissier (userole 4) autorisé sur cette caisse pour edit|del.
+     *
+     * @param int         $idcaisse
+     * @param string      $kind edit|del
+     * @param string|null $userole
+     * @return bool
+     */
+    function caisse_perm_caissier_peut($idcaisse, $kind = 'edit', $userole = null)
+    {
+        if ($userole === null) {
+            $CI =& get_instance();
+            $agent = $CI->session->userdata('agent') ? $CI->session->agent : null;
+            $userole = ($agent && !empty($agent->userole)) ? $agent->userole : '';
+        }
+        if (!function_exists('recette_role_is_validateur_principal')
+            || !recette_role_is_validateur_principal($userole)) {
+            return false;
+        }
+        $eff = caisse_perm_ops_effective($idcaisse);
+        if ($kind === 'del') {
+            return !empty($eff['del']);
+        }
+
+        return !empty($eff['edit']);
+    }
+}
+
+if (!function_exists('caisse_perm_row_idcaisse')) {
+    /**
+     * @param object|null $row
+     * @param string      $type recette|depense|depot|versement
+     * @return int
+     */
+    function caisse_perm_row_idcaisse($row, $type = '')
+    {
+        if (!$row || !is_object($row)) {
+            return 0;
+        }
+        $map = array(
+            'recette' => array('idcaisse'),
+            'depense' => array('idcaisse_depens', 'idcaisse'),
+            'depot' => array('idcaisse_depot', 'idcaisse'),
+            'versement' => array('idcaisse_versement', 'idcaisse'),
+        );
+        $keys = isset($map[$type]) ? $map[$type] : array(
+            'idcaisse', 'idcaisse_depens', 'idcaisse_depot', 'idcaisse_versement',
+        );
+        foreach ($keys as $k) {
+            if (isset($row->{$k}) && (int) $row->{$k} > 0) {
+                return (int) $row->{$k};
+            }
+        }
+
+        return 0;
+    }
+}
+
+if (!function_exists('caisse_perm_lookup_idcaisse')) {
+    /**
+     * Retrouve la caisse d'une ligne par type + id (pour boutons / delete).
+     *
+     * @param string $type
+     * @param int    $id
+     * @return int
+     */
+    function caisse_perm_lookup_idcaisse($type, $id)
+    {
+        $id = (int) $id;
+        if ($id <= 0) {
+            return 0;
+        }
+        $CI =& get_instance();
+        if ($type === 'depense') {
+            $row = $CI->db->query('SELECT idcaisse_depens AS cid FROM depense WHERE id_depense = ? LIMIT 1', array($id))->row();
+        } elseif ($type === 'depot') {
+            $row = $CI->db->query('SELECT idcaisse_depot AS cid FROM depot WHERE id_depot = ? LIMIT 1', array($id))->row();
+        } elseif ($type === 'versement') {
+            $row = $CI->db->query('SELECT idcaisse_versement AS cid FROM versements WHERE id_versements = ? LIMIT 1', array($id))->row();
+        } else {
+            $row = $CI->db->query('SELECT idcaisse AS cid FROM recette WHERE id_recette = ? LIMIT 1', array($id))->row();
+        }
+
+        return ($row && isset($row->cid)) ? (int) $row->cid : 0;
+    }
+}

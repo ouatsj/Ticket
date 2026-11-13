@@ -806,10 +806,14 @@ if (!function_exists('saisie_recette_mode')) {
             }
             return false;
         }
-        // Caissier : Modifier uniquement sur les recettes qu'elle a elle-même ajoutées
-        // (y compris après sa validation), jamais sur celles d'un autre opérateur.
+        // Caissier / adjoint : auteur only, sauf permission collective caisse (caissier 4 seul).
         if (recette_role_is_validateur_principal($userole) || recette_role_is_validateur_adjoint($userole)) {
-            if (!saisie_auteur_est_personne($owner, $ra)) {
+            $idcaisse = function_exists('caisse_perm_row_idcaisse')
+                ? caisse_perm_row_idcaisse($row, 'recette')
+                : (isset($row->idcaisse) ? (int) $row->idcaisse : 0);
+            $perm_edit = function_exists('caisse_perm_caissier_peut')
+                && caisse_perm_caissier_peut($idcaisse, 'edit', $userole);
+            if (!$perm_edit && !saisie_auteur_est_personne($owner, $ra)) {
                 return false;
             }
             if (saisie_ligne_arret_valide($row, 'arret_caisrecet', array(
@@ -871,9 +875,14 @@ if (!function_exists('saisie_depense_mode')) {
             }
             return false;
         }
-        // Caissier : Modifier uniquement sur les dépenses qu'elle a elle-même ajoutées.
+        // Caissier / adjoint : auteur only, sauf permission collective caisse (caissier 4 seul).
         if (recette_role_is_validateur_principal($userole) || recette_role_is_validateur_adjoint($userole)) {
-            if (!saisie_auteur_est_personne($owner, $ra)) {
+            $idcaisse = function_exists('caisse_perm_row_idcaisse')
+                ? caisse_perm_row_idcaisse($row, 'depense')
+                : (isset($row->idcaisse_depens) ? (int) $row->idcaisse_depens : 0);
+            $perm_edit = function_exists('caisse_perm_caissier_peut')
+                && caisse_perm_caissier_peut($idcaisse, 'edit', $userole);
+            if (!$perm_edit && !saisie_auteur_est_personne($owner, $ra)) {
                 return false;
             }
             if (saisie_ligne_arret_valide($row, 'arret_caisdep', array(
@@ -1058,11 +1067,22 @@ if (!function_exists('saisie_peut_retirer')) {
 
 if (!function_exists('saisie_peut_supprimer')) {
     /**
-     * Admin uniquement : suppression définitive (toute ligne visible).
+     * Suppression définitive : admin, ou caissier (4) si perm_del_ops sur la caisse (héritage mère).
+     *
+     * @param int|null $idcaisse
+     * @return bool
      */
-    function saisie_peut_supprimer()
+    function saisie_peut_supprimer($idcaisse = null)
     {
-        return saisie_tri_est_admin();
+        if (saisie_tri_est_admin()) {
+            return true;
+        }
+        if ($idcaisse === null || (int) $idcaisse <= 0) {
+            return false;
+        }
+
+        return function_exists('caisse_perm_caissier_peut')
+            && caisse_perm_caissier_peut((int) $idcaisse, 'del');
     }
 }
 
@@ -1076,12 +1096,15 @@ if (!function_exists('saisie_bouton_supprimer')) {
      */
     function saisie_bouton_supprimer($type, $id)
     {
-        if (!saisie_peut_supprimer()) {
+        $id = (int) $id;
+        $idcaisse = function_exists('caisse_perm_lookup_idcaisse')
+            ? caisse_perm_lookup_idcaisse($type, $id)
+            : 0;
+        if (!saisie_peut_supprimer($idcaisse)) {
             return '';
         }
         $CI =& get_instance();
         $ekey = isset($CI->session->company->ekey) ? $CI->session->company->ekey : '';
-        $id = (int) $id;
         if ($id <= 0 || $ekey === '') {
             return '';
         }
@@ -1150,18 +1173,28 @@ if (!function_exists('saisie_recette_modifiable')) {
 
 if (!function_exists('saisie_depot_modifiable')) {
     /**
-     * Modifier un dépôt : celui qui l'a saisi. Une validation ne donne pas le crayon.
+     * Modifier un dépôt : auteur, admin, ou caissier (4) avec perm_edit_ops.
      */
     function saisie_depot_modifiable($row, $roleattribut = null, $userole = null)
     {
         if (saisie_tri_est_admin($userole)) {
             return (bool) $row;
         }
+        if ($userole === null) {
+            $CI =& get_instance();
+            $agent = $CI->session->userdata('agent') ? $CI->session->agent : null;
+            $userole = ($agent && !empty($agent->userole)) ? $agent->userole : '';
+        }
         if ($roleattribut === null && function_exists('roleattribut_guard_session_ra')) {
             $roleattribut = roleattribut_guard_session_ra();
         }
         $owner = ($row && isset($row->idop_depot)) ? (int) $row->idop_depot : 0;
-        if (!saisie_auteur_est_personne($owner, $roleattribut)) {
+        $idcaisse = function_exists('caisse_perm_row_idcaisse')
+            ? caisse_perm_row_idcaisse($row, 'depot')
+            : 0;
+        $perm_edit = function_exists('caisse_perm_caissier_peut')
+            && caisse_perm_caissier_peut($idcaisse, 'edit', $userole);
+        if (!$perm_edit && !saisie_auteur_est_personne($owner, $roleattribut)) {
             return false;
         }
 
@@ -1176,7 +1209,7 @@ if (!function_exists('saisie_depot_modifiable')) {
 
 if (!function_exists('saisie_versement_modifiable')) {
     /**
-     * Modifier un versement : uniquement celui qui l'a saisi.
+     * Modifier un versement : auteur, admin, ou caissier (4) avec perm_edit_ops.
      */
     function saisie_versement_modifiable($row, $roleattribut = null, $userole = null)
     {
@@ -1186,11 +1219,21 @@ if (!function_exists('saisie_versement_modifiable')) {
         if (saisie_tri_est_admin($userole)) {
             return true;
         }
+        if ($userole === null) {
+            $CI =& get_instance();
+            $agent = $CI->session->userdata('agent') ? $CI->session->agent : null;
+            $userole = ($agent && !empty($agent->userole)) ? $agent->userole : '';
+        }
         if ($roleattribut === null && function_exists('roleattribut_guard_session_ra')) {
             $roleattribut = roleattribut_guard_session_ra();
         }
         $owner = isset($row->idop_versement) ? (int) $row->idop_versement : 0;
-        if (!saisie_auteur_est_personne($owner, $roleattribut)) {
+        $idcaisse = function_exists('caisse_perm_row_idcaisse')
+            ? caisse_perm_row_idcaisse($row, 'versement')
+            : 0;
+        $perm_edit = function_exists('caisse_perm_caissier_peut')
+            && caisse_perm_caissier_peut($idcaisse, 'edit', $userole);
+        if (!$perm_edit && !saisie_auteur_est_personne($owner, $roleattribut)) {
             return false;
         }
         if (saisie_ligne_fermee($row, 'ferme_caisvers', 'valid_cptablevers')) {

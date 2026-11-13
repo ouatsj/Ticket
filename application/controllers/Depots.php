@@ -258,8 +258,8 @@
         public function supprimerdepot($ckey, $idpo)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-            if (!$this->company || (string) $this->session->agent->userole !== '1') {
-                show_error('Seul le compte admin peut supprimer un dépôt.', 403);
+            if (!$this->company) {
+                show_error('Entreprise introuvable.', 404);
                 return;
             }
             if (strtoupper((string) $this->input->method(true)) !== 'POST') {
@@ -268,11 +268,12 @@
             }
             $id = (int) $idpo;
             $ligne = $this->db->query(
-                'SELECT id_depot FROM depot WHERE id_depot = ? LIMIT 1',
+                'SELECT id_depot, idcaisse_depot FROM depot WHERE id_depot = ? LIMIT 1',
                 array($id)
             )->row();
+            $idcaisse = ($ligne && isset($ligne->idcaisse_depot)) ? (int) $ligne->idcaisse_depot : 0;
             $retour = saisie_url_retour();
-            if (!$ligne || !saisie_peut_supprimer()) {
+            if (!$ligne || !saisie_peut_supprimer($idcaisse)) {
                 $this->session->set_flashdata('error', 'Ce dépôt ne peut pas être supprimé.');
             } else {
                 $this->db->query('DELETE FROM depot WHERE id_depot = ? LIMIT 1', array($id));
@@ -295,6 +296,15 @@
             $iduser = roleattribut_guard_post_hint($this->company->ekey);
             $sgid = escale_idsousgare_saisie($this->input->post('sousgareconnect'));
             $idcmpt = $this->input->post('compconnected');
+            $ligne_depot = $this->db->query(
+                'SELECT * FROM depot WHERE id_depot = ? LIMIT 1',
+                array((int) $idpo)
+            )->row();
+            if (!$ligne_depot || !saisie_depot_modifiable($ligne_depot)) {
+                $this->session->set_flashdata('error', 'Ce dépôt ne peut pas être modifié.');
+                redirect('gares/'.$this->session->company->ekey. '/gTv/'. $identifiant_gare. '/cais/'. $iduser.'/'. $sgid.'/'. mdate("%d/%m/%Y", now('UTC')) . caissier_escale_query_suffix());
+                return;
+            }
             $date_depot = $this->_depot_date_from_post($idpo);
             if ($date_depot !== '')
             {
