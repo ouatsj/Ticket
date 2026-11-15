@@ -1,10 +1,28 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <? if (!empty($compteroleattrib)): ?>
+<?php
+    $retour_uid = (!empty($conex) && !empty($conex->uid)) ? $conex->uid : '';
+    $retour_cp = (!empty($conex) && !empty($conex->cpuser_id)) ? $conex->cpuser_id : '';
+    if (($retour_uid === '' || $retour_cp === '') && !empty($compteroleattrib[0])) {
+        if ($retour_uid === '' && !empty($compteroleattrib[0]->uid)) {
+            $retour_uid = $compteroleattrib[0]->uid;
+        }
+        if ($retour_cp === '' && !empty($compteroleattrib[0]->cpuser_id)) {
+            $retour_cp = $compteroleattrib[0]->cpuser_id;
+        }
+    }
+?>
 <div class="row">
     <div class="tools">
-        <a href="<?= site_url('utilisateurs/'.$this->session->company->ekey.'/gTv/'.$conex->uid.'/'.$conex->cpuser_id.'/garecompte/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
+        <?php if ($retour_uid !== '' && $retour_cp !== ''): ?>
+        <a href="<?= site_url('utilisateurs/'.$this->session->company->ekey.'/gTv/'.$retour_uid.'/'.$retour_cp.'/garecompte/'. mdate("%d/%m/%Y", now('UTC'))); ?>" class="btn btn-space btn-secondary">
             <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR&nbsp;
         </a>
+        <?php else: ?>
+        <a href="<?= site_url('utilisateurs/'.$this->session->company->ekey); ?>" class="btn btn-space btn-secondary">
+            <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR&nbsp;
+        </a>
+        <?php endif; ?>
 
     </div>
 </div>

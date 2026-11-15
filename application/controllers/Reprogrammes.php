@@ -1971,6 +1971,9 @@
                 }
                 $out = $this->_reprog_enrich_retour_meta($out);
                 $out = $this->_reprog_enrich_transit_meta($out);
+                // Transit multi-jambes même code_ticket : ancrer l’identité sur la 1ʳᵉ jambe
+                // (sinon verifireptra peut renvoyer la 2ᵉ et le JS refuse …B comme « même billet »).
+                $out = $this->_reprog_anchor_first_jambe($out);
                 // Re-normaliser après enrich transit (évite gadest_od = code escale).
                 $out = $this->_reprog_normalize_escale_od($out);
                 $out = $this->_reprog_ensure_nom_ligne($out);
@@ -1994,6 +1997,123 @@
         }
 
         /**
+         * Si le lookup a touché une jambe N>1 alors que le code saisi est le code de base
+         * (même code_ticket sur toutes les jambes), ré-ancre code_passager/tampon sur la 1ʳᵉ.
+         *
+         * @param object $out
+         * @return object
+         */
+        protected function _reprog_anchor_first_jambe($out)
+        {
+            if (!$out || !is_object($out) || empty($out->est_transit) || empty($out->jambes[0])) {
+                return $out;
+            }
+            $first = $out->jambes[0];
+            $firstPass = isset($first['code_passager']) ? trim((string) $first['code_passager']) : '';
+            $firstTamp = isset($first['tamponcod']) ? trim((string) $first['tamponcod']) : $firstPass;
+            $firstTicket = isset($first['code_ticket']) ? trim((string) $first['code_ticket']) : '';
+            $curPass = isset($out->code_passager) ? trim((string) $out->code_passager) : '';
+            $curTicket = isset($out->code_ticket) ? trim((string) $out->code_ticket) : '';
+            if ($firstPass === '' || strcasecmp($curPass, $firstPass) === 0) {
+                return $out;
+            }
+            // Codes distincts par jambe (ex. 1113N15A158 + 1113N14A158) : ne pas ré-ancrer,
+            // sinon le 2ᵉ code est renvoyé comme la 1ʳᵉ jambe → refus JS « même billet ».
+            if ($curTicket !== '' && $firstTicket !== '' && strcasecmp($curTicket, $firstTicket) !== 0) {
+                return $out;
+            }
+            // Lookup bis explicite (…B/C/D) : la jambe N est voulue.
+            $lookupCode = trim((string) $this->input->get_post('code'));
+            if (!function_exists('ticket_parse_code_leg')) {
+                $this->load->helper('ticket_prix');
+            }
+            $parsed = function_exists('ticket_parse_code_leg') ? ticket_parse_code_leg($lookupCode) : null;
+            if ($parsed && (int) $parsed['leg'] >= 2) {
+                return $out;
+            }
+            $ekey = $this->session->company->ekey;
+            $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            $anchored = null;
+            if (in_array($role, array('1', '2', '5', '15'), true) && $firstTamp !== '') {
+                $anchored = $this->m_tamponcode->verifirepadmin($ekey, $firstTamp);
+            }
+            if (!$anchored && $firstPass !== '') {
+                $anchored = $this->db->query(
+                    "SELECT ctp.*, p.*,
+                            cl.nom_client, cl.prenom_client, cl.contact_client, cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
+                            pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.gareidentif,
+                            h.heure, lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                            ex.nom_gaep, ga.nom_gadest, ga.id_compaga,
+                            ca.nom_compagnie AS nom_compagnie
+                     FROM tamponcode ctp
+                     JOIN passager p ON p.code_passager = ctp.tamponcod
+                     JOIN client cl ON p.id_client_pass = cl.id_client
+                     JOIN programme pr ON p.code_pro = pr.code_progr
+                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                     JOIN heures h ON lh.heure_identif = h.id_heure
+                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                     JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                     JOIN entreprise e ON ca.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ?
+                       AND p.code_passager = ?
+                       AND ctp.actif_tamp = 0
+                       AND p.actif_pas = 0
+                     LIMIT 1",
+                    array($ekey, $firstPass)
+                )->row();
+            }
+            if (!$anchored) {
+                // Au minimum aligner les clés d’identité pour le JS.
+                $out->code_passager = $firstPass;
+                if ($firstTamp !== '') {
+                    $out->tamponcod = $firstTamp;
+                }
+                if (!empty($first['code_ticket'])) {
+                    $out->code_ticket = $first['code_ticket'];
+                }
+                if (!empty($first['gaexp_lg'])) {
+                    $out->gaexp_lg = $first['gaexp_lg'];
+                }
+                return $out;
+            }
+            // Conserver le meta transit déjà calculé.
+            $anchored->ok = true;
+            $anchored->est_transit = $out->est_transit;
+            $anchored->nbr_jambes = $out->nbr_jambes;
+            $anchored->jambes = $out->jambes;
+            if (isset($out->gaexp_od)) {
+                $anchored->gaexp_od = $out->gaexp_od;
+            }
+            if (isset($out->gadest_od)) {
+                $anchored->gadest_od = $out->gadest_od;
+            }
+            if (isset($out->nom_ligne_od)) {
+                $anchored->nom_ligne_od = $out->nom_ligne_od;
+            }
+            if (isset($out->nom_gaep_od)) {
+                $anchored->nom_gaep_od = $out->nom_gaep_od;
+            }
+            if (isset($out->nom_gadest_od)) {
+                $anchored->nom_gadest_od = $out->nom_gadest_od;
+            }
+            if (isset($out->direction_affiche)) {
+                $anchored->direction_affiche = $out->direction_affiche;
+            }
+            if (isset($out->axe_od)) {
+                $anchored->axe_od = $out->axe_od;
+            }
+            if (isset($out->axes_od)) {
+                $anchored->axes_od = $out->axes_od;
+            }
+            if (isset($out->est_retour)) {
+                $anchored->est_retour = $out->est_retour;
+            }
+            return $anchored;
+        }
+
+        /**
          * Résout un code ticket bis (suffixe B/C/D) vers la jambe transit correspondante.
          * Ex. 7855-3835B → 2ᵉ jambe du groupe tamponcodtr du ticket 7855-3835.
          *
@@ -2011,6 +2131,36 @@
             }
             $ekey = $this->session->company->ekey;
             $baseOut = $this->m_tamponcode->verifireptra($ekey, $parsed['base']);
+            // BINARY : si casse différente (ex. S vs s), retenter sans BINARY.
+            if (!$baseOut && $parsed['base'] !== '') {
+                $baseOut = $this->db->query(
+                    "SELECT ctp.*, p.*,
+                            cl.nom_client, cl.prenom_client, cl.contact_client,
+                            pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.gareidentif,
+                            h.heure, lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                            ex.nom_gaep, ga.nom_gadest, ga.id_compaga,
+                            ca.nom_compagnie AS nom_compagnie
+                     FROM tamponcode ctp
+                     JOIN passager p ON p.code_passager = ctp.tamponcod
+                     JOIN client cl ON p.id_client_pass = cl.id_client
+                     JOIN programme pr ON p.code_pro = pr.code_progr
+                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                     JOIN heures h ON lh.heure_identif = h.id_heure
+                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                     JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                     JOIN entreprise e ON ca.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ?
+                       AND LOWER(p.code_ticket) = LOWER(?)
+                       AND ctp.actif_tamp = 0
+                       AND p.actif_pas = 0
+                       AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
+                     ORDER BY pr.date_progr ASC, h.heure ASC, p.code_passager ASC
+                     LIMIT 1",
+                    array($ekey, $parsed['base'])
+                )->row();
+            }
             if (!$baseOut) {
                 return null;
             }
@@ -2020,6 +2170,7 @@
                 return null;
             }
             $jambe = $baseOut->jambes[$idx];
+            $wantedBis = $parsed['base'] . $parsed['suffix']; // ex. 1112N18s41B
             // Si la jambe a déjà un code_ticket distinct (ex. …B), lookup direct.
             $ct = isset($jambe['code_ticket']) ? trim((string) $jambe['code_ticket']) : '';
             if ($ct !== '' && strcasecmp($ct, $parsed['base']) !== 0) {
@@ -2027,8 +2178,15 @@
                 if ($direct) {
                     return $direct;
                 }
+                // Code saisi = …B mais jambe déjà en …B (casse) : accepter.
+                if (strcasecmp($ct, $wantedBis) === 0) {
+                    $direct = $this->m_tamponcode->verifireptra($ekey, $wantedBis);
+                    if ($direct) {
+                        return $direct;
+                    }
+                }
             }
-            // Sinon : même code_ticket partagé → résoudre via tampon / code_passager.
+            // Sinon : même code_ticket partagé (direct→transit) → jambe via tampon, puis persister B.
             $tamp = isset($jambe['tamponcod']) ? trim((string) $jambe['tamponcod']) : '';
             if ($tamp === '' && !empty($jambe['code_passager'])) {
                 $tamp = trim((string) $jambe['code_passager']);
@@ -2037,38 +2195,91 @@
                 return null;
             }
             $role = isset($this->session->agent->userole) ? (string) $this->session->agent->userole : '';
+            $row = null;
             if (in_array($role, array('1', '2', '5', '15'), true)) {
-                $byTamp = $this->m_tamponcode->verifirepadmin($ekey, $tamp);
-                if ($byTamp) {
-                    return $byTamp;
-                }
+                $row = $this->m_tamponcode->verifirepadmin($ekey, $tamp);
             }
-            // Fallback : même requête ticket mais filtrée sur code_passager de la jambe.
-            $row = $this->db->query(
-                "SELECT ctp.*, p.*,
-                        cl.nom_client, cl.prenom_client, cl.contact_client,
-                        pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.gareidentif,
-                        h.heure, lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
-                        ex.nom_gaep, ga.nom_gadest
-                 FROM tamponcode ctp
-                 JOIN passager p ON p.code_passager = ctp.tamponcod
-                 JOIN client cl ON p.id_client_pass = cl.id_client
-                 JOIN programme pr ON p.code_pro = pr.code_progr
-                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
-                 JOIN heures h ON lh.heure_identif = h.id_heure
-                 JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
-                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                 JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
-                 JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
-                 JOIN entreprise e ON ca.id_entrep = e.id_entreprise
-                 WHERE e.ekey = ?
-                   AND p.code_passager = ?
-                   AND ctp.actif_tamp = 0
-                   AND p.actif_pas = 0
+            if (!$row) {
+                // Fallback : même requête ticket mais filtrée sur code_passager de la jambe.
+                $row = $this->db->query(
+                    "SELECT ctp.*, p.*,
+                            cl.nom_client, cl.prenom_client, cl.contact_client,
+                            pr.code_progr, pr.date_progr, pr.typetarif, pr.categori, pr.gareidentif,
+                            h.heure, lg.ident_ligne, lg.nom_ligne, lg.gaexp_lg, lg.gadest_lg,
+                            ex.nom_gaep, ga.nom_gadest
+                     FROM tamponcode ctp
+                     JOIN passager p ON p.code_passager = ctp.tamponcod
+                     JOIN client cl ON p.id_client_pass = cl.id_client
+                     JOIN programme pr ON p.code_pro = pr.code_progr
+                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
+                     JOIN heures h ON lh.heure_identif = h.id_heure
+                     JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
+                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                     JOIN gare_dest ga ON lg.gadest_lg = ga.code_gadest
+                     JOIN compagnies ca ON ga.id_compaga = ca.cle_compagnie
+                     JOIN entreprise e ON ca.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ?
+                       AND p.code_passager = ?
+                       AND ctp.actif_tamp = 0
+                       AND p.actif_pas = 0
+                     LIMIT 1",
+                    array($ekey, $tamp)
+                )->row();
+            }
+            if (!$row) {
+                return null;
+            }
+            // Règle métier : 2ᵉ code ressemble au 1ᵉʳ → on ajoute B (et on l’écrit en base).
+            $this->_reprog_persist_shared_code_bis($row, $parsed['base'], $wantedBis);
+            return $row;
+        }
+
+        /**
+         * Ticket transit à code partagé : enregistre le suffixe B/C/D sur la jambe N
+         * pour que le prochain lookup reconnaisse directement le 2ᵉ code.
+         *
+         * @param object $row
+         * @param string $base
+         * @param string $wantedBis
+         */
+        protected function _reprog_persist_shared_code_bis($row, $base, $wantedBis)
+        {
+            if (!$row || !is_object($row)) {
+                return;
+            }
+            $base = trim((string) $base);
+            $wantedBis = trim((string) $wantedBis);
+            $cur = isset($row->code_ticket) ? trim((string) $row->code_ticket) : '';
+            $pass = isset($row->code_passager) ? trim((string) $row->code_passager) : '';
+            if ($base === '' || $wantedBis === '' || $pass === '' || $cur === '') {
+                return;
+            }
+            // Déjà suffixé, ou code déjà distinct : ne rien écrire.
+            if (strcasecmp($cur, $wantedBis) === 0 || strcasecmp($cur, $base) !== 0) {
+                if (strcasecmp($cur, $wantedBis) === 0) {
+                    $row->code_ticket = $wantedBis;
+                }
+                return;
+            }
+            // Collision : un autre passager a déjà ce code bis.
+            $clash = $this->db->query(
+                "SELECT code_passager FROM passager
+                 WHERE BINARY code_ticket = ? AND code_passager != ? AND actif_pas = 0
                  LIMIT 1",
-                array($ekey, $tamp)
+                array($wantedBis, $pass)
             )->row();
-            return $row ? $row : null;
+            if ($clash) {
+                return;
+            }
+            $this->db->query(
+                "UPDATE passager SET code_ticket = ?
+                 WHERE code_passager = ? AND BINARY code_ticket = ? AND actif_pas = 0
+                 LIMIT 1",
+                array($wantedBis, $pass, $cur)
+            );
+            if ($this->db->affected_rows() > 0) {
+                $row->code_ticket = $wantedBis;
+            }
         }
 
         /**

@@ -198,7 +198,9 @@
                     AND ctp.actif_tamp = 0
                     AND p.actif_pas = 0
                     AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
-                    AND BINARY ctp.tamponcod NOT IN (SELECT code_tick_tamp FROM report WHERE actifrep = 0)")->row();
+                    AND BINARY ctp.tamponcod NOT IN (SELECT code_tick_tamp FROM report WHERE actifrep = 0)
+                    ORDER BY pr.date_progr ASC, h.heure ASC, p.code_passager ASC
+                    LIMIT 1")->row();
         }
 
         /**

@@ -663,7 +663,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 used[ct.toUpperCase()] = 1;
             }
         });
-        // Même code_ticket sur toutes les jambes : proposer base+B / +C / +D (bis).
+        // Règle métier : si le 2ᵉ code ressemble au 1ᵉʳ (même code_ticket, cas
+        // direct→report transit / confirm transit), proposer base+B / +C / +D.
+        // Codes déjà distincts en base : préremplir le vrai code de la jambe (pas +B).
         var bisMap = { 2: 'B', 3: 'C', 4: 'D' };
         var hintIdx = 0;
         for (var leg = 2; leg <= nbrJambes; leg++) {
@@ -671,17 +673,21 @@ document.addEventListener('DOMContentLoaded', () => {
             row.className = 'form-row align-items-end reprog-leg-row';
             row.id = 'reprog_leg_row_' + leg;
             var hint = hints[hintIdx] || '';
+            var hintIsDistinct = !!hint;
             if (hint) hintIdx++;
             if (!hint && baseCode && bisMap[leg]) {
                 hint = baseCode + bisMap[leg];
             }
+            var labelExtra = hintIsDistinct
+                ? ('code jambe : ' + hint)
+                : ('1er code + ' + (bisMap[leg] || 'B'));
             var ph = hint
-                ? ('ex. ' + hint + ' (1er code + ' + (bisMap[leg] || 'B') + ')')
+                ? (hintIsDistinct ? ('ex. ' + hint) : ('ex. ' + hint + ' (1er code + ' + (bisMap[leg] || 'B') + ')'))
                 : ('Code de la ' + leg + 'ᵉ jambe');
             row.innerHTML =
                 '<div class="form-group col-md-6 mb-2">'
-                + '<label class="small mb-0">' + leg + '<sup>e</sup> code (jambe transit) — 1er code + '
-                + (bisMap[leg] || 'B') + '</label>'
+                + '<label class="small mb-0">' + leg + '<sup>e</sup> code (jambe transit) — '
+                + labelExtra + '</label>'
                 + '<input class="form-control form-control-sm" type="text" id="code_lookup_leg_' + leg
                 + '" autocomplete="off" placeholder="' + String(ph).replace(/"/g, '&quot;') + '"'
                 + (hint ? (' value="' + String(hint).replace(/"/g, '&quot;') + '"') : '') + '>'
@@ -969,8 +975,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     return;
                 }
-                if (String(d2.tamponcod || '') === String((__reprogQ('codeticketsunifie') || {}).value || '')
-                    || String(d2.code_passager || '') === String((__reprogQ('passerpunifie') || {}).value || '')) {
+                var pass1 = String((__reprogQ('passerpunifie') || {}).value || '');
+                var tamp1 = String((__reprogQ('codeticketsunifie') || {}).value || '');
+                // Ancre 1ʳᵉ jambe attendue (évite faux « même billet » si le 1er lookup
+                // avait renvoyé une jambe N par erreur avant le correctif serveur).
+                var j0 = (window.__reprogState.jambesExpected || [])[0];
+                if (j0) {
+                    if (j0.code_passager) pass1 = String(j0.code_passager);
+                    if (j0.tamponcod) tamp1 = String(j0.tamponcod);
+                }
+                if (String(d2.tamponcod || '') === tamp1
+                    || String(d2.code_passager || '') === pass1) {
                     alert('Ce code correspond au même billet que le 1er.');
                     return;
                 }
@@ -4639,13 +4654,28 @@ document.addEventListener('DOMContentLoaded', () => {
                             );
                             if (__reprogQ('smspunifie')) __reprogQ('smspunifie').style.display = 'block';
                             if (__reprogQ('erreurSmspunifie')) {
-                                var bisHint = (donnees.code_ticket || cocl || '') + 'B';
-                                __reprogQ('erreurSmspunifie').textContent =
-                                    '1er code OK. Pour la 2ᵉ jambe, saisissez le même code + B (ex. '
-                                    + bisHint + ')'
-                                    + (window.__reprogState.nbrJambes > 2
-                                        ? ' ; 3ᵉ = +C, 4ᵉ = +D.'
-                                        : '.');
+                                var baseCt = String(donnees.code_ticket || cocl || '').trim();
+                                var otherCodes = [];
+                                (window.__reprogState.jambesExpected || []).forEach(function (j) {
+                                    var ct = j && String(j.code_ticket || '').trim();
+                                    if (ct && ct.toUpperCase() !== baseCt.toUpperCase()
+                                        && otherCodes.indexOf(ct) < 0) {
+                                        otherCodes.push(ct);
+                                    }
+                                });
+                                if (otherCodes.length) {
+                                    __reprogQ('erreurSmspunifie').textContent =
+                                        '1er code OK. Vérifiez le(s) code(s) des autres jambes : '
+                                        + otherCodes.join(', ') + '.';
+                                } else {
+                                    var bisHint = baseCt + 'B';
+                                    __reprogQ('erreurSmspunifie').textContent =
+                                        '1er code OK. Pour la 2ᵉ jambe, saisissez le même code + B (ex. '
+                                        + bisHint + ')'
+                                        + (window.__reprogState.nbrJambes > 2
+                                            ? ' ; 3ᵉ = +C, 4ᵉ = +D.'
+                                            : '.');
+                                }
                             }
                             return;
                         }

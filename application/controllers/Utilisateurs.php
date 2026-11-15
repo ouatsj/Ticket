@@ -894,9 +894,27 @@
         public function compteroles($ckey, $ud, $g, $j, $m, $a)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
-                $conex = $this->m_compte_user->ugare($this->company->ekey, $g, $ud);
+                // false : garder le contexte compte après activer/désactiver un rôle
+                // (sinon ugare filtre activer_role=0 → conex vide → Retour gTv/// 404).
+                $conex = $this->m_compte_user->ugare($this->company->ekey, $g, $ud, false);
                 $this->property['conex'] = $conex;
                 $this->property['compteroleattrib'] = $this->m_utilisateur->getrole($this->company->ekey, $ud, $g);
+                // Secours Retour : uid + cpuser_id depuis la liste des rôles.
+                if ((!$conex || empty($conex->uid) || empty($conex->cpuser_id))
+                    && !empty($this->property['compteroleattrib'][0])
+                ) {
+                    $first = $this->property['compteroleattrib'][0];
+                    if (!$conex) {
+                        $conex = new stdClass();
+                    }
+                    if (empty($conex->uid) && !empty($first->uid)) {
+                        $conex->uid = $first->uid;
+                    }
+                    if (empty($conex->cpuser_id) && !empty($first->cpuser_id)) {
+                        $conex->cpuser_id = $first->cpuser_id;
+                    }
+                    $this->property['conex'] = $conex;
+                }
                 $this->property['dossiers'] = $this->m_dossier->get();
                 $this->property['pagetitle'] .= "&nbsp;•&nbsp;ROLE ATTRIBUER AU COMPTE DANS LA GARE<strong>&nbsp;•&nbsp;{$this->company->nom_entreprise}</strong> ";
                 

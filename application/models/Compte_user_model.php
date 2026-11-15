@@ -1293,23 +1293,52 @@
             
         }
 
-        public function ugare($cd, $gid, $user_id)
+        /**
+         * Contexte compte/gare pour pages admin (rôles attribués).
+         * @param bool $actif_only si false : inclut rôles/gares désactivés (ex. après toggle activer_role)
+         */
+        public function ugare($cd, $gid, $user_id, $actif_only = true)
         {
-                return $this->db->query(
-                    "SELECT * FROM compte_user cu
+                $cd = $this->db->escape($cd);
+                $gid = $this->db->escape($gid);
+                $user_id = $this->db->escape($user_id);
+                $actifSql = $actif_only
+                    ? 'AND ar.activer_role = 0 AND ul.comptactif = 0'
+                    : '';
+                $row = $this->db->query(
+                    "SELECT cu.*, ul.*, u.*, g.*, ar.roleattribut, ar.userole, ar.activer_role, r.type_rols
+                    FROM compte_user cu
                     JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
-                    JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
                     JOIN utilisateurs u ON cu.userlog_id = u.uid
-                    JOIN user_roles r ON ar.userole = r.id_rols
                     JOIN gares g ON ul.guser = g.idengare
                     JOIN compagnies c ON g.compagniegare = c.cle_compagnie
                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cd'
-                    AND ul.guser = '$gid'
-                    AND ul.uid_login = '$user_id'
-                    AND ar.activer_role = 0
-                    AND ul.comptactif = 0")->row();
-            
+                    LEFT JOIN attributions_role ar ON ar.idgestcompte = ul.uid_login
+                    LEFT JOIN user_roles r ON ar.userole = r.id_rols
+                    WHERE e.ekey = {$cd}
+                    AND ul.guser = {$gid}
+                    AND ul.uid_login = {$user_id}
+                    {$actifSql}
+                    ORDER BY IFNULL(ar.activer_role, 1) ASC, ar.roleattribut ASC
+                    LIMIT 1"
+                )->row();
+                // Sans aucune attribution : identité compte/gare seule (Retour garecompte).
+                if (!$row && !$actif_only) {
+                    $row = $this->db->query(
+                        "SELECT cu.*, ul.*, u.*, g.*
+                        FROM compte_user cu
+                        JOIN user_login ul ON ul.uid_usercpte = cu.cpuser_id
+                        JOIN utilisateurs u ON cu.userlog_id = u.uid
+                        JOIN gares g ON ul.guser = g.idengare
+                        JOIN compagnies c ON g.compagniegare = c.cle_compagnie
+                        JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                        WHERE e.ekey = {$cd}
+                        AND ul.guser = {$gid}
+                        AND ul.uid_login = {$user_id}
+                        LIMIT 1"
+                    )->row();
+                }
+                return $row;
         }
 
         
