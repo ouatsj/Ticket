@@ -122,8 +122,20 @@ function retour_page_remember()
  */
 function retour_sousgare_url($ekey, $idengare, $roleattribut)
 {
+    // Segment vide après sousgare/ → 404 (ex. …/sousgare//21/11/2026).
+    $ra = (int) $roleattribut;
+    if ($ra <= 0) {
+        $CI =& get_instance();
+        if ($CI->session->userdata('agent') && !empty($CI->session->agent->roleattribut)) {
+            $ra = (int) $CI->session->agent->roleattribut;
+        }
+    }
+    if ($ra <= 0) {
+        return site_url('home/main?onglet=escale');
+    }
+
     return site_url(
-        'gares/' . $ekey . '/gTs/' . $idengare . '/sousgare/' . $roleattribut
+        'gares/' . $ekey . '/gTs/' . $idengare . '/sousgare/' . $ra
         . '/' . mdate('%d/%m/%Y', now('UTC'))
     );
 }
@@ -228,8 +240,21 @@ function retour_bagage_escal_url($ekey, $roleattribut, $idengare, $idsousgare)
  */
 function retour_guichet_url($ekey, $idengare, $roleattribut, $idsousgare)
 {
+    // Segment vide après compte/ → 404 route gTc (ex. compte//14/…).
+    $ra = (int) $roleattribut;
+    if ($ra <= 0) {
+        $CI =& get_instance();
+        if ($CI->session->userdata('agent') && !empty($CI->session->agent->roleattribut)) {
+            $ra = (int) $CI->session->agent->roleattribut;
+        }
+    }
+    if ($ra <= 0) {
+        return site_url('home/main?onglet=escale');
+    }
+    $idsg = (int) $idsousgare;
+
     return site_url(
-        'gares/' . $ekey . '/gTc/' . $idengare . '/compte/' . $roleattribut . '/' . $idsousgare
+        'gares/' . $ekey . '/gTc/' . $idengare . '/compte/' . $ra . '/' . $idsg
         . '/' . mdate('%d/%m/%Y', now('UTC'))
     );
 }

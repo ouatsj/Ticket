@@ -33,6 +33,11 @@ scripts/cron/logs/*.log
 /application/cache/*
 !/application/cache/index.html
 
+# Sauvegardes et exports de base (volumineux / sensibles)
+/scripts/db/backups/
+/scripts/db/exports/
+/services/tei_api/var/
+
 # OS / éditeur
 .DS_Store
 Thumbs.db

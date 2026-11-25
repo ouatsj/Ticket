@@ -1,9 +1,18 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
 $role17_mode = !empty($role17_mode) && role17_is_agent();
+$ra_ops = (is_object($conex) && !empty($conex->roleattribut)) ? (int) $conex->roleattribut : 0;
+if (!function_exists('retour_guichet_url')) {
+    $this->load->helper('retour');
+}
 $accueil = role17_is_agent()
     ? role17_accueil_url($bus_stop, $conex)
-    : site_url('gares/'.$this->session->company->ekey.'/gTc/'. $bus_stop->idengare.'/compte/'. $conex->roleattribut .'/'. $bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC')));
+    : retour_guichet_url(
+        $this->session->company->ekey,
+        $bus_stop->idengare,
+        $ra_ops,
+        $bus_stop->idsousgare
+    );
 ?>
 <div class="<?= $role17_mode ? 'r17-ops r17-shell' : ''; ?>">
 <?php if ($role17_mode): ?>

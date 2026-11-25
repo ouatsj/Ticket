@@ -6,6 +6,7 @@ $escale_nom_vue = trim((string) $this->input->get('escale_nom'));
 $escale_valeur_vue = trim((string) $this->input->get('escale'));
 $escale_ops_vue = trim((string) $this->input->get('escale_ops'));
 $profils_apercu = array(
+    '17' => 'Guichet',
     '2' => 'Superviseur',
     '7' => 'Comptable',
     '13' => 'Superviseur d\'agence',
@@ -38,7 +39,10 @@ $libelle_apercu = isset($profils_apercu[$profil_apercu]) ? $profils_apercu[$prof
 <?php endif; ?>
 <?php if ($escale_seule): ?>
 <p class="ml-3 mb-2">
-    <?php if (!empty($retour_escale_agents)): ?>
+    <?php
+    // Profil 17 : le retour est dans btn_retour_gare (évite double bouton + sousgare//).
+    if (!empty($retour_escale_agents) && $profil_apercu !== '17'):
+    ?>
         <a href="<?= htmlspecialchars($retour_escale_agents, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-space btn-secondary">
             <i class="fas fa-arrow-circle-left text-info"></i>&nbsp;RETOUR A L’ESCALE&nbsp;
         </a>

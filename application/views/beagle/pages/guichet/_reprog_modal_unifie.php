@@ -158,7 +158,8 @@ $allow_prix_diff_unifie = true;
                 <div class="form-group col-md-6 mb-2">
                     <label class="small mb-0">Code</label>
                     <input class="form-control form-control-sm" type="text"
-                           id="code_lookup_unifie" autocomplete="off" required=""
+                           id="code_lookup_unifie" name="code_lookup_unifie"
+                           autocomplete="off" required=""
                            placeholder="Code ticket ou passager">
                 </div>
                 <div class="form-group col-md-6 mb-2">

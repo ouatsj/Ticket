@@ -10,6 +10,15 @@
             $this->load->helper('etat_lettres');
         }
 
+        /** États : live + archive (vues v_*). */
+        protected function query_etat($sql, $binds = false)
+        {
+            if (!function_exists('archive_annee_sql_etat')) {
+                $this->load->helper('archive_annee');
+            }
+            return $this->db->query(archive_annee_sql_etat($sql), $binds);
+        }
+
         /**
          * Lieu de vente / émission escal ticket :
          * ul.guser (lieu) OU sous-gare départ escal OU gaexp ligne.
@@ -547,41 +556,62 @@
 
         public function allday($cid, $datedb, $datef, $gid)
         {
-                return $this->db->query(
-                    "SELECT * FROM escalclients es
-                    JOIN sousgare sg ON es.departsgescal = sg.idsousgare
-                    JOIN client cl ON es.clientescal = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
-                    JOIN ligne_heure lh ON es.id_lgeheur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON es.lignintescal = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND es.dateescal BETWEEN '$datedb' AND '$datef'
-                    AND h.h_active = 1
-                    AND es.arrcptchefgescal = 0
-                    AND es.departgescal = '$gid'")->result();
+            $cid = $this->db->escape_str($cid);
+            $datedb = $this->db->escape_str($datedb);
+            $datef = $this->db->escape_str($datef);
+            $gid = $this->db->escape_str($gid);
+            // LEFT JOIN heure : tickets libre sans lh restent visibles pour le chef.
+            return $this->db->query(
+                "SELECT es.*, cl.nom_client, cl.prenom_client, cl.contact_client,
+                        cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
+                        sg.nomsousgare, h.heure, lg.nom_ligne,
+                        dest.nom_gadest, ex.nom_gaep
+                 FROM escalclients es
+                 JOIN sousgare sg ON es.departsgescal = sg.idsousgare
+                 JOIN client cl ON es.clientescal = cl.id_client
+                 LEFT JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                 LEFT JOIN ligne_heure lh ON es.id_lgeheur = lh.id_ligneheure
+                 LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                 JOIN lignes lg ON es.lignintescal = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = '{$cid}'
+                 AND es.dateescal BETWEEN '{$datedb}' AND '{$datef}'
+                 AND (h.h_active = 1 OR h.id_heure IS NULL)
+                 AND es.arrcptchefgescal = 0
+                 AND es.departgescal = '{$gid}'
+                 ORDER BY es.dateescal DESC, es.idclescal DESC"
+            )->result();
         }
+
         public function alldayad($cid, $datedb, $datef)
         {
-                return $this->db->query(
-                    "SELECT * FROM escalclients es
-                    JOIN sousgare sg ON es.departsgescal = sg.idsousgare
-                    JOIN client cl ON es.clientescal = cl.id_client
-                    JOIN type_client tcl ON cl.type_client = tcl.nom_type
-                    JOIN ligne_heure lh ON es.id_lgeheur = lh.id_ligneheure
-                    JOIN heures h ON lh.heure_identif = h.id_heure
-                    JOIN lignes lg ON es.lignintescal = lg.ident_ligne
-                    JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
-                    JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
-                    JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
-                    JOIN entreprise e ON c.id_entrep = e.id_entreprise
-                    WHERE e.ekey = '$cid'
-                    AND es.dateescal BETWEEN '$datedb' AND '$datef'
-                    AND es.arrcptchefgescal = 0")->result();
+            $cid = $this->db->escape_str($cid);
+            $datedb = $this->db->escape_str($datedb);
+            $datef = $this->db->escape_str($datef);
+            return $this->db->query(
+                "SELECT es.*, cl.nom_client, cl.prenom_client, cl.contact_client,
+                        cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
+                        sg.nomsousgare, h.heure, lg.nom_ligne,
+                        dest.nom_gadest, ex.nom_gaep
+                 FROM escalclients es
+                 JOIN sousgare sg ON es.departsgescal = sg.idsousgare
+                 JOIN client cl ON es.clientescal = cl.id_client
+                 LEFT JOIN type_client tcl ON cl.type_client = tcl.nom_type
+                 LEFT JOIN ligne_heure lh ON es.id_lgeheur = lh.id_ligneheure
+                 LEFT JOIN heures h ON lh.heure_identif = h.id_heure
+                 JOIN lignes lg ON es.lignintescal = lg.ident_ligne
+                 JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
+                 JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                 JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                 JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                 WHERE e.ekey = '{$cid}'
+                 AND es.dateescal BETWEEN '{$datedb}' AND '{$datef}'
+                 AND es.arrcptchefgescal = 0
+                 ORDER BY es.dateescal DESC, es.idclescal DESC"
+            )->result();
         }
 
         public function reporpass($cid, $cp, $gd, $d1, $d2, $lg = FALSE, $hr = FALSE)
@@ -669,7 +699,7 @@
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal
                 FROM escalclients esp
                 JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
@@ -705,7 +735,7 @@
                 : '';
             $destNom = $this->sql_nom_destination_choisie('esp', 'lg');
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, {$destNom} AS nom_ligne, esp.prixescal
                 FROM escalclients esp
                 JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
@@ -741,7 +771,7 @@
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT * FROM escalclients esp
                 JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -776,7 +806,7 @@
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal
                 FROM escalclients esp
                 JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
@@ -815,7 +845,7 @@
 
             $destNom = $this->sql_nom_destination_choisie('esp', 'lg');
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, {$destNom} AS nom_ligne, esp.prixescal
                 FROM escalclients esp
                 JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
@@ -854,7 +884,7 @@
 
             $destNom = $this->sql_nom_destination_choisie('esp', 'lg');
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, {$destNom} AS nom_ligne, esp.prixescal
                 FROM escalclients esp
                 JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
@@ -919,7 +949,11 @@
          */
         public function getrep_escale($cid, $uid, $gid, $sgid)
         {
-            $depart = $this->_sql_depart_agent($gid, $uid, 'es.departgescal');
+            // Réimp venteescale : borné à l’opérateur + reimpr=1.
+            // Ne pas filtrer gare/sg URL : vente libre pose le lieu (KOM24) en
+            // departgescal et la sous-gare hub (6) en departsgescal, alors que
+            // l’aperçu admin / TPE peuvent ouvrir OUA1/6 ou KOM24/14.
+            $uid = (int) $uid;
             return $this->db->query(
                 "SELECT es.*, cl.nom_client, cl.prenom_client, cl.contact_client,
                         cl.num_CNIB, cl.date_delivre, cl.lieu_delivre,
@@ -927,7 +961,7 @@
                         dest.nom_gadest, ge.nom_gaep,
                         lh.id_ligneheure, es.typtarifesc, c.nom_compagnie, c.logo
                  FROM escalclients es
-                 JOIN sousgare sg ON es.departsgescal = sg.idsousgare
+                 LEFT JOIN sousgare sg ON es.departsgescal = sg.idsousgare
                  JOIN client cl ON es.clientescal = cl.id_client
                  LEFT JOIN ligne_heure lh ON es.id_lgeheur = lh.id_ligneheure
                  LEFT JOIN heures h ON lh.heure_identif = h.id_heure
@@ -936,14 +970,12 @@
                  LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                  LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                  WHERE es.iduseescal = ?
-                 AND {$depart}
-                 AND es.departsgescal = ?
                  AND es.reimpr = 1
                  AND es.prixescal IS NOT NULL
                  AND es.prixescal > 0
                  ORDER BY es.idclescal DESC
                  LIMIT 80",
-                array($uid, $sgid)
+                array($uid)
             )->result();
         }
 
@@ -1018,7 +1050,7 @@
             ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
             : '';
 
-        return $this->db->query(
+        return $this->query_etat(
             "SELECT COUNT(idclescal) AS escalp, SUM(prixescal) AS tota, lg.nom_ligne, esp.prixescal, esp.datedepescal
             FROM escalclients esp
             JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
@@ -1071,7 +1103,7 @@
                 $compSql = " AND (dest.id_compaga = '{$comp}' OR dest.id_compaga IS NULL) ";
             }
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT DATE(esp.datedepescal) AS date_recet,
                         u.first_name, u.last_name,
                         SUM(esp.prixescal) AS montant_recet
@@ -1118,7 +1150,7 @@
                 $dateSql = " AND esp.datedepescal >= '{$dt1}' AND esp.datedepescal < DATE_ADD('{$dt2}', INTERVAL 1 DAY) ";
             }
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT esp.idclescal AS code_ticket, lg.nom_ligne, cl.nom_client, cl.prenom_client,
                         esp.datedepescal AS date_progr, h.heure, esp.prixescal AS prixvente
                 FROM escalclients esp
@@ -1151,7 +1183,7 @@
         $gareSql = $this->sql_filtre_gare_escal($gid);
         $opSql = $this->sql_filtre_operateur_escal($acl);
 
-        return $this->db->query(
+        return $this->query_etat(
             "SELECT SUM(prixescal) AS tota, dest.id_compaga, esp.datedepescal
             FROM escalclients esp
             JOIN attributions_role ar ON esp.iduseescal = ar.roleattribut
@@ -1177,7 +1209,7 @@
     public function exopass($cid, $cp, $gd, $d1, $d2)
     {
         $filtreLettres = etat_filtre_lettres('es.escalpanier', 'es.datedepescal', $cp, 'ticket_escal', $d1, $d2);
-         return $this->db->query(
+         return $this->query_etat(
                 "SELECT * FROM escalclients es
                 JOIN client cl ON es.clientescal = cl.id_client
                 JOIN ligne_heure lh ON es.id_lgeheur = lh.id_ligneheure
@@ -1198,7 +1230,7 @@
     public function exopassglob($cid, $cp, $gd, $d1, $d2)
     {
        
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT * FROM escalclients es
                 JOIN sousgare sg ON es.departsgescal = sg.idsousgare
                 JOIN client cl ON es.clientescal = cl.id_client

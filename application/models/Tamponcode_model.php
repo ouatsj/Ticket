@@ -121,12 +121,62 @@
         }
 
 
+        /**
+         * Collision code_ticket (ex. même mmjj+compteur d’une année sur l’autre) :
+         * garde le passager le plus récent, archive les plus anciens (actif_pas / tampon).
+         *
+         * @param string $code_ticket
+         * @return int nombre d’anciens archivés
+         */
+        public function archive_older_code_ticket_duplicates($code_ticket)
+        {
+            $code_ticket = trim((string) $code_ticket);
+            if ($code_ticket === '') {
+                return 0;
+            }
+            $codeEsc = $this->db->escape($code_ticket);
+            $rows = $this->db->query(
+                "SELECT p.code_passager, p.datep_create, p.date_emis, p.createpas_at
+                 FROM passager p
+                 WHERE BINARY p.code_ticket = {$codeEsc}
+                 AND p.actif_pas = 0
+                 AND p.code_ticket != 'R'
+                 ORDER BY p.datep_create DESC, p.date_emis DESC, p.createpas_at DESC, p.code_passager DESC"
+            )->result();
+            if (count($rows) < 2) {
+                return 0;
+            }
+            $keep = $rows[0]->code_passager;
+            $archived = 0;
+            for ($i = 1; $i < count($rows); $i++) {
+                $old = (string) $rows[$i]->code_passager;
+                if ($old === '' || $old === $keep) {
+                    continue;
+                }
+                // Même journée de vente (transit multi-jambes) : ne pas archiver.
+                if ((string) $rows[$i]->datep_create === (string) $rows[0]->datep_create) {
+                    continue;
+                }
+                $this->db->where('code_passager', $old)
+                    ->where('code_ticket', $code_ticket)
+                    ->update('passager', array(
+                        'actif_pas' => 1,
+                        'is_valdtick' => 1,
+                    ));
+                $this->db->where('tamponcod', $old)
+                    ->update($this->table, array('actif_tamp' => 1));
+                $archived++;
+            }
+            return $archived;
+        }
+
         //verif reprog
 
         public function verifirep($cid, $code)
         {
                 $gid = $this->session->agent->guser;
                 $encour = date("Y");
+                $this->archive_older_code_ticket_duplicates($code);
                 return $this->db->query("SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod 
 					LEFT JOIN non_passager np ON ctp.tamponcod = np.code_non_pass
@@ -147,7 +197,9 @@
                     AND ctp.actif_tamp = 0
                     AND p.actif_pas = 0
                     AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
-                    AND BINARY ctp.tamponcod NOT IN (SELECT code_tick_tamp FROM report WHERE actifrep = 0)")->row();
+                    AND BINARY ctp.tamponcod NOT IN (SELECT code_tick_tamp FROM report WHERE actifrep = 0)
+                    ORDER BY p.datep_create DESC, pr.date_progr ASC, h.heure ASC, p.code_passager ASC
+                    LIMIT 1")->row();
         }
 
         public function verifireptra($cid, $code)
@@ -155,8 +207,11 @@
                 $encour = date("Y");
                 $cidEsc = $this->db->escape($cid);
                 $codeEsc = $this->db->escape($code);
+                // Collision année N / N+1 (même mmjj+compteur) : garder le récent.
+                $this->archive_older_code_ticket_duplicates($code);
                 // Compagnie ticket = arrivée (id_compaga), comme Passager_model — pas la cie départ.
                 // non_passager : rattacher le retour confirmé via codeticket = code_ticket.
+                // Récent d’abord (datep_create DESC), puis 1ʳᵉ jambe transit (date_progr ASC).
                 return $this->db->query("SELECT
                     ctp.*,
                     p.*,
@@ -199,7 +254,7 @@
                     AND p.actif_pas = 0
                     AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
                     AND BINARY ctp.tamponcod NOT IN (SELECT code_tick_tamp FROM report WHERE actifrep = 0)
-                    ORDER BY pr.date_progr ASC, h.heure ASC, p.code_passager ASC
+                    ORDER BY p.datep_create DESC, pr.date_progr ASC, h.heure ASC, p.code_passager ASC
                     LIMIT 1")->row();
         }
 

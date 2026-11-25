@@ -4489,7 +4489,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         __reprogQ('dateventerepunifie').value = donnees.datep_create || '';
                         __reprogQ('gareidentifunifie').value = donnees.gareidentif || '';
                         __reprogQ('departclientidgareunifie').value = donnees.departclient_idgare || '';
-                        __reprogQ('codeclient_ticket_unifie').value = donnees.code_ticket || '';
+                        // Préférer la saisie : JSON_NUMERIC_CHECK legacy transformait
+                        // 1118765E296 → 1.118765e+302 (String() ne récupère pas le code).
+                        (function () {
+                            var typed = String((__reprogQ('code_lookup_unifie') || {}).value || '').trim();
+                            var raw = donnees.code_ticket;
+                            var ct = (raw != null && raw !== '') ? String(raw).trim() : '';
+                            if (!ct || /e[+-]\d+$/i.test(ct)) {
+                                ct = typed;
+                            }
+                            __reprogQ('codeclient_ticket_unifie').value = ct;
+                        })();
                         __reprogQ('prixventeunifie').value = donnees.prixvente != null ? donnees.prixvente : '';
                         __reprogQ('gaexp_unifie').value = donnees.gaexp_lg || '';
                         __reprogQ('gadest_unifie').value = donnees.gadest_lg || '';

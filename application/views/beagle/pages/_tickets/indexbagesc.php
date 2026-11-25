@@ -14,14 +14,22 @@ $role17_mode = function_exists('role17_is_agent') && role17_is_agent();
 <?php else: ?>
 <div class="row">
     <p class="mt-0 mb-2 ml-4">
-        <?php $this->load->view('_partials/btn_retour', array(
-            'fallback' => retour_bagage_escal_url(
-                $this->session->company->ekey,
-                $conex->roleattribut,
-                $bus_stop->idengare,
-                $bus_stop->idsousgare
-            ),
-        )); ?>
+        <?php
+        $ra_ops = (is_object($conex) && !empty($conex->roleattribut)) ? (int) $conex->roleattribut : 0;
+        if ($ra_ops <= 0 && !empty($this->session->agent->roleattribut)) {
+            $ra_ops = (int) $this->session->agent->roleattribut;
+        }
+        $this->load->view('_partials/btn_retour', array(
+            'fallback' => $ra_ops > 0
+                ? retour_bagage_escal_url(
+                    $this->session->company->ekey,
+                    $ra_ops,
+                    $bus_stop->idengare,
+                    $bus_stop->idsousgare
+                )
+                : site_url('home/main?onglet=escale'),
+        ));
+        ?>
     </p>
 </div>
 <?php endif; ?>

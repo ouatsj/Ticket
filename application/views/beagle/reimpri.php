@@ -13,7 +13,6 @@
             : 'Rakieta Bus';
         echo htmlspecialchars($companyName . ' • ' . (isset($title) ? $title : 'Réimpression'), ENT_QUOTES, 'UTF-8');
     ?></title>
-    <link rel="stylesheet" href="<?= base_url('assets/lib/fa/css/all.min.css'); ?>">
     <style>
         html, body {
             margin: 0;
@@ -30,31 +29,30 @@
             box-sizing: border-box;
             min-height: 100vh;
             background: #fff;
+            color: #0f172a;
         }
-        .reimpri-shell .fas { font-style: normal; }
-        /* Pas de Bootstrap ici : styles boutons Accueil du chrome r17 */
-        .reimpri-shell a.btn {
-            display: inline-block;
-            text-decoration: none;
-            color: #fff;
-            background: #64748b;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-        }
-        .reimpri-shell a.btn-secondary { background: #475569; color: #fff; }
-        .reimpri-shell .alert {
-            padding: 0.55rem 0.75rem;
+        .reimpri-fallback {
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 2px dashed #f59e0b;
             border-radius: 8px;
-            margin: 0 0 0.75rem;
+            background: #fffbeb;
+            color: #92400e;
+            font-size: 1rem;
+            font-weight: 700;
         }
-        .reimpri-shell .alert-danger { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-        .reimpri-shell .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
     </style>
 </head>
 <body class="reimpri-standalone">
 <div class="reimpri-shell">
-<?= isset($cfl) ? $cfl : ''; ?>
+<?php
+$__cfl = isset($cfl) ? (string) $cfl : '';
+if (trim(strip_tags($__cfl)) === '') {
+    echo '<div class="reimpri-fallback">Réimpression : contenu indisponible. Revenez à l’accueil puis rouvrez le menu.</div>';
+} else {
+    echo $__cfl;
+}
+?>
 </div>
 </body>
 </html>

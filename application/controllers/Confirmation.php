@@ -50,6 +50,56 @@
             }
             $this->property = role17_inject_property($this->property, $uid, $gd);
         }
+
+        /**
+         * Bind opérateur escale pour aperçu admin/superviseur (URL uid = vendeur).
+         * Évite conex null sur KOM24 → liens compte//… → 404.
+         *
+         * @param int|string $uid
+         * @param string $ekey
+         * @param string $gd
+         * @return object|null
+         */
+        protected function _conex_escale_ops_bind(&$uid, $ekey, $gd)
+        {
+            $hint = (int) $uid;
+            if ($hint > 0
+                && function_exists('roleattribut_guard_is_supervisor')
+                && roleattribut_guard_is_supervisor()
+            ) {
+                $conex = $this->m_compte_user->getusergare($ekey, $gd, $hint);
+                if (!$conex || empty($conex->roleattribut)) {
+                    $conex = $this->db->query(
+                        "SELECT ar.*, ul.*, cu.*, u.*, r.*, g.*
+                         FROM attributions_role ar
+                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                         JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                         JOIN utilisateurs u ON cu.userlog_id = u.uid
+                         JOIN user_roles r ON ar.userole = r.id_rols
+                         JOIN gares g ON ul.guser = g.idengare
+                         JOIN compagnies c ON g.compagniegare = c.cle_compagnie
+                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                         WHERE e.ekey = ?
+                         AND ar.roleattribut = ?
+                         AND ar.activer_role = 0
+                         LIMIT 1",
+                        array($ekey, $hint)
+                    )->row();
+                }
+                if ($conex && !empty($conex->roleattribut)) {
+                    $uid = (int) $conex->roleattribut;
+                    return $conex;
+                }
+                // Minimal : garder l’uid URL pour les liens même sans fiche gare.
+                $uid = $hint;
+                return (object) array(
+                    'roleattribut' => $hint,
+                    'userole' => '17',
+                );
+            }
+
+            return $this->_roleattribut_guard_bind($uid, $ekey, $gd);
+        }
         
         /**
          * @author KARAMA Adjaratou
@@ -2517,7 +2567,7 @@
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                 $this->property['bus_stop'] = $bus_stop;
 
-                $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
+                $conex = $this->_conex_escale_ops_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
 
                 $this->property['cptbages'] = $this->m_bagageesc->compteur($this->company->ekey, $uid, $gd);
@@ -2557,7 +2607,7 @@
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                     $this->property['bus_stop'] = $bus_stop;
 
-                    $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
+                    $conex = $this->_conex_escale_ops_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
 
            
@@ -2580,7 +2630,7 @@
                 $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
                 $this->property['bus_stop'] = $bus_stop;
 
-                $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
+                $conex = $this->_conex_escale_ops_bind($uid, $this->company->ekey, $gd);
                 $this->property['conex'] = $conex;
 
                 $this->property['cptcourescd'] = $this->m_courrier_expedieresc->compteurcd($this->company->ekey, $uid, $gd);

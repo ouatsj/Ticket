@@ -418,9 +418,11 @@
                 'arrcptescal' => 0,
                 'cptarrchgescal' => 0,
             );
-            // Colonnes optionnelles selon schéma
+            // reimpr=0 : le chef doit autoriser via TRI PASSAGER ESCAL (crayon/redo).
+            // Avant : insert à 1 → tous les tickets apparaissaient en réimp, et le
+            // bascule chef les retirait au lieu de les envoyer au vendeur.
             if ($this->db->field_exists('reimpr', 'escalclients')) {
-                $insert['reimpr'] = 1;
+                $insert['reimpr'] = 0;
             }
             $this->m_escalclients->create($insert);
 
@@ -440,26 +442,28 @@
 
         public function reimpri($ckey, $id, $statutr, $idlh, $gd, $uid, $sg)
         {
-            $company = $this->m_entreprises->get_key($ckey);
-
-                    if($statutr == 0){
-
-                        $statsrv = 1;
-                    }
-                    else
-                    {
-                        $statsrv = 0;
-                    }
-                    
-                    $upreimpr = array(
-                        'reimpr' => $statsrv,
-                    );
-                    
-                    $this->m_escalclients->update($id, $upreimpr);
-
-                    $this->property['UPDATE_SUCCESS'] = TRUE;
-
-            redirect('historique_passagers/tripassageresc/'.$this->session->company->ekey.'/'.$uid.'/'.$gd.'/'.$sg);         
+            $this->m_entreprises->get_key($ckey);
+            // 0 → 1 : envoyer au vendeur pour réimpression.
+            // 1 → 0 : retirer l’autorisation.
+            $statsrv = ((int) $statutr === 1) ? 0 : 1;
+            if ($this->db->field_exists('reimpr', 'escalclients')) {
+                $this->m_escalclients->update($id, array('reimpr' => $statsrv));
+            }
+            if ($statsrv === 1) {
+                $this->session->set_flashdata(
+                    'sale_success',
+                    'Ticket envoyé au vendeur escale pour réimpression.'
+                );
+            } else {
+                $this->session->set_flashdata(
+                    'sale_success',
+                    'Autorisation de réimpression annulée pour ce ticket.'
+                );
+            }
+            redirect(
+                'historique_passagers/tripassageresc/'
+                . $this->session->company->ekey . '/' . $uid . '/' . $gd . '/' . $sg
+            );
         }
 
         public function voirreimpri($ckey, $uid, $gd, $sg)
@@ -472,80 +476,81 @@
             }
             $this->property['bus_stop'] = $bus_stop;
 
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
-            if (!$conex && $this->session->userdata('agent')) {
-                $conex = $this->m_compte_user->getusergare(
-                    $this->company->ekey,
-                    $gd,
-                    $this->session->agent->roleattribut
-                );
-            }
+            $conex = $this->_reimpri_conex($gd, $uid);
             if (!$conex) {
                 roleattribut_guard_fail_redirect_home($this->company->ekey);
                 return;
             }
             $this->property['conex'] = $conex;
 
-            // Venteescale : toujours UI onglets + shell autonome (TPE Chrome 64).
-            // Tickets : uniquement ceux repositionnés par le chef (reimpr=1).
-            $this->property['reponseallereimp'] = $this->m_escalclients->getrep_escale(
-                $this->company->ekey,
-                $conex->roleattribut,
-                $gd,
-                $sg
-            );
-            if (!isset($this->m_bagageesc)) {
-                $this->load->model('Bagageesc_model', 'm_bagageesc');
+            // Rediriger vers le Guichet embarqué (?reimpri=1) : la page autonome
+            // s’affichait blanche / lente chez admin et TPE.
+            $uid = (int) $conex->roleattribut;
+            $hub = !empty($conex->guser) ? (string) $conex->guser : (string) $gd;
+            $hubSg = (int) $sg;
+            $last = $this->db->query(
+                "SELECT departsgescal AS sg FROM escalclients
+                 WHERE iduseescal = ? ORDER BY idclescal DESC LIMIT 1",
+                array($uid)
+            )->row();
+            if ($last && (int) $last->sg > 0) {
+                $hubSg = (int) $last->sg;
             }
-            if (!isset($this->m_courrier_expedieresc)) {
-                $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+            $tab = $this->input->get('tab');
+            $q = array('reimpri' => '1');
+            if (in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
+                $q['reimpri_tab'] = $tab;
             }
-            // Bagage / courrier : reçus du jour.
-            $this->property['reimpri_bagages'] = $this->m_bagageesc->liste_reimpri_jour(
-                $this->company->ekey,
-                $conex->roleattribut,
-                $gd,
-                $sg
-            );
-            $this->property['reimpri_courriers'] = $this->m_courrier_expedieresc->liste_reimpri_jour(
-                $this->company->ekey,
-                $conex->roleattribut,
-                $gd,
-                $sg
-            );
-            if (!function_exists('role17_forced_escale')) {
-                $this->load->helper('role17_context');
+            // Aperçu admin : conserver le contexte escale du referer.
+            $ref = isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '';
+            if ($ref !== '' && strpos($ref, 'escale_profil=17') !== false) {
+                $parts = parse_url($ref);
+                if (!empty($parts['query'])) {
+                    parse_str($parts['query'], $rq);
+                    foreach (array('escale', 'escale_nom', 'escale_ops', 'escale_profil') as $k) {
+                        if (!empty($rq[$k])) {
+                            $q[$k] = $rq[$k];
+                        }
+                    }
+                }
+                // Compte chef dans le referer si présent.
+                if (preg_match('#/compte/(\d+)/(\d+)/#', $ref, $m)) {
+                    redirect(
+                        'gares/' . $this->company->ekey . '/gTc/' . $hub
+                        . '/compte/' . (int) $m[1] . '/' . (int) $m[2]
+                        . '/' . mdate('%d/%m/%Y', now('UTC'))
+                        . '?' . http_build_query($q)
+                    );
+                    return;
+                }
             }
-            // Contexte léger (évite un inject lourd qui peut planter la page).
-            $forced = function_exists('role17_forced_escale')
-                ? role17_forced_escale($conex->roleattribut, $gd)
-                : null;
-            $this->property['escale_depart_label'] = $forced
-                ? $forced['label']
-                : trim(
-                    (!empty($bus_stop->garenom) ? $bus_stop->garenom : '')
-                    . (!empty($bus_stop->nomsousgare) ? (' / ' . $bus_stop->nomsousgare) : '')
-                );
-            $this->property['escale_depart_fixed_admin'] = $forced ? !empty($forced['fixed']) : false;
-            $this->property['escale_id_lignes'] = $forced ? $forced['id_lignes'] : '';
-            $this->property['role17_mode'] = true;
-            // Shell autonome : pas de Beagle / PerfectScrollbar / whoami.
-            $this->property['layout_reimpri'] = TRUE;
-            $this->property['layout_minimal'] = TRUE;
-            $this->property['scripts_layout'] = 'scripts_bundle';
-            $this->property['bundle_js'] = array();
-            $this->property['bundle_optional_js'] = array();
-            $this->property['bundle_datatables'] = false;
-
-            $this->property['pagetitle'] .= "REIMPRESSION• <strong>{$this->company->nom_entreprise}•&nbsp;{$bus_stop->garenom} •&nbsp;{$bus_stop->nomsousgare}</strong>";
-            $this->property['title'] = 'Réimpression';
-
-            return $this->layout->view('_tickets/indexreimpri', $this->property);
+            redirect(
+                'gares/' . $this->company->ekey . '/gTc/' . $hub
+                . '/compte/' . $uid . '/' . $hubSg
+                . '/' . mdate('%d/%m/%Y', now('UTC'))
+                . '?' . http_build_query($q)
+            );
         }
 
         public function pdfepsonescalrp($ckey, $code_id, $tf, $h, $g, $cpus, $idsg)
         {
             $this->company = $this->m_entreprises->get_key($ckey);
+
+            /* Beacon depuis aperçu Guichet : marque reimpr=0, pas de HTML. */
+            if ((string) $this->input->get('consume') === '1') {
+                if ($this->session->userdata('agent')
+                    && $this->db->field_exists('reimpr', 'escalclients')
+                ) {
+                    $this->db->where('idclescal', $code_id)
+                        ->update('escalclients', array('reimpr' => 0));
+                }
+                $this->output
+                    ->set_status_header(204)
+                    ->set_header('Cache-Control: no-store')
+                    ->set_output('');
+                return;
+            }
+
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $g, $idsg);
             if (!$bus_stop) {
                 roleattribut_guard_fail_redirect_home($this->company->ekey);
@@ -553,28 +558,57 @@
             }
             $this->property['bus_stop'] = $bus_stop;
 
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $g, $cpus);
-            if (!$conex && $this->session->userdata('agent')) {
-                $conex = $this->m_compte_user->getusergare(
-                    $this->company->ekey,
-                    $g,
-                    $this->session->agent->roleattribut
-                );
-            }
+            $conex = $this->_reimpri_conex($g, $cpus);
             if (!$conex) {
                 roleattribut_guard_fail_redirect_home($this->company->ekey);
                 return;
             }
             $this->property['conex'] = $conex;
 
+            /* Toujours afficher l’aperçu dans le Guichet (évite page blanche TPE). */
+            if ((string) $this->input->get('embed') !== '1') {
+                $hub = !empty($conex->guser) ? (string) $conex->guser : (string) $g;
+                $sg_ret = !empty($conex->idsousgare) ? (int) $conex->idsousgare : (int) $idsg;
+                $ra_ret = !empty($conex->roleattribut) ? (int) $conex->roleattribut : (int) $cpus;
+                $q = array(
+                    'reimpri' => '1',
+                    'reimpri_tab' => 'ticket',
+                    'preview' => (string) $code_id,
+                );
+                $ref = isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '';
+                if ($ref !== '' && strpos($ref, 'escale_profil=17') !== false) {
+                    $parts = parse_url($ref);
+                    if (!empty($parts['query'])) {
+                        parse_str($parts['query'], $rq);
+                        foreach (array('escale', 'escale_nom', 'escale_ops', 'escale_profil') as $k) {
+                            if (!empty($rq[$k])) {
+                                $q[$k] = $rq[$k];
+                            }
+                        }
+                    }
+                    if (preg_match('#/compte/(\d+)/(\d+)/#', $ref, $m)) {
+                        $ra_ret = (int) $m[1];
+                        $sg_ret = (int) $m[2];
+                    }
+                    if (preg_match('#/gTc/([^/]+)/#', $ref, $m)) {
+                        $hub = (string) $m[1];
+                    }
+                }
+                redirect(
+                    'gares/' . $this->company->ekey . '/gTc/' . $hub
+                    . '/compte/' . $ra_ret . '/' . $sg_ret
+                    . '/' . mdate('%d/%m/%Y', now('UTC'))
+                    . '?' . http_build_query($q)
+                );
+                return;
+            }
+
+            // Ne pas exiger reimpr=1 ici : Chrome TPE refait un 2e GET après le 1er
+            // (qui a déjà mis reimpr=0) → 307 « introuvable » et page d’impression perdue.
             $item = $this->m_escalclients->rget($this->company->ekey, $code_id, $tf, $h);
             $libre = false;
             if (!$item) {
                 $item = $this->m_escalclients->get_libre($this->company->ekey, $code_id);
-                // Réimpression : le chef doit avoir repositionné (reimpr=1).
-                if ($item && (int) $item->reimpr !== 1) {
-                    $item = null;
-                }
                 $libre = (bool) $item;
             }
             if (!$item) {
@@ -592,7 +626,6 @@
                      LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
                      LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
                      WHERE BINARY es.idclescal = ?
-                     AND es.reimpr = 1
                      LIMIT 1",
                     array($code_id)
                 )->row();
@@ -605,27 +638,26 @@
             if (!$item) {
                 $this->session->set_flashdata(
                     'error',
-                    'Réimpression refusée : ticket introuvable ou non autorisé par le chef (repositionnement requis).'
+                    'Réimpression refusée : ticket introuvable.'
                 );
-                redirect('ventescales/voirreimpri/' . $this->company->ekey . '/'
-                    . (int) $conex->roleattribut . '/' . rawurlencode($g) . '/' . (int) $idsg);
-                return;
+                return $this->_redirect_reimpri_guichet($conex, $g, $idsg);
             }
 
             $userole = !empty($conex->userole)
                 ? (string) $conex->userole
                 : (string) $this->session->agent->userole;
-            // Vendeur : uniquement ses tickets. Admin/superviseur : tickets de la gare.
+            $is_supervisor = function_exists('roleattribut_guard_is_supervisor')
+                && roleattribut_guard_is_supervisor();
+            // Vendeur : uniquement ses tickets. Admin/superviseur : OK.
             if ((string) $userole === '17'
+                && !$is_supervisor
                 && (int) $item->iduseescal !== (int) $conex->roleattribut
             ) {
                 $this->session->set_flashdata(
                     'error',
                     'Réimpression refusée : ce ticket appartient à un autre opérateur.'
                 );
-                redirect('ventescales/voirreimpri/' . $this->company->ekey . '/'
-                    . (int) $conex->roleattribut . '/' . rawurlencode($g) . '/' . (int) $idsg);
-                return;
+                return $this->_redirect_reimpri_guichet($conex, $g, $idsg);
             }
 
             // Toujours 57×40 mm (POSPrinter) — libre ou classique.
@@ -670,18 +702,67 @@
                 $item->prixescal = 0;
             }
 
-            // Sort de la file seulement quand on a un ticket affichable (évite blanc + perte d’autorisation).
-            $this->m_escalclients->update($item->idclescal, array('reimpr' => 0));
+            // Quitte la file réimp (idempotent si déjà 0 — 2e GET TPE).
+            if ((int) $item->reimpr === 1) {
+                $this->m_escalclients->update($item->idclescal, array('reimpr' => 0));
+                $item->reimpr = 0;
+            }
 
-            $this->load->helper(array('ticket_escale_libre_print', 'url_safe', 'ticket_prix'));
+            $this->load->helper(array('ticket_escale_libre_print', 'url_safe', 'ticket_prix', 'retour'));
             $this->property['item'] = $item;
             $this->property['bus_stop'] = $bus_stop;
             $this->property['conex'] = $conex;
             $this->property['layout_print'] = TRUE;
-            if (function_exists('role17_is_agent') && role17_is_agent()) {
-                $this->property['role17_mode'] = true;
-            }
+            // Toujours mode ops : Accueil après print = Guichet hub (pas compte//).
+            $this->property['role17_mode'] = true;
+            // Réimp : aperçu + bouton (pas d’auto-print / overlay → page blanche TPE).
+            $this->property['print_manual'] = true;
+            $hub = !empty($conex->guser) ? (string) $conex->guser : (string) $g;
+            $sg_ret = !empty($conex->idsousgare) ? (int) $conex->idsousgare : (int) $idsg;
+            $this->property['print_retour_url'] = site_url(
+                'gares/' . $this->company->ekey . '/gTc/' . $hub
+                . '/compte/' . (int) $conex->roleattribut . '/' . $sg_ret
+                . '/' . mdate('%d/%m/%Y', now('UTC'))
+                . '?reimpri=1'
+            );
             $this->layout->view('_tickets/pdfepsonescal_libre', $this->property);
+        }
+
+        /**
+         * Retour Guichet réimp après échec print (évite 404 / page autonome).
+         */
+        private function _redirect_reimpri_guichet($conex, $gd, $sg)
+        {
+            $uid = ($conex && !empty($conex->roleattribut)) ? (int) $conex->roleattribut : 0;
+            $hub = ($conex && !empty($conex->guser)) ? (string) $conex->guser : (string) $gd;
+            $q = array('reimpri' => '1');
+            $ref = isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '';
+            if ($ref !== '' && strpos($ref, 'escale_profil=17') !== false) {
+                $parts = parse_url($ref);
+                if (!empty($parts['query'])) {
+                    parse_str($parts['query'], $rq);
+                    foreach (array('escale', 'escale_nom', 'escale_ops', 'escale_profil') as $k) {
+                        if (!empty($rq[$k])) {
+                            $q[$k] = $rq[$k];
+                        }
+                    }
+                }
+                if (preg_match('#/compte/(\d+)/(\d+)/#', $ref, $m)) {
+                    redirect(
+                        'gares/' . $this->company->ekey . '/gTc/' . $hub
+                        . '/compte/' . (int) $m[1] . '/' . (int) $m[2]
+                        . '/' . mdate('%d/%m/%Y', now('UTC'))
+                        . '?' . http_build_query($q)
+                    );
+                    return;
+                }
+            }
+            redirect(
+                'gares/' . $this->company->ekey . '/gTc/' . $hub
+                . '/compte/' . $uid . '/' . (int) $sg
+                . '/' . mdate('%d/%m/%Y', now('UTC'))
+                . '?' . http_build_query($q)
+            );
         }
 
         /**
@@ -812,18 +893,76 @@
             return $this->_redirect_apres_suppression($conex, $gd, $sg, 'courrier');
         }
 
-        /** @return object|null */
+        /**
+         * Opérateur réimp / aperçu escale.
+         * Login souvent sur le hub (OUA1) alors que le lieu vente est KOM24 :
+         * getusergare(KOM24, 196) échoue → 307. On retombe sur la fiche
+         * roleattribut sans exiger ul.guser = gare du lieu.
+         *
+         * @return object|null
+         */
         private function _reimpri_conex($gd, $uid)
         {
-            $conex = $this->m_compte_user->getusergare($this->company->ekey, $gd, $uid);
-            if (!$conex && $this->session->userdata('agent')) {
-                $conex = $this->m_compte_user->getusergare(
-                    $this->company->ekey,
-                    $gd,
-                    $this->session->agent->roleattribut
+            $uid = (int) $uid;
+            $ekey = $this->company->ekey;
+            $conex = null;
+            if ($uid > 0) {
+                $conex = $this->m_compte_user->getusergare($ekey, $gd, $uid);
+            }
+            if ((!$conex || empty($conex->roleattribut)) && $uid > 0) {
+                $conex = $this->db->query(
+                    "SELECT ar.*, ul.*, cu.*, u.*, r.*, g.*
+                     FROM attributions_role ar
+                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                     JOIN utilisateurs u ON cu.userlog_id = u.uid
+                     JOIN user_roles r ON ar.userole = r.id_rols
+                     JOIN gares g ON ul.guser = g.idengare
+                     JOIN compagnies c ON g.compagniegare = c.cle_compagnie
+                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                     WHERE e.ekey = ?
+                     AND ar.roleattribut = ?
+                     AND ar.activer_role = 0
+                     LIMIT 1",
+                    array($ekey, $uid)
+                )->row();
+            }
+            if ((!$conex || empty($conex->roleattribut))
+                && $this->session->userdata('agent')
+                && !empty($this->session->agent->roleattribut)
+            ) {
+                $self = (int) $this->session->agent->roleattribut;
+                $conex = $this->m_compte_user->getusergare($ekey, $gd, $self);
+                if ((!$conex || empty($conex->roleattribut)) && $self > 0) {
+                    $conex = $this->db->query(
+                        "SELECT ar.*, ul.*, cu.*, u.*, r.*, g.*
+                         FROM attributions_role ar
+                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                         JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                         JOIN utilisateurs u ON cu.userlog_id = u.uid
+                         JOIN user_roles r ON ar.userole = r.id_rols
+                         JOIN gares g ON ul.guser = g.idengare
+                         JOIN compagnies c ON g.compagniegare = c.cle_compagnie
+                         JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                         WHERE e.ekey = ?
+                         AND ar.roleattribut = ?
+                         AND ar.activer_role = 0
+                         LIMIT 1",
+                        array($ekey, $self)
+                    )->row();
+                }
+            }
+            // Aperçu admin : uid URL suffit pour afficher la page.
+            if ((!$conex || empty($conex->roleattribut)) && $uid > 0
+                && function_exists('roleattribut_guard_is_supervisor')
+                && roleattribut_guard_is_supervisor()
+            ) {
+                return (object) array(
+                    'roleattribut' => $uid,
+                    'userole' => '17',
                 );
             }
-            return $conex;
+            return ($conex && !empty($conex->roleattribut)) ? $conex : null;
         }
 
         private function _redirect_apres_suppression($conex, $gd, $sg, $tab = 'ticket')

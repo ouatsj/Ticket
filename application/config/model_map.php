@@ -17,6 +17,7 @@ return array(
     'm_lignes' => 'Lignes_model',
     'm_non_passager' => 'Non_passager_model',
     'm_passager' => 'Passager_model',
+    'm_archive_annee' => 'Archive_annee_model',
     'm_programme' => 'Programme_model',
     'm_programme_correspondance' => 'Programme_correspondance_model',
     'm_programme_reconduction' => 'Programme_reconduction_model',

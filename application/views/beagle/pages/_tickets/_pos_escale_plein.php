@@ -19,19 +19,34 @@ html, body {
         min-height: 0;
         overflow: hidden;
     }
+    /* Chrome 64 TPE : pas de inset — top/left/right/bottom */
     #printStatus {
         position: fixed;
-        inset: 0;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
         z-index: 50;
+        display: -webkit-box;
+        display: -webkit-flex;
         display: flex;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: column;
         flex-direction: column;
+        -webkit-box-align: center;
+        -webkit-align-items: center;
         align-items: center;
+        -webkit-box-pack: center;
+        -webkit-justify-content: center;
         justify-content: center;
         background: #fff;
         font-family: Arial, Helvetica, sans-serif;
         color: #222;
         text-align: center;
         padding: 24px;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
     }
     #printStatus .msg { font-size: 20px; font-weight: 700; margin: 0 0 8px; }
     #printStatus .sub { font-size: 14px; color: #666; margin: 0; }

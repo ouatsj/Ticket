@@ -2223,7 +2223,8 @@
                 $this->property['repor_inclus_vendeur'] = $this->m_passager->totaux_repor_inclus_vendeur(
                     $this->company->ekey, $idconnex, $comp, $g, 1
                 );
-            
+
+            $this->property['layout_print'] = TRUE;
             $this->layout->view('_tickets/pdfepsonrapt', $this->property);
         }
 
@@ -2250,7 +2251,8 @@
                 $this->property['repor_inclus_vendeur'] = $this->m_passager->totaux_repor_inclus_vendeur(
                     $this->company->ekey, $idconnex, $comp, $g, 1
                 );
-            
+
+            $this->property['layout_print'] = TRUE;
             $this->layout->view('_tickets/pdfeprapt', $this->property);
         }
 
@@ -2798,7 +2800,18 @@
                 }
             }
             $this->property['item'] = $this->escalclients;
-            
+            // Impression chef/historique : retirer de la file réimp vendeur.
+            if ($this->escalclients
+                && $this->db->field_exists('reimpr', 'escalclients')
+                && !empty($this->escalclients->idclescal)
+                && (int) $this->escalclients->reimpr !== 0
+            ) {
+                $this->m_escalclients->update(
+                    $this->escalclients->idclescal,
+                    array('reimpr' => 0)
+                );
+            }
+
             $this->layout->view('_tickets/pdfepsonescal', $this->property);
         }
 
@@ -2841,6 +2854,15 @@
                 );
                 redirect($accueil);
                 return;
+            }
+
+            // Première impression / réouverture : sortir de la file réimp vendeur.
+            if ($this->db->field_exists('reimpr', 'escalclients')
+                && !empty($item->idclescal)
+                && (int) $item->reimpr !== 0
+            ) {
+                $this->m_escalclients->update($item->idclescal, array('reimpr' => 0));
+                $item->reimpr = 0;
             }
 
             $this->property['item'] = $item;
@@ -2910,26 +2932,46 @@
         {
             $this->company = $this->m_entreprises->get_key($ckey);
             $bus_stop = $this->m_sousgare->sget($this->company->ekey, $gd, $sg);
-                    $this->property['bus_stop'] = $bus_stop;
+            $this->property['bus_stop'] = $bus_stop;
 
-                $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
-                $this->property['conex'] = $conex;
-            $ddbt = $this->input->post('debutdatees');
-            $dfin = $this->input->post('findatees');
-            if ($this->session->agent->userole === '1' OR $this->session->agent->userole === '2'){
+            $conex = $this->_roleattribut_guard_bind($uid, $this->company->ekey, $gd);
+            $this->property['conex'] = $conex;
 
-                $this->property['historiqueses'] = $this->m_escalclients->alldayad($this->company->ekey, $ddbt, $dfin);
-
+            $ddbt = trim((string) $this->input->post('debutdatees'));
+            $dfin = trim((string) $this->input->post('findatees'));
+            // Après Ventescales/reimpri (redirect GET) : conserver la dernière plage en session.
+            if ($ddbt === '' && $dfin === '') {
+                $ddbt = trim((string) $this->session->userdata('tri_esc_debut'));
+                $dfin = trim((string) $this->session->userdata('tri_esc_fin'));
             }
-            else{
+            if ($ddbt === '' || $dfin === '') {
+                $today = date('Y-m-d');
+                $ddbt = $ddbt !== '' ? $ddbt : $today;
+                $dfin = $dfin !== '' ? $dfin : $today;
+            }
+            $this->session->set_userdata('tri_esc_debut', $ddbt);
+            $this->session->set_userdata('tri_esc_fin', $dfin);
+            $this->property['tri_esc_debut'] = $ddbt;
+            $this->property['tri_esc_fin'] = $dfin;
 
-                $this->property['historiqueses'] = $this->m_escalclients->allday($this->company->ekey, $ddbt, $dfin, $gd);
+            if ($this->session->agent->userole === '1' || $this->session->agent->userole === '2') {
+                $this->property['historiqueses'] = $this->m_escalclients->alldayad(
+                    $this->company->ekey,
+                    $ddbt,
+                    $dfin
+                );
+            } else {
+                $this->property['historiqueses'] = $this->m_escalclients->allday(
+                    $this->company->ekey,
+                    $ddbt,
+                    $dfin,
+                    $gd
+                );
             }
 
-                $this->property['garedeparts'] = $this->m_sousgare->get($this->company->id_entreprise, $gd);
-                $this->property['typesclients'] = $this->m_type_client->get();
-                return $this->layout->view('_historique/tries_passager', $this->property);
-         
+            $this->property['garedeparts'] = $this->m_sousgare->get($this->company->id_entreprise, $gd);
+            $this->property['typesclients'] = $this->m_type_client->get();
+            return $this->layout->view('_historique/tries_passager', $this->property);
         }
 
         public function epretour($ckey, $cdnp, $g, $cpus, $idsg)

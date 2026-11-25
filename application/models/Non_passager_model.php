@@ -8,7 +8,14 @@
         {
             parent::__construct();
             $this->load->helper('etat_lettres');
+            $this->load->helper('archive_annee');
             $this->_ensure_ligne_vendue_columns();
+        }
+
+        /** États : live + archive (v_non_passager). */
+        protected function query_etat($sql, $binds = false)
+        {
+            return $this->db->query(archive_annee_sql_etat($sql), $binds);
         }
 
         private function _ensure_ligne_vendue_columns()
@@ -562,7 +569,7 @@
         {
             $today = mdate("%Y-%m-%d", now('UTC'));
             
-            return $this->db->query("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, dest.id_compaga, np.id_ligne_pass, np.prixretour, cu.username, np.datevente FROM non_passager np
+            return $this->query_etat("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, dest.id_compaga, np.id_ligne_pass, np.prixretour, cu.username, np.datevente FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -589,7 +596,7 @@
             }
             $vendeurSql = $CI->m_passager->sql_filtre_vendeur($idvd);
 
-            return $this->db->query("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
+            return $this->query_etat("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -617,7 +624,7 @@
             }
             $vendeurSql = $CI->m_passager->sql_filtre_vendeur($idvd);
 
-            return $this->db->query("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
+            return $this->query_etat("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -644,7 +651,7 @@
             }
             $vendeurSql = $CI->m_passager->sql_filtre_vendeur($idvd);
 
-            return $this->db->query("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
+            return $this->query_etat("SELECT SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.id_ligne_pass, dest.id_compaga, np.prixretour, cu.username FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -677,7 +684,7 @@
                 $extra .= ' AND lg.ident_ligne = ' . $this->db->escape($algn);
             }
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -702,7 +709,7 @@
         $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             
             if ($acl === '' AND $algn === '') {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -732,7 +739,7 @@
             }
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
+                return $this->query_etat("SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -760,7 +767,7 @@
 )
                     GROUP BY np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne)")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -795,7 +802,7 @@
         {
             
             if ($acl === '') {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -824,7 +831,7 @@
                     GROUP BY np.datevente, dest.id_compaga")->result();
             }
             
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -866,7 +873,7 @@
             }
             $vendeurSql = $CI->m_passager->sql_filtre_vendeur($acl);
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -892,7 +899,7 @@
         $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             
             if ($gid === '' AND $acl === '') {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -921,7 +928,7 @@
             }
             elseif($acl === '')
             {
-                return $this->db->query("SELECT SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
+                return $this->query_etat("SELECT SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -947,7 +954,7 @@
 )
                     {$filtreLettres} GROUP BY np.datevente, dest.id_compaga")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -988,7 +995,7 @@
                 $extra .= ' AND lg.ident_ligne = ' . $this->db->escape($algn);
             }
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, np.datevente, dest.id_compaga FROM non_passager np
                 JOIN attributions_role ar ON np.cptus = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1013,7 +1020,7 @@
         $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $dt1, $dt2);
             
             if ($acl === '' AND $algn === '') {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1043,7 +1050,7 @@
             }
             elseif($algn === '')
             {
-                return $this->db->query("SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
+                return $this->query_etat("SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -1071,7 +1078,7 @@
 )
                     GROUP BY np.prixretour, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne)")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1107,7 +1114,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, dest.id_compaga, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1125,7 +1132,7 @@
                     AND ex.code_gaexp = '$gid'
                     GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), dest.id_compaga, np.prixretour")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, dest.id_compaga, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1159,7 +1166,7 @@
                 $extra .= ' AND lg.ident_ligne = ' . $this->db->escape($algn);
             }
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1183,7 +1190,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT * FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1209,7 +1216,7 @@
  )
 ){$filtreLettres}")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT * FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1244,7 +1251,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1272,7 +1279,7 @@
 )
                     GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1307,7 +1314,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
@@ -1339,7 +1346,7 @@
                      )
                     GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
@@ -1382,7 +1389,7 @@
 
             if ($algn === '')
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
@@ -1415,7 +1422,7 @@
                      )
                     GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
@@ -1459,7 +1466,7 @@
 
             if ($algn === '')
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT np.* FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
@@ -1491,7 +1498,7 @@
 )
                      )")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT np.* FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
@@ -1529,7 +1536,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT * FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1557,7 +1564,7 @@
  )
 )")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT * FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1592,7 +1599,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1619,7 +1626,7 @@
 )
                     GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN attributions_role ar ON np.cptus = ar.roleattribut
                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1655,7 +1662,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
@@ -1687,7 +1694,7 @@
                      )
                     GROUP BY COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne), np.prixretour")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(code_non_pass) AS code_non_pass, SUM(prixretour) AS totalr, COALESCE(NULLIF(TRIM(np.nom_ligne), ''), lg.nom_ligne) AS nom_ligne, np.prixretour FROM non_passager np
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
                     JOIN gare_exp ex ON lg.gaexp_lg = ex.code_gaexp
@@ -1753,7 +1760,7 @@
             // Même filtre lettres que EXERCICE retour (ticket_etats), sans INNER JOIN client exclusif.
             $filtreLettres = etat_filtre_lettres('np.verifnonpassager', 'np.datevente', $cp, 'ticket_etats', $d1, $d2);
             if ($gd === '') {
-                return $this->db->query(
+                return $this->query_etat(
                 "SELECT * FROM non_passager np
                     LEFT JOIN client cl ON np.id_client_npass = cl.id_client
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
@@ -1767,7 +1774,7 @@
                     AND dest.id_compaga = '$cp'")->result();
             }
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT * FROM non_passager np
                     LEFT JOIN client cl ON np.id_client_npass = cl.id_client
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne
@@ -1794,7 +1801,7 @@
         public function exopassglob($cid, $cp, $d1, $d2, $gd)
         {
             if($gd === ''){
-                return $this->db->query(
+                return $this->query_etat(
                 "SELECT * FROM non_passager np 
                     JOIN client cl ON np.id_client_npass = cl.id_client
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne 
@@ -1810,7 +1817,7 @@
 
             else
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT * FROM non_passager np 
                     JOIN client cl ON np.id_client_npass = cl.id_client
                     JOIN lignes lg ON np.id_ligne_pass = lg.ident_ligne 

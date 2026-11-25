@@ -1,5 +1,11 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
+// Aperçu admin : bandeau contexte (le bouton retour est dans btn_retour_gare).
+$__apercu_guichet = !empty($vue_escale_seule)
+    || trim((string) $this->input->get('escale_profil')) === '17';
+if ($__apercu_guichet) {
+    $this->load->view('beagle/pages/guichet/_masquer_etats_escale');
+}
 $compte_arret_only_compte = !empty($compte_arret_only_compte) || !empty($compte_arret_blocked);
 $solde = 0;
 if (!empty($cptalleresc) && isset($cptalleresc->total)) {
@@ -60,6 +66,60 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
               data-solde-suffix=" FCFA"><?= number_format($solde, 0, '', ' '); ?> FCFA</span>
     </div>
 
+    <?php
+    // Liens ops : hub de l’agent (guser), pas le lieu remappé (KOM24) issu d’un
+    // sget(idsousgare lieu) — sinon réimp/bagage → page blanche ou compte// 404.
+    $__r17_gare = !empty($conex->guser)
+        ? (string) $conex->guser
+        : (!empty($conex->idengare) ? (string) $conex->idengare : (string) $bus_stop->idengare);
+    $__r17_sg = (int) $bus_stop->idsousgare;
+    if (!empty($bus_stop->gareprinceid) && (string) $bus_stop->gareprinceid !== $__r17_gare
+        && !empty($bus_stop->idengare) && (string) $bus_stop->idengare !== $__r17_gare
+    ) {
+        // bus_stop = sous-gare du lieu : reprendre une sg du hub si possible.
+        $__hub_sg = $this->db->query(
+            "SELECT idsousgare FROM sousgare WHERE gareprinceid = ? ORDER BY idsousgare ASC LIMIT 1",
+            array($__r17_gare)
+        )->row();
+        if ($__hub_sg) {
+            $__r17_sg = (int) $__hub_sg->idsousgare;
+        }
+    } elseif (!empty($conex->guser) && isset($this->session->agent->idsousgare)
+        && !empty($this->session->agent->guser)
+        && (string) $this->session->agent->guser === $__r17_gare
+        && (string) $this->session->agent->userole === '17'
+    ) {
+        $__r17_sg = (int) $this->session->agent->idsousgare;
+    }
+    // Aperçu admin : sous-gare typique du vendeur (login hub), pas celle du chef.
+    if (!empty($__apercu_guichet) && !empty($conex->roleattribut) && $__r17_gare !== '') {
+        $__vendeur_sg = $this->db->query(
+            "SELECT es.departsgescal AS sg
+             FROM escalclients es
+             WHERE es.iduseescal = ?
+             ORDER BY es.idclescal DESC
+             LIMIT 1",
+            array((int) $conex->roleattribut)
+        )->row();
+        if ($__vendeur_sg && (int) $__vendeur_sg->sg > 0) {
+            $__r17_sg = (int) $__vendeur_sg->sg;
+        }
+    }
+    $__r17_ra = (int) $conex->roleattribut;
+    // Réimpression dans le Guichet (même page) — plus de navigation vers page blanche.
+    $__reimpri_q = $this->input->get();
+    if (!is_array($__reimpri_q)) {
+        $__reimpri_q = array();
+    }
+    $__reimpri_q['reimpri'] = '1';
+    unset($__reimpri_q['reimpri_tab']);
+    $__uri = uri_string();
+    $__reimpri_href = site_url($__uri) . '?' . http_build_query($__reimpri_q);
+    ?>
+
+    <?php if (!empty($show_reimpri_panel)): ?>
+        <?php $this->load->view('beagle/pages/guichet/_reimpri_panel'); ?>
+    <?php else: ?>
     <div class="r17-grid">
         <?php if (!$compte_arret_only_compte): ?>
             <a href="#"
@@ -71,7 +131,7 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
                     <span class="r17-sub">Ticket · TPE 57×40</span>
                 </span>
             </a>
-            <a href="<?= site_url("confirmation/bagageescales/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
+            <a href="<?= site_url("confirmation/bagageescales/{$this->session->company->ekey}/{$__r17_ra}/{$__r17_gare}/{$__r17_sg}"); ?>"
                class="r17-btn">
                 <span class="r17-ico"><i class="fas fa-suitcase"></i></span>
                 <span class="r17-txt">
@@ -79,7 +139,7 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
                     <span class="r17-sub">Facturation</span>
                 </span>
             </a>
-            <a href="<?= site_url("confirmation/courrierescales/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
+            <a href="<?= site_url("confirmation/courrierescales/{$this->session->company->ekey}/{$__r17_ra}/{$__r17_gare}/{$__r17_sg}"); ?>"
                class="r17-btn">
                 <span class="r17-ico"><i class="fas fa-envelope"></i></span>
                 <span class="r17-txt">
@@ -87,7 +147,7 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
                     <span class="r17-sub">Envoi · Bordereau</span>
                 </span>
             </a>
-            <a href="<?= site_url("ventescales/voirreimpri/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
+            <a href="<?= htmlspecialchars($__reimpri_href, ENT_QUOTES, 'UTF-8'); ?>"
                class="r17-btn">
                 <span class="r17-ico"><i class="fas fa-print"></i></span>
                 <span class="r17-txt">
@@ -102,7 +162,7 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
             </div>
         <?php endif; ?>
 
-        <a href="<?= site_url("caisses/compteescal/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
+        <a href="<?= site_url("caisses/compteescal/{$this->session->company->ekey}/{$__r17_ra}/{$__r17_gare}/{$__r17_sg}"); ?>"
            class="r17-btn">
             <span class="r17-ico"><i class="fas fa-cash-register"></i></span>
             <span class="r17-txt">
@@ -111,6 +171,7 @@ $this->load->view('beagle/pages/guichet/_role_17_styles');
             </span>
         </a>
     </div>
+    <?php endif; ?>
 </div>
 
 <?php $this->load->view('beagle/pages/guichet/_modal_vente_escale_libre'); ?>

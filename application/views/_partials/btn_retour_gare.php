@@ -1,8 +1,15 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
 $ekey = isset($ekey) ? $ekey : $this->session->company->ekey;
-$idengare = isset($idengare) ? $idengare : $bus_stop->idengare;
-$roleattribut = isset($roleattribut) ? $roleattribut : $conex->roleattribut;
+$idengare = isset($idengare) ? $idengare : (isset($bus_stop->idengare) ? $bus_stop->idengare : '');
+$roleattribut = isset($roleattribut) ? $roleattribut : (
+    (is_object($conex) && !empty($conex->roleattribut)) ? $conex->roleattribut : 0
+);
+if ((int) $roleattribut <= 0 && $this->session->userdata('agent')
+    && !empty($this->session->agent->roleattribut)
+) {
+    $roleattribut = (int) $this->session->agent->roleattribut;
+}
 
 $__reprog_err = (isset($this->session) && method_exists($this->session, 'flashdata'))
     ? $this->session->flashdata('reprog_error')
@@ -14,10 +21,23 @@ if (!empty($__reprog_err)): ?>
 <?php endif;
 
 $is_role17 = isset($this->session->agent->userole) && (string) $this->session->agent->userole === '17';
+$apercu_escale = !empty($vue_escale_seule)
+    || trim((string) $this->input->get('escale_profil')) === '17';
 $escale_fixed = false;
 if ($is_role17) {
     $esc17 = $this->session->userdata('role17_escale');
     $escale_fixed = is_array($esc17) && !empty($esc17['fixed']);
+}
+
+// Aperçu admin Guichet : un seul retour vers la fiche escale (évite sousgare//).
+if ($apercu_escale && !empty($retour_escale_agents)) {
+    $this->load->view('_partials/btn_retour', array(
+        'label' => 'RETOUR A L’ESCALE',
+        'btn_class' => 'btn btn-secondary btn-space md-trigger',
+        'icon_class' => 'fas fa-arrow-circle-left text-info',
+        'fallback' => $retour_escale_agents,
+    ));
+    return;
 }
 
 // Rôle 17 : retour escales (manuel) ou liste gares (escale figée admin).

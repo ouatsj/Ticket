@@ -1877,6 +1877,36 @@
         }
 
         /**
+         * Détail d’un programme : créateur + historique chronologique des modifications.
+         * GET Programmes/detail_historique/{ekey}/{code_progr}
+         */
+        public function detail_historique($ckey, $code_progr = null)
+        {
+            session_release_lock();
+            $this->company = $this->m_entreprises->get_key($ckey);
+            if (!$this->_peut_gerer_programme()) {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'droit_insuffisant'),
+                ));
+            }
+            $code = trim((string) ($code_progr !== null ? $code_progr : $this->input->get('code_progr')));
+            if ($code === '') {
+                return $this->load->view('beagle/pages/_programme/json', array(
+                    'json' => array('ok' => false, 'error' => 'code_manquant'),
+                ));
+            }
+            $hist = $this->m_programme->get_historique($code);
+            return $this->load->view('beagle/pages/_programme/json', array(
+                'json' => array(
+                    'ok' => true,
+                    'programme' => $hist['programme'],
+                    'createur' => $hist['createur'],
+                    'modifications' => $hist['modifications'],
+                ),
+            ));
+        }
+
+        /**
          * Supprime un programme sans passager.
          * POST Programmes/delete_programme/{ekey} — code_progr
          */

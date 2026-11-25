@@ -10,6 +10,15 @@
             $this->load->helper('etat_lettres');
         }
 
+        /** États : live + archive (vues v_*). */
+        protected function query_etat($sql, $binds = false)
+        {
+            if (!function_exists('archive_annee_sql_etat')) {
+                $this->load->helper('archive_annee');
+            }
+            return $this->db->query(archive_annee_sql_etat($sql), $binds);
+        }
+
         /**
          * OD métier bagage escale : gare de vente → destination choisie
          * (pas la ligne catalogue parent, ex. BOBO-HAMELE → DISSIN-HAMELE).
@@ -128,7 +137,7 @@
                 $dateSql = " AND bg.date_createesc >= '{$dt1}' AND bg.date_createesc < DATE_ADD('{$dt2}', INTERVAL 1 DAY) ";
             }
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT DATE(bg.date_createesc) AS date_recet,
                         u.first_name, u.last_name,
                         SUM(bg.prix_bagageesc) AS montant_recet
@@ -664,20 +673,18 @@
          */
         public function liste_reimpri_jour($cd, $idcox, $g, $sg)
         {
+            // Liste courte pour réimp TPE : opérateur + jour (pas de filtre hub/lieu).
             $today = mdate('%Y-%m-%d', now('UTC'));
-            $nomLigneOd = $this->_sql_nom_ligne_od_escale('bg');
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT bg.id_bagageesc, bg.codebagesc, bg.prix_bagageesc, bg.contenubagageesc,
                         bg.date_createesc, cl.nom_client, cl.prenom_client, cl.contact_client,
-                        h.heure, {$nomLigneOd} AS nom_ligne
+                        h.heure, lg.nom_ligne
                  FROM bagagesesc bg
                  LEFT JOIN client cl ON bg.clientbagesc = cl.id_client
                  LEFT JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
                  LEFT JOIN heures h ON lh.heure_identif = h.id_heure
                  LEFT JOIN lignes lg ON lh.ligne_id = lg.ident_ligne
                  WHERE bg.idoperabagageesc = ?
-                 AND bg.idgarebagesc = ?
-                 AND bg.idsgarebagesc = ?
                  AND bg.date_createesc = ?
                  AND (bg.annulebagesc = 0 OR bg.annulebagesc IS NULL)
                  AND (bg.actifbagesc = 0 OR bg.actifbagesc IS NULL)
@@ -685,7 +692,7 @@
                  AND bg.prix_bagageesc > 0
                  ORDER BY bg.id_bagageesc DESC
                  LIMIT 50",
-                array($idcox, $g, $sg, $today)
+                array((int) $idcox, $today)
             )->result();
         }
 
@@ -962,7 +969,7 @@
             $gareSql = $this->_sql_gare_esc($gid);
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
                 (
                     SELECT CONCAT(
@@ -1027,7 +1034,7 @@
                 lg.nom_ligne
             ), dest.id_compaga, bg.prix_bagageesc")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
                 (
                     SELECT CONCAT(
@@ -1109,7 +1116,7 @@
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
                 (
                     SELECT CONCAT(
@@ -1191,7 +1198,7 @@
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
                 (
                     SELECT CONCAT(
@@ -1273,7 +1280,7 @@
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
                 (
                     SELECT CONCAT(
@@ -1353,7 +1360,7 @@
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
                 (
                     SELECT CONCAT(
@@ -1432,7 +1439,7 @@
             $gareSql = ($gidNorm !== '' && $gidNorm !== '0') ? $this->_sql_gare_esc($gidNorm) : '';
             $opSql = $this->_sql_op_esc($acl);
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, dest.id_compaga, bg.date_createesc
                 FROM bagagesesc bg
                 JOIN attributions_role ar ON bg.idoperabagageesc = ar.roleattribut
@@ -1460,7 +1467,7 @@
         {
         $filtreLettres = etat_filtre_lettres('bg.couleurcarnetesc', 'bg.date_createesc', $cp, 'bagage', $dt1, $dt2);        
             if($algn === '') {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
                 (
                     SELECT CONCAT(
@@ -1527,7 +1534,7 @@
             ), bg.date_createesc, bg.prix_bagageesc
                     ORDER BY bg.date_createesc ASC")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
                 (
                     SELECT CONCAT(
@@ -1601,7 +1608,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
                 (
                     SELECT CONCAT(
@@ -1668,7 +1675,7 @@
                 lg.nom_ligne
             ), bg.prix_bagageesc")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagageesc) AS codid_bagageesc, SUM(prix_bagageesc) AS total, COALESCE(
                 (
                     SELECT CONCAT(
@@ -1750,7 +1757,7 @@
                 ? " AND lg.ident_ligne = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT * FROM bagagesesc bg
                 JOIN ligne_heure lh ON bg.id_lgeheuresc = lh.id_ligneheure
                 JOIN heures h ON lh.heure_identif = h.id_heure

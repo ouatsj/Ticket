@@ -10,6 +10,15 @@
             $this->load->helper('etat_lettres');
         }
 
+        /** États : live + archive (vues v_*). */
+        protected function query_etat($sql, $binds = false)
+        {
+            if (!function_exists('archive_annee_sql_etat')) {
+                $this->load->helper('archive_annee');
+            }
+            return $this->db->query(archive_annee_sql_etat($sql), $binds);
+        }
+
         /**
          * Codes lieu (physique + commerciaux) pour filtre gare bagage.
          * @return string[]
@@ -1039,7 +1048,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagage) AS codid_bagage, SUM(prix_bagage) AS total, lg.nom_ligne, bg.prix_bagage FROM bagages bg
                         JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1061,7 +1070,7 @@
                         AND bg.prix_bagage IS NOT NULL
                         GROUP BY lg.nom_ligne, bg.prix_bagage")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagage) AS codid_bagage, SUM(prix_bagage) AS total, lg.nom_ligne, bg.prix_bagage FROM bagages bg
                         JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1090,7 +1099,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagage) AS codid_bagage, SUM(prix_bagage) AS total, lg.nom_ligne, bg.prix_bagage FROM bagages bg
                         JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1113,7 +1122,7 @@
                         AND bg.prix_bagage IS NOT NULL
                         GROUP BY lg.nom_ligne, bg.prix_bagage")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagage) AS codid_bagage, SUM(prix_bagage) AS total, lg.nom_ligne, bg.prix_bagage FROM bagages bg
                         JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1143,7 +1152,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagage) AS codid_bagage, SUM(prix_bagage) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagage FROM bagages bg
                         JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1164,7 +1173,7 @@
                         AND bg.prix_bagage IS NOT NULL
                         GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagage")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagage) AS codid_bagage, SUM(prix_bagage) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagage FROM bagages bg
                         JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1192,7 +1201,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagage) AS codid_bagage, SUM(prix_bagage) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagage FROM bagages bg
                         JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1214,7 +1223,7 @@
                         AND bg.prix_bagage IS NOT NULL
                         GROUP BY lg.nom_ligne, dest.id_compaga, bg.prix_bagage")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagage) AS codid_bagage, SUM(prix_bagage) AS total, lg.nom_ligne, dest.id_compaga, bg.prix_bagage FROM bagages bg
                         JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1370,7 +1379,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagage) AS codid_bagage, SUM(prix_bagage) AS total, lg.nom_ligne, bg.prix_bagage FROM bagages bg
                         JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1393,7 +1402,7 @@
                         AND bg.prix_bagage IS NOT NULL
                         GROUP BY lg.nom_ligne, bg.prix_bagage")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(id_bagage) AS codid_bagage, SUM(prix_bagage) AS total, lg.nom_ligne, bg.prix_bagage FROM bagages bg
                         JOIN attributions_role ar ON bg.idoperabagage = ar.roleattribut
                         JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -1423,7 +1432,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT * FROM bagages bg
                     JOIN programme pr ON bg.progidbagage = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -1450,7 +1459,7 @@
                       AND ex.code_gaexp = '$gid'
                     )")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT * FROM bagages bg
                     JOIN programme pr ON bg.progidbagage = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -1484,7 +1493,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(bg.id_bagage) AS codid_bagage,
                     COALESCE(SUM(bg.prix_bagage), 0) AS total,
                     COALESCE(lg.nom_ligne, g.nom_ligne) AS nom_ligne, dest.id_compaga, bg.prix_bagage
@@ -1516,7 +1525,7 @@
                     AND bg.prix_bagage IS NOT NULL
                 GROUP BY COALESCE(lg.nom_ligne, g.nom_ligne), dest.id_compaga, bg.prix_bagage")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(bg.id_bagage) AS codid_bagage,
                     COALESCE(SUM(bg.prix_bagage), 0) AS total,
                     COALESCE(lg.nom_ligne, g.nom_ligne) AS nom_ligne, dest.id_compaga, bg.prix_bagage
@@ -1565,7 +1574,7 @@
                 ? " AND COALESCE(lg.ident_ligne, g.ident_ligne) = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(bg.id_bagage) AS codid_bagage,
                 COALESCE(SUM(bg.prix_bagage), 0) AS total,
                 COALESCE(lg.nom_ligne, g.nom_ligne) AS nom_ligne, bg.prix_bagage
@@ -1608,7 +1617,7 @@
                 ? " AND COALESCE(lg.ident_ligne, g.ident_ligne) = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(bg.id_bagage) AS codid_bagage,
                 COALESCE(SUM(bg.prix_bagage), 0) AS total,
                 COALESCE(lg.nom_ligne, g.nom_ligne) AS nom_ligne, bg.prix_bagage
@@ -1653,7 +1662,7 @@
                 ? " AND COALESCE(lg.ident_ligne, g.ident_ligne) = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(bg.id_bagage) AS codid_bagage,
                     COALESCE(SUM(bg.prix_bagage), 0) AS total,
                     COALESCE(lg.nom_ligne, g.nom_ligne) AS nom_ligne, dest.id_compaga, bg.prix_bagage
@@ -1694,7 +1703,7 @@
                 ? " AND COALESCE(lg.ident_ligne, g.ident_ligne) = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT COUNT(bg.id_bagage) AS codid_bagage,
                 COALESCE(SUM(bg.prix_bagage), 0) AS total,
                 COALESCE(lg.nom_ligne, g.nom_ligne) AS nom_ligne, dest.id_compaga, bg.prix_bagage
@@ -1767,7 +1776,7 @@
         {
         $filtreLettres = etat_filtre_lettres('bg.couleurcarnet', 'bg.date_create', $cp, 'bagage', $dt1, $dt2);        
             if($algn === '') {
-                return $this->db->query("SELECT 
+                return $this->query_etat("SELECT 
                     COUNT(bg.id_bagage) AS codid_bagage,
                     COALESCE(SUM(bg.prix_bagage), 0) AS total,
                     COALESCE(lg.nom_ligne, g.nom_ligne) AS nom_ligne,
@@ -1801,7 +1810,7 @@
                 GROUP BY COALESCE(lg.nom_ligne, g.nom_ligne), DATE(bg.date_create), bg.prix_bagage
                 ORDER BY DATE(bg.date_create) ASC;")->result();
             }
-                return $this->db->query("SELECT 
+                return $this->query_etat("SELECT 
                     COUNT(bg.id_bagage) AS codid_bagage,
                     COALESCE(SUM(bg.prix_bagage), 0) AS total,
                     COALESCE(lg.nom_ligne, g.nom_ligne) AS nom_ligne,
@@ -1840,7 +1849,7 @@
             
             if ($algn === '') 
             {
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(bg.id_bagage) AS codid_bagage,
                     COALESCE(SUM(bg.prix_bagage), 0) AS total,
                     COALESCE(lg.nom_ligne, g.nom_ligne) AS nom_ligne, bg.prix_bagage FROM bagages bg
@@ -1872,7 +1881,7 @@
                     AND bg.prix_bagage IS NOT NULL
                 GROUP BY COALESCE(lg.nom_ligne, g.nom_ligne), DATE(bg.date_create), bg.prix_bagage")->result();
             }
-                return $this->db->query(
+                return $this->query_etat(
                     "SELECT COUNT(bg.id_bagage) AS codid_bagage,
                     COALESCE(SUM(bg.prix_bagage), 0) AS total,
                     COALESCE(lg.nom_ligne, g.nom_ligne) AS nom_ligne, bg.prix_bagage FROM bagages bg
@@ -1915,7 +1924,7 @@
                 ? " AND COALESCE(lg.ident_ligne, g.ident_ligne) = '" . $this->db->escape_str($algn) . "' "
                 : '';
 
-            return $this->db->query(
+            return $this->query_etat(
                 "SELECT * FROM bagages bg
                 LEFT JOIN programme pr ON bg.progidbagage = pr.code_progr
                 LEFT JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure

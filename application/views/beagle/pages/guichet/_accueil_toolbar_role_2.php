@@ -427,14 +427,14 @@
       </div>
       <div class="tab-pane fade" id="guichet-tab-2-admin" role="tabpanel">
         <div class="guichet-btn-grid">
-          <button class="btn btn-secondary btn-space md-trigger"
-                                    data-modal="form-arch-1" data-ekey="<?= $this->session->company->ekey; ?>">
-                                <i></i>&nbsp;TRI POUR ARCHIVER DES DONNEES&nbsp;
-                            </button>
-          <button class="btn btn-secondary btn-space md-trigger"
-                                    data-modal="form-archcr-1" data-ekey="<?= $this->session->company->ekey; ?>">
-                                <i></i>&nbsp;ARCHIVER DONNEES COURRIER&nbsp;
-                            </button>
+          <a class="btn btn-warning btn-space"
+             href="<?= site_url('archive_annees/' . $this->session->company->ekey); ?>">
+            <i class="fas fa-archive"></i>&nbsp;Archivage&nbsp;
+          </a>
+          <a class="btn btn-success btn-space"
+             href="<?= site_url('rapport_arret_compte/' . $this->session->company->ekey) . (!empty($bus_stop->idsousgare) ? ('?idsousgare=' . (int) $bus_stop->idsousgare) : ''); ?>">
+            <i class="fas fa-file-invoice-dollar"></i>&nbsp;Rapports arrêts de compte&nbsp;
+          </a>
         </div>
       </div>
     </div>

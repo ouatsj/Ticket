@@ -1,9 +1,18 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <?php
 $role17_mode = !empty($role17_mode) && role17_is_agent();
+$ra_ops = (is_object($conex) && !empty($conex->roleattribut)) ? (int) $conex->roleattribut : 0;
+if (!function_exists('retour_guichet_url')) {
+    $this->load->helper('retour');
+}
 $accueil = role17_is_agent()
     ? role17_accueil_url($bus_stop, $conex)
-    : site_url('gares/'.$this->session->company->ekey.'/gTc/'. $bus_stop->idengare.'/compte/'. $conex->roleattribut .'/'. $bus_stop->idsousgare.'/'. mdate("%d/%m/%Y", now('UTC')));
+    : retour_guichet_url(
+        $this->session->company->ekey,
+        $bus_stop->idengare,
+        $ra_ops,
+        $bus_stop->idsousgare
+    );
 ?>
 <div class="<?= $role17_mode ? 'r17-ops r17-shell' : ''; ?>">
 <?php if ($role17_mode): ?>
@@ -29,14 +38,14 @@ $accueil = role17_is_agent()
                 </span>
             </a>
         <?php endif; ?>
-        <a href="<?= site_url("confirmation/voirbagageescales/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
+            <a href="<?= site_url("confirmation/voirbagageescales/{$this->session->company->ekey}/{$ra_ops}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
            class="r17-btn">
-            <span class="r17-ico"><i class="fas fa-list"></i></span>
-            <span class="r17-txt">
-                Voir bagages
-                <span class="r17-sub">Liste du jour</span>
-            </span>
-        </a>
+                <span class="r17-ico"><i class="fas fa-list"></i></span>
+                <span class="r17-txt">
+                    Voir bagages
+                    <span class="r17-sub">Liste du jour</span>
+                </span>
+            </a>
     </div>
     <?php if ($cptbagescd == ''): ?>
         <?php $this->load->view('beagle/pages/guichet/_modal_bagage_facturation_r17'); ?>
@@ -49,13 +58,13 @@ $accueil = role17_is_agent()
         </a>
 
         <? if ($cptbagescd == ''):?>
-            <a href="<?= site_url("confirmation/bagageescal/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
+            <a href="<?= site_url("confirmation/bagageescal/{$this->session->company->ekey}/{$ra_ops}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
                 class="btn btn-secondary btn-space md-trigger" data-modal="">
                 <i class="fas fa-print text-success"></i>&nbsp;BAGAGE&nbsp;
             </a>
 
         <? endif; ?>
-            <a href="<?= site_url("comptecaisses/arcompteescalbag/{$this->session->company->ekey}/{$conex->roleattribut}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
+            <a href="<?= site_url("comptecaisses/arcompteescalbag/{$this->session->company->ekey}/{$ra_ops}/{$bus_stop->idengare}/{$bus_stop->idsousgare}"); ?>"
                 class="btn btn-secondary btn-space md-trigger" data-modal="">
                 <i class="fas fa-puzzle-piece text-info"></i>
                 &nbsp;COMPTE ESCAL BAGAGE&nbsp;

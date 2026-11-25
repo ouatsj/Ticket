@@ -37,10 +37,13 @@
      */
     
     $this->output->set_content_type('application/json');
-    
+
+    // Pas de JSON_NUMERIC_CHECK : un code ticket du type 1118765E296
+    // serait lu comme notation scientifique (1.118765e+302) et casserait
+    // la reprogrammation (faux refus « gare d'origine »).
     $this->output
         ->set_output(json_encode($json,
-            JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG))
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_UNESCAPED_UNICODE))
         ->_display();
     
     exit;

@@ -102,6 +102,12 @@
             $route['param_lettres/(:num)'] = 'Param_lettres/index/$1';
             $route['param_lettres/(:num)/save'] = 'Param_lettres/save/$1';
 
+            /** Archivage annuel (admin) */
+            $route['archive_annees/(:num)'] = 'Archive_annees/index/$1';
+            $route['archive_annees/(:num)/run'] = 'Archive_annees/run/$1';
+            $route['archive_annees/(:num)/reset'] = 'Archive_annees/reset/$1';
+            $route['archive_annees/(:num)/voir'] = 'Archive_annees/voir/$1';
+
             /** Paramètres admin — sièges verrouillés par ligne/heure */
             $route['param_sieges_verrou/(:num)'] = 'Param_sieges_verrou/index/$1';
             $route['param_sieges_verrou/(:num)/save'] = 'Param_sieges_verrou/save/$1';
@@ -117,6 +123,10 @@
             /** Rapport modifications tickets */
             $route['rapport_modif_ticket/(:num)'] = 'Rapport_modif_ticket/index/$1';
             $route['rapport_modif_ticket/(:num)/export'] = 'Rapport_modif_ticket/export/$1';
+
+            /** Rapport arrêts de compte guichet (admin) */
+            $route['rapport_arret_compte/(:num)'] = 'Rapport_arret_compte/index/$1';
+            $route['rapport_arret_compte/(:num)/voir/(:num)'] = 'Rapport_arret_compte/voir/$1/$2';
             $route['utilisateurs/(:any)/gTv/(:any)/compte/(:any)/(:any)/(:any)'] = 'Utilisateurs/viewcompte/$1/$2/$3/$4/$5';
             $route['utilisateurs/(:any)/gTv/(:any)/(:any)/garecompte/(:any)/(:any)/(:any)'] = 'Utilisateurs/comptegares/$1/$2/$3/$4/$5/$6';
             $route['utilisateurs/(:any)/gTv/(:any)/(:any)/rolecompte/(:any)/(:any)/(:any)'] = 'Utilisateurs/compteroles/$1/$2/$3/$4/$5/$6';

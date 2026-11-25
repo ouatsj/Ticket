@@ -181,6 +181,13 @@ return array(
         'm_entreprises',
         'm_compagnies',
     ),
+    'Archive_annees' => array(
+        'm_entreprises',
+        'm_archive_annee',
+    ),
+    'Rapport_arret_compte' => array(
+        'm_entreprises',
+    ),
     'Param_sieges_verrou' => array(
         'm_entreprises',
         'm_ligne_heure',

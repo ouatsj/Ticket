@@ -424,13 +424,73 @@ if (!function_exists('role17_accueil_url')) {
         $ekey = !empty($CI->session->company->ekey)
             ? $CI->session->company->ekey
             : '';
-        return site_url(
-            'gares/' . $ekey
-            . '/gTc/' . $bus_stop->idengare
-            . '/compte/' . $conex->roleattribut
-            . '/' . $bus_stop->idsousgare
-            . '/' . mdate('%d/%m/%Y', now('UTC'))
-        );
+        $ra = (is_object($conex) && !empty($conex->roleattribut))
+            ? (int) $conex->roleattribut
+            : 0;
+        // Toujours le hub de connexion (ex. OUA1/6), jamais le lieu remappé
+        // (KOM24/14) : sinon Accueil → compte//… ou sousgare//… = page introuvable.
+        $gare = '';
+        if (is_object($conex) && !empty($conex->guser)) {
+            $gare = (string) $conex->guser;
+        } elseif (is_object($conex) && !empty($conex->idengare)) {
+            $gare = (string) $conex->idengare;
+        }
+        if ($gare === '' && $ra > 0 && $ekey !== '' && isset($CI->db)) {
+            $row = $CI->db->query(
+                "SELECT ul.guser
+                 FROM attributions_role ar
+                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                 JOIN utilisateurs u ON cu.userlog_id = u.uid
+                 JOIN entreprise e ON u.cle_comp = e.ekey
+                 WHERE e.ekey = ?
+                 AND ar.roleattribut = ?
+                 AND ar.activer_role = 0
+                 LIMIT 1",
+                array($ekey, $ra)
+            )->row();
+            if ($row && !empty($row->guser)) {
+                $gare = (string) $row->guser;
+            }
+        }
+        if ($gare === '' && is_object($bus_stop) && !empty($bus_stop->idengare)) {
+            $gare = (string) $bus_stop->idengare;
+        }
+        $sg = 0;
+        if (is_object($bus_stop) && isset($bus_stop->idsousgare)
+            && is_object($bus_stop) && !empty($bus_stop->idengare)
+            && (string) $bus_stop->idengare === $gare
+        ) {
+            $sg = (int) $bus_stop->idsousgare;
+        }
+        if ($sg <= 0 && $gare !== '' && isset($CI->db)) {
+            // Sous-gare de session agent si même hub, sinon 1re sous-gare du hub.
+            if ($CI->session->userdata('agent')
+                && !empty($CI->session->agent->idsousgare)
+                && !empty($CI->session->agent->guser)
+                && (string) $CI->session->agent->guser === $gare
+            ) {
+                $sg = (int) $CI->session->agent->idsousgare;
+            } else {
+                $sgRow = $CI->db->query(
+                    "SELECT idsousgare FROM sousgare
+                     WHERE gareprinceid = ?
+                     ORDER BY idsousgare ASC
+                     LIMIT 1",
+                    array($gare)
+                )->row();
+                if ($sgRow) {
+                    $sg = (int) $sgRow->idsousgare;
+                }
+            }
+        }
+        if ($sg <= 0 && is_object($bus_stop) && isset($bus_stop->idsousgare)) {
+            $sg = (int) $bus_stop->idsousgare;
+        }
+        if (!function_exists('retour_guichet_url')) {
+            $CI->load->helper('retour');
+        }
+        return retour_guichet_url($ekey, $gare, $ra, $sg);
     }
 }
 

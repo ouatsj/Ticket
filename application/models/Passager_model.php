@@ -32,7 +32,17 @@
         {
             parent::__construct();
             $this->load->helper('etat_lettres');
+            $this->load->helper('archive_annee');
             $this->_ensure_ligne_vendue_columns();
+        }
+
+        /**
+         * Requêtes d’états : lit live + archive (vues v_*) après archivage annuel.
+         * Ne pas utiliser pour vente / reprog (rester sur passager live).
+         */
+        protected function query_etat($sql, $binds = false)
+        {
+            return $this->db->query(archive_annee_sql_etat($sql), $binds);
         }
 
         /**
@@ -1246,7 +1256,7 @@
                     AND p.statut_code = 'vendu'
                     AND IFNULL(p.statutvente, 0) <> 2";
             if ($gd === '') {
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                 "SELECT * FROM passager p
                     LEFT JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN programme pr ON p.code_pro = pr.code_progr
@@ -1264,7 +1274,7 @@
                 return $this->normalize_ticket_prix_rows($rows);
             }
 
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM passager p
                     LEFT JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN programme pr ON p.code_pro = pr.code_progr
@@ -1290,7 +1300,7 @@
         public function exopassglob($cid, $cp, $d1, $d2, $gd)
         {
            
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM passager p
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN programme pr ON p.code_pro = pr.code_progr
@@ -2780,7 +2790,7 @@
             $cidEsc = $this->db->escape($cid);
             $d1Esc = $this->db->escape($d1);
             $d2Esc = $this->db->escape($d2);
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT p.*, ar.*, ul.*, cu.*, g.*, sg.*, cl.*, tcl.*, pr.*, lh.*, h.*, lg.*, ex.*, dest.*, c.*, e.*,
                         ctp.tamponcod, ctp.tamponcodtr
                     FROM passager p
@@ -2827,7 +2837,7 @@
             $cidEsc = $this->db->escape($cid);
             $d1Esc = $this->db->escape($d1);
             $d2Esc = $this->db->escape($d2);
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT p.*, ar.*, ul.*, cu.*, g.*, sg.*, cl.*, tcl.*, pr.*, lh.*, h.*, lg.*, ex.*, dest.*, c.*, e.*,
                         ctp.tamponcod, ctp.tamponcodtr
                     FROM passager p
@@ -2870,7 +2880,7 @@
             $cidEsc = $this->db->escape($cid);
             $d1Esc = $this->db->escape($d1);
             $d2Esc = $this->db->escape($d2);
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT p.*, ar.*, ul.*, cu.*, g.*, sg.*, cl.*, tcl.*, pr.*, lh.*, h.*, lg.*, ex.*, dest.*, c.*, e.*,
                         ctp.tamponcod, ctp.tamponcodtr
                     FROM passager p
@@ -3300,7 +3310,7 @@
         public function liste1($cid, $cddepart, $h, $dt, $gid, $tout = FALSE)
         {
             if ($tout === '') {
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM passager p
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
@@ -3323,7 +3333,7 @@
                     AND p.actif_pas = 0
                     ORDER BY p.num_siege_categorie ASC")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             else if($tout === 'larle'){
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM passager p
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
@@ -3347,7 +3357,7 @@
                     AND p.actif_pas = 0
                     ORDER BY p.num_siege_categorie ASC")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             else{
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM passager p
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
@@ -3375,7 +3385,7 @@
         public function liste($cid, $cddepart, $h, $dt, $gid)
         {
             
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM passager p
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
@@ -3420,7 +3430,7 @@
         public function listeupdate($cid, $gid)
         {
                 $today = mdate("%Y-%m-%d", now());
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM tirage_liste tg
                     JOIN programme pr ON tg.cod_programme = pr.code_progr
                     JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -3462,7 +3472,7 @@
         public function listead1($cid, $cddepart, $h, $dt, $tout = FALSE)
         {
             if ($tout === '') {
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM passager p
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
@@ -3484,7 +3494,7 @@
                     AND p.actif_pas = 0
                     ORDER BY p.num_siege_categorie ASC")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             else if($tout === 'larle'){
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM passager p
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
@@ -3508,7 +3518,7 @@
                     ORDER BY p.num_siege_categorie ASC")->result(); return $this->normalize_ticket_prix_rows($rows);            }
             else
             {
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM passager p
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
@@ -3535,7 +3545,7 @@
         public function listead($cid, $cddepart, $h, $dt)
         {
             
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM passager p
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
@@ -3578,7 +3588,7 @@
         public function listeupdatead($cid)
         {
             $today = mdate("%Y-%m-%d", now());
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM tirage_liste tg
                 JOIN programme pr ON tg.cod_programme = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -3595,7 +3605,7 @@
         public function listedate($cid, $d, $f, $gid)
         {
             $today = mdate("%Y-%m-%d", now());
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM tirage_liste tg
                 JOIN programme pr ON tg.cod_programme = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -3610,7 +3620,7 @@
                 ORDER BY h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         public function listepasse($cid, $ligne, $h, $dt, $gid)
         {
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM passager p
                     JOIN client cl ON p.id_client_pass = cl.id_client
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
@@ -3636,7 +3646,7 @@
         public function listedatead($cid, $d, $f)
         {
             $today = mdate("%Y-%m-%d", now());
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM tirage_liste tg
                 JOIN programme pr ON tg.cod_programme = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -3650,7 +3660,7 @@
                 ORDER BY h.heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         public function listepassead($cid, $ligne, $h, $dt)
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM passager p
                 JOIN client cl ON p.id_client_pass = cl.id_client
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare
@@ -4603,7 +4613,7 @@
         //etat general
         public function etatgeneral($cid, $datedb, $datef)
         {
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -4625,7 +4635,7 @@
         //etat confirmation
         /*public function triconfarch($cid, $datedb, $datef, $gid, $sg)
         {
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
                     JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -4854,7 +4864,7 @@
         //etat general
         public function etatgeneralad($cid, $datedb, $datef)
         {
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
                     JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -4899,7 +4909,7 @@
                     AND p.statut_confirme ='confirm'")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         public function triconfad($cid, $datedb, $datef)
         {
-                $rows = $this->db->query(
+                $rows = $this->query_etat(
                     "SELECT * FROM tamponcode ctp
                     JOIN passager p ON p.code_passager = ctp.tamponcod
                     JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -4932,7 +4942,7 @@
             $vendeurSql = $this->_sql_etat_vendeur_in($idvd);
             $horsClone = $this->sql_hors_clone_report('p');
 
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
+            $rows = $this->query_etat("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -4967,7 +4977,7 @@
             $vendeurSql = $this->_sql_etat_vendeur_in($idvd);
             $horsClone = $this->sql_hors_clone_report('p');
 
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
+            $rows = $this->query_etat("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -5004,7 +5014,7 @@
             // Sous-gare du guichet vendeur (pas départ de jambe).
             $sgScope = " AND (p.idsousgare_vente = {$sgEsc} OR (p.idsousgare_vente IS NULL AND p.departclient_idgare = {$sgEsc})) ";
 
-            $rows = $this->db->query("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
+            $rows = $this->query_etat("SELECT SUM(prixvente) AS total, lg.ident_ligne, dest.id_compaga, {$nomLine['select']}, p.prixvente, cu.username FROM passager p
             JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
             JOIN user_login ul ON ar.idgestcompte = ul.uid_login
             JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -5075,7 +5085,7 @@
                 $extra .= ' AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), \'\'), lg.ident_ligne) = ' . $this->db->escape($algn);
             }
 
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5111,7 +5121,7 @@
 
         
         if ($acl === '' AND $algn === '') {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5141,7 +5151,7 @@
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, u.first_name, u.last_name, dest.id_compaga, {$nomLine['select']}, p.prixvente, ar.roleattribut FROM passager p
+            $rows = $this->query_etat("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, u.first_name, u.last_name, dest.id_compaga, {$nomLine['select']}, p.prixvente, ar.roleattribut FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -5169,7 +5179,7 @@
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND ar.roleattribut = '$acl'
                 GROUP BY ar.roleattribut, u.first_name, dest.id_compaga, u.last_name, {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, u.first_name, u.last_name, dest.id_compaga, {$nomLine['select']}, p.prixvente, ar.roleattribut FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5431,7 +5441,7 @@
 
         
         if ($acl === '' AND $algn === '') {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5461,7 +5471,7 @@
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
-            $rows = $this->db->query("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
+            $rows = $this->query_etat("SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
                 JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
@@ -5489,7 +5499,7 @@
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 AND ar.roleattribut = '$acl'
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5526,7 +5536,7 @@
         
         if ($algn === '') 
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5553,7 +5563,7 @@
  (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5599,7 +5609,7 @@
                 $extra .= ' AND COALESCE(NULLIF(TRIM(p.ident_ligne_vendu), \'\'), lg.ident_ligne) = ' . $this->db->escape($algn);
             }
 
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
                     SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
@@ -5635,7 +5645,7 @@
         
         if ($algn === '') 
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5661,7 +5671,7 @@
  (SELECT ulx.guser FROM attributions_role arx JOIN user_login ulx ON arx.idgestcompte = ulx.uid_login WHERE arx.roleattribut = p.idcptuser LIMIT 1),
  (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1){$filtreLettres}")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5699,7 +5709,7 @@
 
         if ($algn === '')
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
                     SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
@@ -5735,7 +5745,7 @@
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
                     SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
@@ -5780,7 +5790,7 @@
         
         if ($algn === '') 
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5808,7 +5818,7 @@
  (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -5845,7 +5855,7 @@
         
         if ($algn === '') 
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
                     SUM(p.prixvente) AS total,
@@ -5881,7 +5891,7 @@
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
                     SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
@@ -5926,7 +5936,7 @@
         
         if ($algn === '') 
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
                     SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
@@ -5961,7 +5971,7 @@
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 )
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT 
                     COUNT(p.code_passager) AS codepassager,
                     SUM(p.prixvente) AS total, {$nomLine['select']}, p.prixvente
@@ -6005,7 +6015,7 @@
         
         if ($algn === '') 
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -6033,7 +6043,7 @@
  (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -6071,7 +6081,7 @@
 
         if ($algn === '')
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT p.* FROM passager p
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -6103,7 +6113,7 @@
  (SELECT ge_d.garesid FROM sousgare sg_ld JOIN gare_exp ge_d ON ge_d.code_gaexp = sg_ld.gareprinceid WHERE sg_ld.idsousgare = p.departclient_idgare LIMIT 1)
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 )")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT p.* FROM passager p
                 JOIN programme pr ON p.code_pro = pr.code_progr
                 JOIN ligne_heure lh ON pr.id_heur = lh.id_ligneheure
@@ -6143,7 +6153,7 @@
         
         if ($algn === '') 
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -6171,7 +6181,7 @@
                 AND p.statut_code = 'vendu'
                 GROUP BY {$nomLine['group']}, dest.id_compaga, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, dest.id_compaga, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -6266,7 +6276,7 @@
         
         if ($algn === '')
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -6292,7 +6302,7 @@
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -6386,7 +6396,7 @@
         
         if ($algn === '') 
         {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -6412,7 +6422,7 @@
 ) = (SELECT gx_lv.garesid FROM gare_exp gx_lv WHERE gx_lv.code_gaexp = '$gid' OR gx_lv.garesid = '$gid' LIMIT 1)
                 GROUP BY {$nomLine['group']}, p.prixvente, h.id_heure
                 ORDER BY heure ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT COUNT(code_passager) AS codepassager, SUM(prixvente) AS total, {$nomLine['select']}, p.prixvente, h.heure FROM passager p
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
                 JOIN user_login ul ON ar.idgestcompte = ul.uid_login
@@ -6503,7 +6513,7 @@
     {
             $today = mdate("%Y-%m-%d", now('UTC'));
 
-            $rows = $this->db->query("SELECT * FROM tamponcode ctp
+            $rows = $this->query_etat("SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod 
                 JOIN client cl ON p.id_client_pass = cl.id_client
                 JOIN attributions_role ar ON p.idcptuser = ar.roleattribut
@@ -6537,7 +6547,7 @@
     {
         $today = mdate("%Y-%m-%d", now());
         if ($p_id === FALSE AND $t === FALSE) {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6559,7 +6569,7 @@
                 AND p.num_siege_categorie IS NOT NULL
                 AND p.actif_pas = 0
                 AND p.statut_reprog IS NULL")->result(); return $this->normalize_ticket_prix_rows($rows);        } else
-            $row = $this->db->query(
+            $row = $this->query_etat(
                 "SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6588,7 +6598,7 @@
     {
         $today = mdate("%Y-%m-%d", now());
         if ($p_id === FALSE AND $t === FALSE) {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6611,7 +6621,7 @@
                 AND p.actif_pas = 0
                 AND ex.code_gaexp = '$gid'
                 AND p.statut_reprog IS NULL")->result(); return $this->normalize_ticket_prix_rows($rows);        } else
-            $row = $this->db->query(
+            $row = $this->query_etat(
                 "SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6641,7 +6651,7 @@
     public function reduction($cid, $p_id = FALSE, $t = FALSE)
     {
         if ($p_id === FALSE AND $t === FALSE) {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6657,7 +6667,7 @@
                 WHERE e.ekey = '$cid'
                 AND p.actif_pas = 0
                 AND p.num_siege_categorie IS NOT NULL")->result(); return $this->normalize_ticket_prix_rows($rows);        } else
-            $row = $this->db->query(
+            $row = $this->query_etat(
                 "SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6679,7 +6689,7 @@
     public function reductad($cid, $p_id = FALSE, $t = FALSE, $p = FALSE)
     {
         if ($t === FALSE AND $p === FALSE) {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6696,7 +6706,7 @@
                 AND p.actif_pas = 0
                 AND ctp.tamponcod = '$p_id'
                 AND p.num_siege_categorie IS NOT NULL")->result(); return $this->normalize_ticket_prix_rows($rows);        } else
-            $row = $this->db->query(
+            $row = $this->query_etat(
                 "SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6719,7 +6729,7 @@
     public function reduct($cid, $p_id = FALSE, $t = FALSE, $p = FALSE)
     {
         if ($t === FALSE AND $p === FALSE) {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6736,7 +6746,7 @@
                 AND p.actif_pas = 0
                 AND ctp.tamponcod = '$p_id'
                 AND p.num_siege_categorie IS NOT NULL")->result(); return $this->normalize_ticket_prix_rows($rows);        } else
-            $row = $this->db->query(
+            $row = $this->query_etat(
                 "SELECT * FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6762,7 +6772,7 @@
 
         
         if ($cp === '' AND $algn === '') {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6792,7 +6802,7 @@
                 ORDER BY datep_create ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
-            $rows = $this->db->query("SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
+            $rows = $this->query_etat("SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                 LEFT JOIN non_passager np ON np.code_non_pass = ctp.tamponcod 
@@ -6820,7 +6830,7 @@
                 AND ar.roleattribut = '$acl'
                 AND p.verifpassager IN('A', 'C', 'D')
                 ORDER BY datep_create ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6857,7 +6867,7 @@
 
         
         if ($cp === '' AND $algn === '') {
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
@@ -6886,7 +6896,7 @@
                 ORDER BY datep_create ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
         elseif($algn === '')
         {
-            $rows = $this->db->query("SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
+            $rows = $this->query_etat("SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 
                 LEFT JOIN non_passager np ON np.code_non_pass = ctp.tamponcod 
@@ -6913,7 +6923,7 @@
                 AND p.statut_code = 'vendu'
                 AND ar.roleattribut = '$acl'
                 ORDER BY datep_create ASC")->result(); return $this->normalize_ticket_prix_rows($rows);        }
-            $rows = $this->db->query(
+            $rows = $this->query_etat(
                 "SELECT ctp.tamponcod, p.code_passager, p.code_ticket, cl.nom_client, cl.prenom_client, cl.contact_client, {$nomLine['select']}, p.datep_create, h.heure, pr.dateheure_prog FROM tamponcode ctp
                 JOIN passager p ON p.code_passager = ctp.tamponcod
                 JOIN sousgare sg ON p.departclient_idgare = sg.idsousgare 

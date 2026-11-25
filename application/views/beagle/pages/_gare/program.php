@@ -601,6 +601,16 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
                                         </a>&nbsp;
 
                                         <a href="#"
+                                           class="js-prog-detail"
+                                           title="Détail du programme (créateur et historique des modifications)"
+                                           data-code="<?= htmlspecialchars($item->code_progr, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-nom="<?= htmlspecialchars($item->nom_ligne, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-heure="<?= htmlspecialchars($item->heure, ENT_QUOTES, 'UTF-8'); ?>"
+                                           data-pdate="<?= htmlspecialchars($item->date_progr, ENT_QUOTES, 'UTF-8'); ?>">
+                                            <span class="fas fa-info-circle text-primary"></span>
+                                        </a>&nbsp;
+
+                                        <a href="#"
                                            class="js-corr-link"
                                            title="<?= !empty($__corr) ? (!empty($__corr['nb_liens']) && (int) $__corr['nb_liens'] > 1 ? 'Voir / gérer les correspondances (' . (int) $__corr['nb_liens'] . ')' : 'Voir / gérer le lien de correspondance') : 'Lier une correspondance'; ?>"
                                            data-code="<?= htmlspecialchars($item->code_progr, ENT_QUOTES, 'UTF-8'); ?>"
@@ -3547,6 +3557,175 @@ window.__PROG_CREATED_CODE = <?= json_encode((string) $__prog_created_code); ?>;
 })();
 </script>
 <?php endif; ?>
+
+<!-- Modal Détail programme (créateur + historique modifications) -->
+<div class="modal-container colored-header colored-header-primary custom-width modal-effect-7"
+     id="modal-prog-detail" style="perspective: none;">
+    <div class="modal-content">
+        <div class="modal-header modal-header-colored">
+            <h3 class="modal-title">
+                <i class="fas fa-info-circle mr-1"></i>
+                Détail du programme <span id="prog-detail-code"></span>
+            </h3>
+            <button class="close modal-close js-prog-detail-close" type="button" aria-hidden="true">
+                <span class="mdi mdi-close text-white"></span>
+            </button>
+        </div>
+        <div class="modal-body" style="max-height:70vh; overflow-y:auto;">
+            <div id="prog-detail-meta" class="mb-3 text-muted small"></div>
+            <div id="prog-detail-loading" class="text-center py-3" style="display:none;">
+                Chargement…
+            </div>
+            <div id="prog-detail-error" class="alert alert-danger" style="display:none;"></div>
+            <div id="prog-detail-content" style="display:none;">
+                <div class="card mb-3">
+                    <div class="card-header py-2 font-weight-bold">Création</div>
+                    <div class="card-body py-2" id="prog-detail-createur"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header py-2 font-weight-bold">Historique des modifications</div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th style="width:165px;">Date / heure</th>
+                                        <th style="width:190px;">Utilisateur</th>
+                                        <th style="width:120px;">Action</th>
+                                        <th>Détails</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="prog-detail-mods"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary js-prog-detail-close">Fermer</button>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var detailBase = <?= json_encode(site_url('Programmes/detail_historique/' . $this->session->company->ekey)); ?>;
+    var modalEl = document.getElementById('modal-prog-detail');
+    if (!modalEl) return;
+    var codeEl = document.getElementById('prog-detail-code');
+    var metaEl = document.getElementById('prog-detail-meta');
+    var loadEl = document.getElementById('prog-detail-loading');
+    var errEl = document.getElementById('prog-detail-error');
+    var contEl = document.getElementById('prog-detail-content');
+    var creatEl = document.getElementById('prog-detail-createur');
+    var modsEl = document.getElementById('prog-detail-mods');
+
+    function $m() {
+        return (window.jQuery && typeof jQuery.fn.niftyModal === 'function')
+            ? jQuery('#modal-prog-detail') : null;
+    }
+    function showModal() {
+        var jq = $m();
+        if (jq) { jq.niftyModal('show'); return; }
+        modalEl.classList.add('modal-show');
+        document.body.classList.add('modal-open');
+    }
+    function hideModal() {
+        var jq = $m();
+        if (jq) { jq.niftyModal('hide'); return; }
+        modalEl.classList.remove('modal-show');
+        document.body.classList.remove('modal-open');
+    }
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function fmtUser(row) {
+        if (!row) return '—';
+        var nom = row.nom_complet || '';
+        var usr = row.username || '';
+        if (nom && usr && nom !== usr) return esc(nom) + ' <small class="text-muted">(' + esc(usr) + ')</small>';
+        return esc(nom || usr || '—');
+    }
+    function fmtAction(a) {
+        if (a === 'activation') return '<span class="badge badge-success">Activation</span>';
+        if (a === 'desactivation') return '<span class="badge badge-danger">Désactivation</span>';
+        return '<span class="badge badge-warning">Modification</span>';
+    }
+
+    document.addEventListener('click', function (ev) {
+        var closer = ev.target.closest ? ev.target.closest('.js-prog-detail-close') : null;
+        if (closer) {
+            ev.preventDefault();
+            hideModal();
+            return;
+        }
+        var link = ev.target.closest ? ev.target.closest('.js-prog-detail') : null;
+        if (!link) return;
+        ev.preventDefault();
+        var code = link.getAttribute('data-code') || '';
+        var nom = link.getAttribute('data-nom') || '';
+        var heure = link.getAttribute('data-heure') || '';
+        var pdate = link.getAttribute('data-pdate') || '';
+        if (!code) return;
+
+        if (codeEl) codeEl.textContent = code;
+        if (metaEl) metaEl.textContent = [nom, pdate, heure].filter(Boolean).join(' — ');
+        if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+        if (contEl) contEl.style.display = 'none';
+        if (loadEl) loadEl.style.display = 'block';
+
+        showModal();
+
+        fetch(detailBase + '/' + encodeURIComponent(code), {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (loadEl) loadEl.style.display = 'none';
+            if (!data || !data.ok) {
+                if (errEl) {
+                    errEl.textContent = (data && data.error) ? data.error : 'Impossible de charger le détail.';
+                    errEl.style.display = 'block';
+                }
+                return;
+            }
+            if (creatEl) {
+                if (data.createur) {
+                    creatEl.innerHTML = '<strong>Créé par :</strong> ' + fmtUser(data.createur)
+                        + '<br><strong>Date / heure :</strong> ' + esc(data.createur.created_at || '—');
+                } else {
+                    var dt = (data.programme && data.programme.datepg_create) ? data.programme.datepg_create : '—';
+                    creatEl.innerHTML = '<strong>Créé par :</strong> <span class="text-muted">Non enregistré (programme créé avant la mise en place du suivi)</span>'
+                        + '<br><strong>Date / heure :</strong> ' + esc(dt);
+                }
+            }
+            if (modsEl) {
+                var mods = data.modifications || [];
+                if (!mods.length) {
+                    modsEl.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-2">Aucune modification enregistrée.</td></tr>';
+                } else {
+                    modsEl.innerHTML = mods.map(function (m) {
+                        return '<tr>'
+                            + '<td>' + esc(m.created_at || '—') + '</td>'
+                            + '<td>' + fmtUser(m) + '</td>'
+                            + '<td>' + fmtAction(m.action) + '</td>'
+                            + '<td>' + esc(m.details || '—') + '</td>'
+                            + '</tr>';
+                    }).join('');
+                }
+            }
+            if (contEl) contEl.style.display = 'block';
+        }).catch(function () {
+            if (loadEl) loadEl.style.display = 'none';
+            if (errEl) {
+                errEl.textContent = 'Erreur réseau lors du chargement du détail.';
+                errEl.style.display = 'block';
+            }
+        });
+    });
+})();
+</script>
 
 <!--End of file: program.php-->
 <!--File location: application/views/beagle/pages/_gares/program.php-->

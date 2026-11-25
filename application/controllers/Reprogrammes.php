@@ -79,10 +79,32 @@
                     return trim((string) $first['gaexp_lg']);
                 }
             }
+            // Gare de vente (ticket direct / escale) avant le seul code ligne.
+            if (!empty($row->code_gaexp_vendu)) {
+                return trim((string) $row->code_gaexp_vendu);
+            }
             if (!empty($row->gaexp_lg)) {
                 return trim((string) $row->gaexp_lg);
             }
             return '';
+        }
+
+        /**
+         * Normalise un libellé de lieu pour comparaison (OUAGAESCAL ≈ OUAGA).
+         *
+         * @param string $lieu
+         * @return string
+         */
+        protected function _reprog_lieu_canon($lieu)
+        {
+            $lieu = strtoupper(trim((string) $lieu));
+            if ($lieu === '') {
+                return '';
+            }
+            // Variantes courantes du même lieu physique.
+            $lieu = preg_replace('/\s+/', '', $lieu);
+            $lieu = preg_replace('/(ESCAL|ESCALE|GARE)$/', '', $lieu);
+            return rtrim((string) $lieu, '_-');
         }
 
         /**
@@ -106,7 +128,24 @@
             )->row();
             $outCode = ($row && !empty($row->code_gaexp)) ? trim((string) $row->code_gaexp) : $code;
             $nom = ($row && !empty($row->nom_gaep)) ? (string) $row->nom_gaep : '';
-            $lieu = strtoupper(trim($this->m_programme->strip_cie_suffix_php($nom)));
+            // Fallback : gares hors gare_exp (ex. OUA45/OUA46 « OUAGA » multi-cie).
+            if ($nom === '') {
+                $g = $this->db->query(
+                    'SELECT idengare, garenom FROM gares WHERE idengare = ? OR garenom = ? LIMIT 1',
+                    array($code, $code)
+                )->row();
+                if ($g) {
+                    if (!empty($g->idengare)) {
+                        $outCode = trim((string) $g->idengare);
+                    }
+                    if (!empty($g->garenom)) {
+                        $nom = (string) $g->garenom;
+                    }
+                }
+            }
+            $lieu = $this->_reprog_lieu_canon(
+                $this->m_programme->strip_cie_suffix_php($nom)
+            );
             return array('code' => strtoupper($outCode), 'lieu' => $lieu);
         }
 
@@ -169,7 +208,11 @@
             if (!$row) {
                 return false;
             }
-            $session = $this->_reprog_session_gare_code($sessionGareOverride);
+            // Override déjà résolu (ex. garde commit) : ne pas le réécraser par un POST stale.
+            $over = trim((string) $sessionGareOverride);
+            $session = ($over !== '')
+                ? $over
+                : $this->_reprog_session_gare_code();
             $origin = $this->_reprog_ticket_origine_code($row);
             return $this->_reprog_meme_origine($origin, $session);
         }
@@ -181,6 +224,18 @@
         {
             $session = $this->_reprog_session_gare_code($gidc);
             $ticket = trim((string) $this->input->post('codeclienttransit'));
+            // Contre JSON_NUMERIC_CHECK legacy : 1118765E296 → "1.118765E+302".
+            if ($ticket !== '' && (stripos($ticket, 'E+') !== false || stripos($ticket, 'E-') !== false)) {
+                $fallback = trim((string) $this->input->post('code_lookup_unifie'));
+                if ($fallback === '') {
+                    $fallback = trim((string) $this->input->get_post('code'));
+                }
+                $ticket = ($fallback !== ''
+                    && stripos($fallback, 'E+') === false
+                    && stripos($fallback, 'E-') === false)
+                    ? $fallback
+                    : '';
+            }
             $row = null;
             if ($ticket !== '' && isset($this->m_tamponcode)) {
                 $row = $this->m_tamponcode->verifireptra($this->session->company->ekey, $ticket);
@@ -195,12 +250,22 @@
             if ($row && $this->_reprog_may_reprog_ticket($row, $session)) {
                 return true;
             }
-            $this->_reprog_refuse_redirect(
-                $gidc,
-                $iduser,
-                $sgid,
-                'La reprogrammation se fait dans la gare d\'origine du ticket.'
-            );
+            $msg = 'La reprogrammation se fait dans la gare d\'origine du ticket.';
+            if ($ticket === '' || !$row) {
+                $msg = 'Code ticket introuvable ou invalide pour la reprogrammation. '
+                    . 'Revérifiez le code (évitez les codes du type 123E456 mal interprétés).';
+            } else {
+                $originCode = $this->_reprog_ticket_origine_code($row);
+                $originMeta = $this->_reprog_lieu_cle($originCode);
+                $sessionMeta = $this->_reprog_lieu_cle($session);
+                $originLabel = $originMeta['lieu'] !== '' ? $originMeta['lieu'] : $originCode;
+                $sessionLabel = $sessionMeta['lieu'] !== '' ? $sessionMeta['lieu']
+                    : ($session !== '' ? $session : 'gare non détectée');
+                $msg = 'La reprogrammation se fait dans la gare d\'origine du ticket'
+                    . ' (origine : ' . $originLabel
+                    . ' — vous êtes sur : ' . $sessionLabel . ').';
+            }
+            $this->_reprog_refuse_redirect($gidc, $iduser, $sgid, $msg);
             return false;
         }
 
@@ -1961,6 +2026,16 @@
             }
             if (is_object($out)) {
                 $out->ok = true;
+                // Préserver les codes alphanumériques (ex. 1118765E296) face à tout encodeur numérique.
+                if (isset($out->code_ticket)) {
+                    $out->code_ticket = (string) $out->code_ticket;
+                }
+                if (isset($out->code_passager)) {
+                    $out->code_passager = (string) $out->code_passager;
+                }
+                if (isset($out->tamponcod)) {
+                    $out->tamponcod = (string) $out->tamponcod;
+                }
                 $out = $this->_reprog_normalize_escale_od($out);
                 if (empty($out->dest_affiche)) {
                     if (function_exists('ticket_destination_label')) {
@@ -1984,11 +2059,22 @@
                 }
             }
             if (is_object($out) && !$this->_reprog_may_reprog_ticket($out)) {
+                $originCode = $this->_reprog_ticket_origine_code($out);
+                $originMeta = $this->_reprog_lieu_cle($originCode);
+                $sessionCode = $this->_reprog_session_gare_code();
+                $sessionMeta = $this->_reprog_lieu_cle($sessionCode);
+                $originLabel = $originMeta['lieu'] !== '' ? $originMeta['lieu'] : $originCode;
+                $sessionLabel = $sessionMeta['lieu'] !== '' ? $sessionMeta['lieu']
+                    : ($sessionCode !== '' ? $sessionCode : 'gare non détectée');
                 return $this->load->view('beagle/pages/_programme/json', array(
                     'json' => array(
                         'ok' => false,
                         'error' => 'gare_refuse',
-                        'reason' => 'La reprogrammation se fait dans la gare d\'origine du ticket.',
+                        'reason' => 'La reprogrammation se fait dans la gare d\'origine du ticket'
+                            . ' (origine : ' . $originLabel
+                            . ' — vous êtes sur : ' . $sessionLabel . ').',
+                        'origin_gare' => $originCode,
+                        'session_gare' => $sessionCode,
                     ),
                 ));
             }
@@ -2156,7 +2242,7 @@
                        AND ctp.actif_tamp = 0
                        AND p.actif_pas = 0
                        AND (p.statut_reprog IS NULL OR p.statut_reprog = '' OR p.statut_reprog != 'repor')
-                     ORDER BY pr.date_progr ASC, h.heure ASC, p.code_passager ASC
+                     ORDER BY p.datep_create DESC, pr.date_progr ASC, h.heure ASC, p.code_passager ASC
                      LIMIT 1",
                     array($ekey, $parsed['base'])
                 )->row();

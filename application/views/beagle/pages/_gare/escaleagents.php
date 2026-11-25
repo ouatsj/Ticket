@@ -19,6 +19,7 @@
     <?php if (!empty($escale_admin)): ?>
         <?php
         $profils_admin = array(
+            array('id' => 'guichet', 'label' => 'Guichet', 'note' => 'Aperçu du guichet vendeur escale (vente mobile, bagage, courrier, réimpression, compte) — mêmes boutons que l’opérateur sur le terrain.', 'recette' => false, 'badge' => ''),
             array('id' => 'chef', 'label' => 'Chef de guichet', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, arrêt. L’aide chef a les mêmes boutons. La recette vente escale est la liste ci-dessous.', 'recette' => true, 'badge' => ''),
             array('id' => 'adjoint', 'label' => 'Adjoint caisse', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, arrêt de compte, validation.', 'recette' => false, 'badge' => ''),
             array('id' => 'caissier', 'label' => 'Caissier', 'note' => 'Mêmes boutons que Voir caisse : recettes, dépôts, versement, dépenses, arrêt de caisse, validation.', 'recette' => false, 'badge' => ''),

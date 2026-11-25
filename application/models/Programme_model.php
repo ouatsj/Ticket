@@ -451,7 +451,125 @@
         public function create(array $data)
         {
             $this->db->insert($this->table, $data);
-            return $this->db->insert_id();
+            $id = $this->db->insert_id();
+            if (!empty($data['code_progr'])) {
+                $this->log_historique((string) $data['code_progr'], 'creation', 'Création du programme');
+            }
+            return $id;
+        }
+
+        /**
+         * Crée la table d’historique des programmes (créateur + modifications) si absente.
+         */
+        public function ensure_historique_table()
+        {
+            static $done = false;
+            if ($done) {
+                return true;
+            }
+            $prev = $this->db->db_debug;
+            $this->db->db_debug = false;
+            $this->db->query(
+                "CREATE TABLE IF NOT EXISTS programme_historique (
+                    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    code_progr VARCHAR(128) NOT NULL,
+                    action VARCHAR(30) NOT NULL DEFAULT 'modification',
+                    user_id INT NULL,
+                    roleattribut INT NULL,
+                    username VARCHAR(64) NULL,
+                    nom_complet VARCHAR(160) NULL,
+                    details TEXT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY idx_code_progr (code_progr),
+                    KEY idx_created_at (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
+            );
+            $this->db->db_debug = $prev;
+            $done = true;
+            return true;
+        }
+
+        /**
+         * Enregistre un événement (création / modification) dans programme_historique.
+         */
+        public function log_historique($code_progr, $action = 'modification', $details = '')
+        {
+            $code_progr = trim((string) $code_progr);
+            if ($code_progr === '') {
+                return false;
+            }
+            $this->ensure_historique_table();
+            $agent = (isset($this->session) && $this->session->userdata('agent'))
+                ? $this->session->agent
+                : null;
+            $user_id = ($agent && !empty($agent->cpuser_id)) ? (int) $agent->cpuser_id : null;
+            $roleattribut = ($agent && !empty($agent->roleattribut)) ? (int) $agent->roleattribut : null;
+            $username = ($agent && !empty($agent->username)) ? trim((string) $agent->username) : null;
+            $nom = '';
+            if ($agent) {
+                $fn = !empty($agent->first_name) ? trim((string) $agent->first_name) : '';
+                $ln = !empty($agent->last_name) ? trim((string) $agent->last_name) : '';
+                $nom = trim($fn . ' ' . $ln);
+            }
+            if ($nom === '' && $username !== null) {
+                $nom = $username;
+            }
+            $prev = $this->db->db_debug;
+            $this->db->db_debug = false;
+            $ok = $this->db->insert('programme_historique', array(
+                'code_progr' => $code_progr,
+                'action' => substr(trim((string) $action), 0, 30),
+                'user_id' => $user_id,
+                'roleattribut' => $roleattribut,
+                'username' => $username,
+                'nom_complet' => $nom !== '' ? $nom : null,
+                'details' => $details !== '' ? (string) $details : null,
+                'created_at' => date('Y-m-d H:i:s'),
+            ));
+            $this->db->db_debug = $prev;
+            return (bool) $ok;
+        }
+
+        /**
+         * Retourne le créateur + la liste chronologique des modifications d’un programme.
+         */
+        public function get_historique($code_progr)
+        {
+            $code_progr = trim((string) $code_progr);
+            $this->ensure_historique_table();
+            $prog = $this->db->query(
+                "SELECT code_progr, depart_code, categori, date_progr, dateheure_prog,
+                        statut_prog, datepg_create, intervalle1, intervalle2
+                 FROM programme
+                 WHERE code_progr = ?
+                 LIMIT 1",
+                array($code_progr)
+            )->row_array();
+
+            $rows = $this->db->query(
+                "SELECT id, action, user_id, roleattribut, username, nom_complet, details, created_at
+                 FROM programme_historique
+                 WHERE code_progr = ?
+                 ORDER BY created_at ASC, id ASC",
+                array($code_progr)
+            )->result_array();
+
+            $createur = null;
+            $modifications = array();
+            foreach ($rows as $r) {
+                if ($r['action'] === 'creation' && $createur === null) {
+                    $createur = $r;
+                } else {
+                    $modifications[] = $r;
+                }
+            }
+
+            return array(
+                'programme' => $prog ? $prog : null,
+                'createur' => $createur,
+                'modifications' => $modifications,
+            );
         }
 
         /**
@@ -666,6 +784,7 @@
                     if (!$check) {
                         return array('ok' => false, 'error' => 'echec_creation_programme');
                     }
+                    $this->log_historique($code, 'creation', 'Création du programme');
                     return array(
                         'ok' => true,
                         'code_progr' => $code,
@@ -1788,8 +1907,40 @@
                 
         public function update($code_progr, array $data)
         {
-            return $this->db->where('code_progr', $code_progr)
-            ->update($this->table, $data);
+            $before = $this->db->where('code_progr', $code_progr)->get($this->table)->row_array();
+            $ok = $this->db->where('code_progr', $code_progr)
+                ->update($this->table, $data);
+            if ($ok) {
+                $labels = array(
+                    'categori' => 'Catégorie',
+                    'typetarif' => 'Tarif',
+                    'id_heur' => 'Heure',
+                    'date_progr' => 'Date',
+                    'dateheure_prog' => 'Date/heure',
+                    'intervalle1' => 'Siège début',
+                    'intervalle2' => 'Siège fin',
+                    'statut_prog' => 'Statut',
+                    'idsousgare_prog' => 'Sous-gare',
+                );
+                $diffs = array();
+                foreach ($data as $k => $v) {
+                    if (!isset($labels[$k])) {
+                        continue;
+                    }
+                    $old = ($before && array_key_exists($k, $before)) ? (string) $before[$k] : '';
+                    $new = ($v === null) ? '' : (string) $v;
+                    if ($old !== $new) {
+                        $diffs[] = $labels[$k] . ' : ' . ($old === '' ? '—' : $old) . ' → ' . ($new === '' ? '—' : $new);
+                    }
+                }
+                $action = 'modification';
+                if (count($data) === 1 && isset($data['statut_prog'])) {
+                    $action = ((string) $data['statut_prog'] === 'actif') ? 'activation' : 'desactivation';
+                }
+                $details = $diffs ? implode(' ; ', $diffs) : 'Modification du programme';
+                $this->log_historique($code_progr, $action, $details);
+            }
+            return $ok;
         }
 
         public function del($id)

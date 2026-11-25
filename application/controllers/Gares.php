@@ -128,6 +128,158 @@
         }
 
         /**
+         * Réimpression embarquée dans le Guichet (?reimpri=1) — évite la page autonome blanche.
+         *
+         * @param string $ekey
+         * @param string $gid
+         * @param int|string $cpus
+         * @param int|string $idsg
+         * @param string $date_seg
+         * @return void
+         */
+        protected function _inject_reimpri_guichet($ekey, $gid, $cpus, $idsg, $date_seg)
+        {
+            if ((string) $this->input->get('reimpri') !== '1') {
+                $this->property['show_reimpri_panel'] = false;
+                return;
+            }
+
+            $conex = !empty($this->property['conex']) ? $this->property['conex'] : null;
+            $uid = ($conex && !empty($conex->roleattribut))
+                ? (int) $conex->roleattribut
+                : (int) $cpus;
+            if ($uid <= 0) {
+                $this->property['show_reimpri_panel'] = false;
+                return;
+            }
+
+            $hub = $gid;
+            if ($conex && !empty($conex->guser)) {
+                $hub = (string) $conex->guser;
+            }
+            $sg = (int) $idsg;
+            $last = $this->db->query(
+                "SELECT departsgescal AS sg FROM escalclients
+                 WHERE iduseescal = ? ORDER BY idclescal DESC LIMIT 1",
+                array($uid)
+            )->row();
+            if ($last && (int) $last->sg > 0) {
+                $sg = (int) $last->sg;
+            }
+
+            $tab = (string) $this->input->get('reimpri_tab');
+            if (!in_array($tab, array('ticket', 'bagage', 'courrier'), true)) {
+                $tab = 'ticket';
+            }
+
+            if (!isset($this->m_escalclients)) {
+                $this->load->model('Escalclients_model', 'm_escalclients');
+            }
+            $tickets = array();
+            $bags = array();
+            $cours = array();
+            if ($tab === 'ticket') {
+                $tickets = $this->m_escalclients->getrep_escale($ekey, $uid, $hub, $sg);
+            } elseif ($tab === 'bagage') {
+                if (!isset($this->m_bagageesc)) {
+                    $this->load->model('Bagageesc_model', 'm_bagageesc');
+                }
+                $bags = $this->m_bagageesc->liste_reimpri_jour($ekey, $uid, $hub, $sg);
+            } else {
+                if (!isset($this->m_courrier_expedieresc)) {
+                    $this->load->model('Courriers_expesc_model', 'm_courrier_expedieresc');
+                }
+                $cours = $this->m_courrier_expedieresc->liste_reimpri_jour($ekey, $uid, $hub, $sg);
+            }
+
+            $today = mdate('%Y-%m-%d', now('UTC'));
+            $nTickets = (int) $this->db->query(
+                "SELECT COUNT(*) AS n FROM escalclients
+                 WHERE iduseescal = ? AND reimpr = 1
+                 AND prixescal IS NOT NULL AND prixescal > 0",
+                array($uid)
+            )->row()->n;
+            $nBags = (int) $this->db->query(
+                "SELECT COUNT(*) AS n FROM bagagesesc
+                 WHERE idoperabagageesc = ? AND date_createesc = ?
+                 AND (annulebagesc = 0 OR annulebagesc IS NULL)
+                 AND (actifbagesc = 0 OR actifbagesc IS NULL)
+                 AND prix_bagageesc IS NOT NULL AND prix_bagageesc > 0",
+                array($uid, $today)
+            )->row()->n;
+            $nCours = (int) $this->db->query(
+                "SELECT COUNT(*) AS n FROM courriers_expesc
+                 WHERE idoperateuresc = ? AND dateenvoiesc = ?
+                 AND actif_couresc = 0
+                 AND prixcolisesc IS NOT NULL AND prixcolisesc > 0",
+                array($uid, $today)
+            )->row()->n;
+
+            $q = $this->input->get();
+            if (!is_array($q)) {
+                $q = array();
+            }
+            $q['reimpri'] = '1';
+            unset($q['reimpri_tab'], $q['preview']);
+            $basePath = 'gares/' . $ekey . '/gTc/' . $gid . '/compte/' . (int) $cpus
+                . '/' . (int) $idsg . '/' . $date_seg;
+            $base = site_url($basePath) . '?' . http_build_query($q);
+            $backQ = $q;
+            unset($backQ['reimpri'], $backQ['reimpri_tab'], $backQ['preview']);
+            $back = site_url($basePath) . ($backQ ? ('?' . http_build_query($backQ)) : '');
+
+            /* Aperçu dans le Guichet (évite navigation → page blanche / login). */
+            $preview = trim((string) $this->input->get('preview'));
+            $preview_item = null;
+            if ($preview !== '' && $tab === 'ticket') {
+                foreach ($tickets as $t) {
+                    if ((string) $t->idclescal === $preview) {
+                        $preview_item = $t;
+                        break;
+                    }
+                }
+                if (!$preview_item) {
+                    $sqlPrev = "SELECT es.*, cl.nom_client, cl.prenom_client, cl.contact_client,
+                                       c.nom_compagnie, c.logo
+                                FROM escalclients es
+                                JOIN client cl ON es.clientescal = cl.id_client
+                                LEFT JOIN lignes lg ON es.lignintescal = lg.ident_ligne
+                                LEFT JOIN gare_dest dest ON lg.gadest_lg = dest.code_gadest
+                                LEFT JOIN compagnies c ON dest.id_compaga = c.cle_compagnie
+                                WHERE BINARY es.idclescal = ?
+                                AND es.reimpr = 1";
+                    $preview_item = $this->db->query(
+                        $sqlPrev . " AND es.iduseescal = ? LIMIT 1",
+                        array($preview, $uid)
+                    )->row();
+                    /* Admin aperçu escale : ticket d’un autre RA (escale_ops). */
+                    if (!$preview_item && (int) $this->input->get('escale_ops') > 0) {
+                        $preview_item = $this->db->query(
+                            $sqlPrev . " LIMIT 1",
+                            array($preview)
+                        )->row();
+                    }
+                }
+            }
+
+            $this->property['show_reimpri_panel'] = true;
+            $this->property['reimpri_tickets'] = $tickets;
+            $this->property['reimpri_bagages'] = $bags;
+            $this->property['reimpri_courriers'] = $cours;
+            $this->property['reimpri_tab'] = $tab;
+            $this->property['reimpri_ra'] = $uid;
+            $this->property['reimpri_gare'] = $hub;
+            $this->property['reimpri_sg'] = $sg;
+            $this->property['reimpri_count_tickets'] = $nTickets;
+            $this->property['reimpri_count_bagages'] = $nBags;
+            $this->property['reimpri_count_courriers'] = $nCours;
+            $this->property['reimpri_base_url'] = $base;
+            $this->property['reimpri_back_url'] = $back;
+            $this->property['reimpri_preview'] = $preview_item;
+            $this->property['reimpri_preview_code'] = $preview;
+        }
+
+        /**
          * Contexte commun rôle 17 (code gare + sous-gare technique).
          *
          * @return array{code_gaexp:string,idsousgare:int|string,idengare:string,d:string,m:string,y:string,bus_stop:object|null}
@@ -1168,6 +1320,18 @@
          */
         protected function _escale_guichet_url($gid, $viewer, $idsg, $date_seg, $valeur, $nom, array $ops, $profil = '')
         {
+            $viewer = (int) $viewer;
+            if ($viewer <= 0 && !empty($ops[0])) {
+                $viewer = (int) $ops[0];
+            }
+            if ($viewer <= 0 && $this->session->userdata('agent')
+                && !empty($this->session->agent->roleattribut)
+            ) {
+                $viewer = (int) $this->session->agent->roleattribut;
+            }
+            if ($viewer <= 0) {
+                return site_url('home/main?onglet=escale');
+            }
             $url = site_url(
                 'gares/' . $this->company->ekey . '/gTc/' . $gid
                 . '/compte/' . $viewer . '/' . (int) $idsg . '/' . $date_seg
@@ -1624,7 +1788,10 @@
             $this->property['escale_admin_packs'] = array();
             $this->property['escale_apercus'] = array();
             if ($userole === '1') {
+                // Guichet = aperçu rôle 17 (vendeur escale). Les RA opérateurs
+                // passent dans escale_ops (liens vente/bagage/compte).
                 $vues = array(
+                    'guichet' => '17',
                     'comptable' => '7',
                     'superviseur' => '2',
                     'agence' => '13',
@@ -1913,6 +2080,7 @@
                                 $this->property,
                                 scripts_bundle_property('guichet', '17')
                             );
+                            $this->_inject_reimpri_guichet($ekey, $gid, $cpus, $idsg, $date_seg);
                             return $this->layout->view(
                                 guichet_page_for_role('17'),
                                 $this->property
@@ -2107,19 +2275,102 @@
                     $this->property['pagetitle'] .= "•{$bus_stop->garenom}•&nbsp;{$bus_stop->nomsousgare}&nbsp;•ACCUEIL<strong>•&nbsp;{$this->company->nom_entreprise}</strong>";
                     $vue_role = (string) $this->session->agent->userole;
                     $profil_escale = trim((string) $this->input->get('escale_profil'));
-                    $escale_demandee = trim((string) $this->input->get('escale')) !== ''
-                        || trim((string) $this->input->get('escale_nom')) !== '';
+                    $escale_valeur = str_replace('|', '~', trim((string) $this->input->get('escale')));
+                    $escale_nom = trim((string) $this->input->get('escale_nom'));
+                    $escale_demandee = $escale_valeur !== '' || $escale_nom !== '';
+                    $retour_escale_agents = $escale_demandee
+                        ? site_url(
+                            'gares/' . $ekey . '/gTs/' . $gid
+                            . '/escaleagents/' . rawurlencode($escale_valeur !== '' ? $escale_valeur : $escale_nom)
+                            . '/' . (int) $idsg
+                        )
+                        : '';
+
+                    // Aperçu Guichet (rôle 17) : admin voit les boutons vendeur escale.
+                    if ($vue_role === '1' && $escale_demandee && $profil_escale === '17') {
+                        $ops = array_filter(array_map(
+                            'intval',
+                            explode(',', (string) $this->input->get('escale_ops'))
+                        ));
+                        $vendeur_ra = !empty($ops) ? (int) reset($ops) : 0;
+                        if ($vendeur_ra <= 0) {
+                            $vendeur_ra = (int) $cpus;
+                        }
+                        if ($vendeur_ra > 0) {
+                            $vconex = $this->m_compte_user->getusergare($ekey, $gid, $vendeur_ra);
+                            if (!$vconex) {
+                                $vconex = $this->m_compte_user->getusergare(
+                                    $ekey,
+                                    roleattribut_guard_normalize_gare_id($ekey, $gid),
+                                    $vendeur_ra
+                                );
+                            }
+                            if (!$vconex || empty($vconex->roleattribut)) {
+                                $vconex = $this->db->query(
+                                    "SELECT ar.*, ul.*, cu.*, u.*, r.*, g.*
+                                     FROM attributions_role ar
+                                     JOIN user_login ul ON ar.idgestcompte = ul.uid_login
+                                     JOIN compte_user cu ON ul.uid_usercpte = cu.cpuser_id
+                                     JOIN utilisateurs u ON cu.userlog_id = u.uid
+                                     JOIN user_roles r ON ar.userole = r.id_rols
+                                     JOIN gares g ON ul.guser = g.idengare
+                                     JOIN compagnies c ON g.compagniegare = c.cle_compagnie
+                                     JOIN entreprise e ON c.id_entrep = e.id_entreprise
+                                     WHERE e.ekey = ?
+                                     AND ar.roleattribut = ?
+                                     AND ar.activer_role = 0
+                                     LIMIT 1",
+                                    array($ekey, $vendeur_ra)
+                                )->row();
+                            }
+                            if ($vconex && !empty($vconex->roleattribut)) {
+                                $this->property['conex'] = $vconex;
+                            } else {
+                                $this->property['conex'] = (object) array(
+                                    'roleattribut' => $vendeur_ra,
+                                    'userole' => '17',
+                                );
+                            }
+                        }
+                        $cpus_solde = ($vendeur_ra > 0) ? $vendeur_ra : (int) $cpus;
+                        if (!function_exists('guichet_totaux_fetch_snapshot')) {
+                            $this->load->helper('guichet_totaux');
+                        }
+                        $snap = guichet_totaux_fetch_snapshot($ekey, $cpus_solde, $gid);
+                        $this->property['cptalleresc'] = (object) array(
+                            'total' => isset($snap['escale']) ? (float) $snap['escale'] : 0.0,
+                        );
+                        $this->property['escale_depart_fixe'] = $escale_valeur;
+                        $this->property['escale_depart_label'] = $escale_nom !== ''
+                            ? $escale_nom
+                            : $escale_valeur;
+                        $this->property['escale_depart_fixed_admin'] = true;
+                        $this->property['vue_escale_seule'] = true;
+                        $this->property['retour_escale_agents'] = $retour_escale_agents;
+                        $this->property['compte_arret_blocked'] = false;
+                        $this->property['compte_arret_only_compte'] = false;
+                        $this->property['compte_arret_grace'] = false;
+                        $this->property['compte_arret_message'] = '';
+                        $this->property['compte_arret_warnings'] = array();
+                        $this->property['layout_minimal'] = true;
+                        $this->property = array_merge(
+                            $this->property,
+                            scripts_bundle_property('guichet', '17')
+                        );
+                        $this->_inject_reimpri_guichet($ekey, $gid, $cpus, $idsg, $date_seg);
+                        return $this->layout->view(
+                            guichet_page_for_role('17'),
+                            $this->property
+                        );
+                    }
+
                     if ($vue_role === '1'
                         && $escale_demandee
                         && in_array($profil_escale, array('2', '7', '13', '14'), true)
                     ) {
                         $vue_role = $profil_escale;
                         $this->property['vue_escale_seule'] = true;
-                        $this->property['retour_escale_agents'] = site_url(
-                            'gares/' . $ekey . '/gTs/' . $gid
-                            . '/escaleagents/' . rawurlencode(trim((string) $this->input->get('escale')))
-                            . '/' . (int) $idsg
-                        );
+                        $this->property['retour_escale_agents'] = $retour_escale_agents;
                     }
                     $this->property = array_merge(
                         $this->property,
