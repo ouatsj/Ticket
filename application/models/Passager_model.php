@@ -758,6 +758,76 @@
 
         //verification code pour enregistrer bagages
 
+        /**
+         * Pour la facturation bagages avec ticket : si le ticket a été vendu sur une destination escale
+         * (ex. Ouaga-Boromo sur un programme Ouaga-Bobo), remplace la ligne / destination parente par
+         * la ligne et la destination escale correspondantes.
+         */
+        private function _apply_escale_bagage_row($row)
+        {
+            if (!is_object($row)) {
+                return $row;
+            }
+            $idEsc = !empty($row->id_escale_vente) ? (int) $row->id_escale_vente : 0;
+            $nomDestVente = isset($row->nom_dest_vente) ? trim((string) $row->nom_dest_vente) : '';
+            if ($idEsc <= 0 && $nomDestVente === '') {
+                return $row;
+            }
+            if ($idEsc > 0) {
+                $gaexp = isset($row->gaexp_lg) ? trim((string) $row->gaexp_lg) : '';
+                $esc = $this->db->query(
+                    "SELECT ie.code_gadest, ie.nom_escale,
+                            d.code_gadest AS dest_code, d.nom_gadest AS dest_nom,
+                            d.idgaresdest AS dest_idgaresdest, d.id_compaga AS dest_id_compaga,
+                            lg_esc.ident_ligne AS esc_ident_ligne, lg_esc.nom_ligne AS esc_nom_ligne
+                     FROM itineraire_escales ie
+                     LEFT JOIN gare_dest d ON d.code_gadest = ie.code_gadest
+                     LEFT JOIN lignes lg_esc ON lg_esc.ident_ligne = CONCAT(?, '-', ie.code_gadest)
+                     WHERE ie.id_escale = ?
+                     LIMIT 1",
+                    array($gaexp, $idEsc)
+                )->row();
+                if ($esc) {
+                    $nomAff = $nomDestVente !== '' ? $nomDestVente : (!empty($esc->dest_nom) ? trim((string) $esc->dest_nom) : trim((string) $esc->nom_escale));
+                    if ($nomAff !== '') {
+                        $row->nom_gadest = $nomAff;
+                    }
+                    if (!empty($esc->esc_ident_ligne)) {
+                        $row->ident_ligne = $esc->esc_ident_ligne;
+                        if (!empty($esc->esc_nom_ligne)) {
+                            $row->nom_ligne = $esc->esc_nom_ligne;
+                        }
+                        if (!empty($esc->dest_code)) {
+                            $row->code_gadest = $esc->dest_code;
+                            $row->gadest_lg = $esc->dest_code;
+                        }
+                        if (!empty($esc->dest_idgaresdest)) {
+                            $row->idgaresdest = $esc->dest_idgaresdest;
+                        }
+                        if (!empty($esc->dest_id_compaga)) {
+                            $row->id_compaga = $esc->dest_id_compaga;
+                        }
+                    }
+                    return $row;
+                }
+            }
+            if ($nomDestVente !== '') {
+                $row->nom_gadest = $nomDestVente;
+            }
+            return $row;
+        }
+
+        private function _apply_escale_bagage_rows($rows)
+        {
+            if (!is_array($rows)) {
+                return $rows;
+            }
+            foreach ($rows as $r) {
+                $this->_apply_escale_bagage_row($r);
+            }
+            return $rows;
+        }
+
         public function verifcodbag($cid, $cod, $gd, $sg)
         {
             $row = $this->db->query(
@@ -779,7 +849,7 @@
             AND BINARY p.code_ticket = '$cod'
             AND p.num_siege_categorie IS NOT NULL
             AND sg.idsousgare = '$sg'
-            AND p.actif_pas = 0")->row(); return $this->normalize_ticket_prix_row($row);
+            AND p.actif_pas = 0")->row(); return $this->_apply_escale_bagage_row($this->normalize_ticket_prix_row($row));
         }
         
         public function verifcodbagt($cid, $cod)
@@ -790,7 +860,7 @@
             }
 
             $this->load->helper('app_cache');
-            $cache_key = 'verifcodbagt_' . $cid . '_' . md5($cod);
+            $cache_key = 'verifcodbagt_v2_' . $cid . '_' . md5($cod);
 
             return app_cache_remember($cache_key, 60, function () use ($cid, $cod) {
                 $rows = $this->db->query(
@@ -834,7 +904,7 @@
                     ) AS UNSIGNED
                 ) ASC")->result();
 
-                return $this->normalize_ticket_prix_rows($rows);
+                return $this->_apply_escale_bagage_rows($this->normalize_ticket_prix_rows($rows));
             });
         }
 
@@ -846,7 +916,7 @@
             }
 
             $this->load->helper('app_cache');
-            $cache_key = 'verifcodbagt2_' . $cid . '_' . md5($cod);
+            $cache_key = 'verifcodbagt2_v2_' . $cid . '_' . md5($cod);
 
             return app_cache_remember($cache_key, 60, function () use ($cid, $cod) {
                 $rows = $this->db->query(
@@ -869,7 +939,7 @@
                 AND p.actif_pas = 0
                 ORDER BY ctp.tamponcodtr DESC LIMIT 1")->result();
 
-                return $this->normalize_ticket_prix_rows($rows);
+                return $this->_apply_escale_bagage_rows($this->normalize_ticket_prix_rows($rows));
             });
         }
         

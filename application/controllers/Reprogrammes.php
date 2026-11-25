@@ -3342,9 +3342,10 @@
 
                 $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arcode3'")->row();
 
-                $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$aregid->idgaresdest'")->row();
-
-                $argde = $aregid->idgaresdest;
+                $argde = ($aregid && !empty($aregid->idgaresdest)) ? $aregid->idgaresdest : $arcod3;
+                if ($argde !== '') {
+                    $quartar = $this->db->query("SELECT g.codegares FROM gares g WHERE g.idengare = '$argde'")->row();
+                }
             }
             
             if($quart3 == NULL)
@@ -3358,11 +3359,14 @@
                 $quart3 = $this->input->post('quartpasses');
 
                 $aregid = $this->db->query("SELECT d.idgaresdest FROM gare_dest d WHERE d.code_gadest = '$arcode3'")->row();
+                $gareDestId = ($aregid && !empty($aregid->idgaresdest)) ? $aregid->idgaresdest : $argde;
 
-                $sousgar_id = $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$aregid->idgaresdest'
-                            AND sg.nomsousgare = '$quart3'")->row();
+                $sousgar_id = $gareDestId !== ''
+                    ? $this->db->query("SELECT sg.idsousgare FROM sousgare sg WHERE sg.gareprinceid = '$gareDestId'
+                            AND sg.nomsousgare = '$quart3'")->row()
+                    : null;
 
-                $sargde = $sousgar_id->idsousgare;
+                $sargde = $sousgar_id ? $sousgar_id->idsousgare : '';
             }
 
 
